@@ -44,7 +44,8 @@
   },
 
   "vars": {
-    "HOST": "chatwithme2mcp.lintao-mailbox.workers.dev",
-    "BIGMODEL_API_KEY": "282835d3978b4c2490a4647fa1ae2796.hjggKnNzl0VEwEoc"
+    "HOST": "chatwithme2mcp.lintao-mailbox.workers.dev"
   }
+  // Note: BIGMODEL_API_KEY should be set via wrangler secret:
+  // wrangler secret put BIGMODEL_API_KEY
 }

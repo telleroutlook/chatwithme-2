@@ -2,7 +2,7 @@ import { McpItemCard } from "./components/McpItemCard";
 import { Toaster } from "./components/Toaster";
 import { ToastProvider, useToast } from "./hooks/useToast.tsx";
 import { useAgent } from "agents/react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "@cloudflare/agents-ui/hooks";
 import {
@@ -11,20 +11,20 @@ import {
   PoweredByAgents,
   type ConnectionStatus
 } from "@cloudflare/agents-ui";
-import { Button, Badge, Surface, Text, Empty } from "@cloudflare/kumo";
+import { Button, Badge, Surface, Text, Empty, Switch } from "@cloudflare/kumo";
 import {
   PlusIcon,
   PlugIcon,
   PlugsConnectedIcon,
   WrenchIcon,
-  ChatTextIcon,
-  DatabaseIcon,
   TrashIcon,
   SignInIcon,
   InfoIcon,
   SpinnerIcon,
   ChatCircleIcon,
-  PaperPlaneTiltIcon
+  PaperPlaneTiltIcon,
+  CheckCircleIcon,
+  WarningIcon
 } from "@phosphor-icons/react";
 import type { MCPServersState } from "agents";
 import { nanoid } from "nanoid";
@@ -38,22 +38,33 @@ if (!sessionId) {
 
 type Tab = "chat" | "mcp";
 
+interface PreconfiguredServer {
+  config: {
+    name: string;
+    url: string;
+    description: string;
+  };
+  serverId?: string;
+  connected: boolean;
+  error?: string;
+}
+
 function App() {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting");
-  const mcpUrlInputRef = useRef<HTMLInputElement>(null);
-  const mcpNameInputRef = useRef<HTMLInputElement>(null);
-  const mcpApiKeyInputRef = useRef<HTMLInputElement>(null);
   const [mcpState, setMcpState] = useState<MCPServersState>({
     prompts: [],
     resources: [],
     servers: {},
     tools: []
   });
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [togglingServer, setTogglingServer] = useState<string | null>(null);
+  const [preconfiguredServers, setPreconfiguredServers] = useState<
+    Record<string, PreconfiguredServer>
+  >({});
 
   // Chat state
   const [chatInput, setChatInput] = useState("");
@@ -71,7 +82,11 @@ function App() {
     onMcpUpdate: useCallback((mcpServers: MCPServersState) => {
       setMcpState(mcpServers);
     }, []),
-    onOpen: useCallback(() => setConnectionStatus("connected"), [])
+    onOpen: useCallback(() => {
+      setConnectionStatus("connected");
+      // Load pre-configured servers
+      loadPreconfiguredServers();
+    }, [])
   });
 
   // Chat Agent
@@ -82,95 +97,51 @@ function App() {
     onOpen: useCallback(() => console.log("Chat agent connected"), [])
   });
 
-  function openPopup(authUrl: string) {
-    window.open(
-      authUrl,
-      "popupWindow",
-      "width=600,height=800,resizable=yes,scrollbars=yes"
-    );
-  }
-
-  const validateForm = useCallback((name: string, url: string): string | null => {
-    if (!name.trim()) return "Server name is required";
-    if (!url.trim()) return "Server URL is required";
+  const loadPreconfiguredServers = useCallback(async () => {
     try {
-      new URL(url);
-    } catch {
-      return "Please enter a valid URL (e.g., https://example.com/mcp)";
+      const servers = await mcpAgent.call("getPreconfiguredServers", []);
+      setPreconfiguredServers(servers as Record<string, PreconfiguredServer>);
+    } catch (error) {
+      console.error("Failed to load pre-configured servers:", error);
+    } finally {
+      setIsLoading(false);
     }
-    return null;
-  }, []);
+  }, [mcpAgent]);
 
-  const handleMcpSubmit = useCallback(
-    async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!mcpUrlInputRef.current || !mcpNameInputRef.current) return;
+  useEffect(() => {
+    if (connectionStatus === "connected") {
+      loadPreconfiguredServers();
+    }
+  }, [connectionStatus, loadPreconfiguredServers]);
 
-      const serverName = mcpNameInputRef.current.value;
-      const serverUrl = mcpUrlInputRef.current.value;
-      const apiKey = mcpApiKeyInputRef.current?.value?.trim() || undefined;
-
-      const validationError = validateForm(serverName, serverUrl);
-      if (validationError) {
-        addToast(validationError, "error");
-        return;
-      }
-
-      setIsConnecting(true);
+  const handleToggleServer = useCallback(
+    async (name: string) => {
+      setTogglingServer(name);
       try {
-        const result = await mcpAgent.call("connectToServer", [
-          serverName,
-          serverUrl,
-          apiKey
-        ]);
+        const result = await mcpAgent.call("toggleServer", [name]);
         if (result.success) {
-          mcpUrlInputRef.current.value = "";
-          mcpNameInputRef.current.value = "";
-          if (mcpApiKeyInputRef.current) mcpApiKeyInputRef.current.value = "";
-          addToast(`Server "${serverName}" added successfully`, "success");
-        } else {
           addToast(
-            `Failed to add server: ${result.error || "Unknown error"}`,
-            "error"
+            `Server "${name}" ${result.active ? "activated" : "deactivated"}`,
+            "success"
           );
+          // Reload servers
+          await loadPreconfiguredServers();
+        } else {
+          addToast(`Failed to toggle server: ${result.error}`, "error");
         }
       } catch (error) {
-        console.error("Failed to add server:", error);
+        console.error("Failed to toggle server:", error);
         addToast(
-          `Failed to add server: ${
+          `Failed to toggle server: ${
             error instanceof Error ? error.message : "Unknown error"
           }`,
           "error"
         );
       } finally {
-        setIsConnecting(false);
+        setTogglingServer(null);
       }
     },
-    [mcpAgent, validateForm, addToast]
-  );
-
-  const handleDisconnect = useCallback(
-    async (serverId: string, serverName: string) => {
-      const confirmed = window.confirm(`Disconnect "${serverName}"?`);
-      if (!confirmed) return;
-
-      setDisconnectingId(serverId);
-      try {
-        await mcpAgent.call("disconnectFromServer", [serverId]);
-        addToast(`Server "${serverName}" disconnected`, "success");
-      } catch (error) {
-        console.error("Failed to disconnect server:", error);
-        addToast(
-          `Failed to disconnect: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
-          "error"
-        );
-      } finally {
-        setDisconnectingId(null);
-      }
-    },
-    [mcpAgent, addToast]
+    [mcpAgent, addToast, loadPreconfiguredServers]
   );
 
   const handleChatSubmit = useCallback(
@@ -180,7 +151,10 @@ function App() {
 
       const userMessage = chatInput.trim();
       setChatInput("");
-      setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "user", content: userMessage }
+      ]);
       setIsChatLoading(true);
 
       try {
@@ -199,7 +173,6 @@ function App() {
         );
       } finally {
         setIsChatLoading(false);
-        // Scroll to bottom
         setTimeout(() => {
           chatContainerRef.current?.scrollTo({
             top: chatContainerRef.current.scrollHeight,
@@ -214,6 +187,11 @@ function App() {
   const serverEntries = useMemo(
     () => Object.entries(mcpState.servers),
     [mcpState.servers]
+  );
+
+  const preconfiguredServerList = useMemo(
+    () => Object.entries(preconfiguredServers),
+    [preconfiguredServers]
   );
 
   return (
@@ -283,7 +261,7 @@ function App() {
                     <Empty
                       icon={<ChatCircleIcon size={32} />}
                       title="Start a conversation"
-                      description="Type a message below to chat with the AI assistant. Connect MCP servers to enable web search and reading capabilities."
+                      description="Type a message below to chat with the AI assistant. Connected MCP tools will be used automatically when needed."
                     />
                   </div>
                 ) : (
@@ -359,197 +337,95 @@ function App() {
                   />
                   <div>
                     <Text size="sm" bold>
-                      MCP Client
+                      Pre-configured MCP Servers
                     </Text>
                     <span className="mt-1 block">
                       <Text size="xs" variant="secondary">
-                        Connect to external MCP servers to enable web search,
-                        reading, and more. The AI assistant will automatically
-                        use these tools when needed.
+                        Toggle servers on/off to activate or deactivate them.
+                        Active servers provide tools that the AI can use
+                        automatically during chat.
                       </Text>
                     </span>
                   </div>
                 </div>
               </Surface>
 
-              {/* Add Server Form */}
-              <Surface className="p-4 rounded-xl ring ring-kumo-line">
-                <div className="mb-3">
-                  <Text size="sm" bold>
-                    Connect to an MCP Server
-                  </Text>
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <SpinnerIcon size={24} className="animate-spin text-kumo-accent" />
+                  <Text size="sm" className="ml-2">Loading servers...</Text>
                 </div>
-                <form onSubmit={handleMcpSubmit} className="space-y-2">
-                  <div className="flex gap-2 items-end">
-                    <div className="w-40">
-                      <label
-                        htmlFor="mcp-name"
-                        className="block text-xs text-kumo-subtle mb-1"
-                      >
-                        Name *
-                        <input
-                          id="mcp-name"
-                          ref={mcpNameInputRef}
-                          type="text"
-                          placeholder="My Server"
-                          aria-required="true"
-                          className="w-full px-3 py-1.5 text-sm rounded-lg border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent"
-                        />
-                      </label>
-                    </div>
-                    <div className="flex-1">
-                      <label
-                        htmlFor="mcp-url"
-                        className="block text-xs text-kumo-subtle mb-1"
-                      >
-                        URL *
-                        <input
-                          id="mcp-url"
-                          ref={mcpUrlInputRef}
-                          type="text"
-                          placeholder="https://example.com/mcp"
-                          aria-required="true"
-                          className="w-full px-3 py-1.5 text-sm rounded-lg border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent"
-                        />
-                      </label>
-                    </div>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="sm"
-                      icon={
-                        isConnecting ? (
-                          <SpinnerIcon size={14} className="animate-spin" />
-                        ) : (
-                          <PlusIcon size={14} />
-                        )
-                      }
-                      disabled={isConnecting}
-                    >
-                      {isConnecting ? "Adding..." : "Add"}
-                    </Button>
-                  </div>
-                  <div className="flex-1">
-                    <label
-                      htmlFor="mcp-apikey"
-                      className="block text-xs text-kumo-subtle mb-1"
-                    >
-                      API Key (optional)
-                      <input
-                        id="mcp-apikey"
-                        ref={mcpApiKeyInputRef}
-                        type="password"
-                        placeholder="For servers requiring Bearer token auth"
-                        className="w-full px-3 py-1.5 text-sm rounded-lg border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent"
-                      />
-                    </label>
-                  </div>
-                </form>
-              </Surface>
+              )}
 
-              {/* Connected Servers */}
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <PlugIcon
-                    size={18}
-                    weight="bold"
-                    className="text-kumo-subtle"
-                  />
-                  <Text size="base" bold>
-                    Servers
-                  </Text>
-                  <Badge variant="secondary">{serverEntries.length}</Badge>
-                </div>
-                {serverEntries.length === 0 ? (
-                  <Empty
-                    icon={<PlugIcon size={32} />}
-                    title="No servers connected"
-                    description="Add an MCP server URL above to get started."
-                  />
-                ) : (
+              {/* Pre-configured Servers */}
+              {!isLoading && preconfiguredServerList.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <PlugIcon size={18} weight="bold" className="text-kumo-subtle" />
+                    <Text size="base" bold>
+                      Available Servers
+                    </Text>
+                  </div>
                   <div className="space-y-2">
-                    {serverEntries.map(([id, server]) => (
+                    {preconfiguredServerList.map(([name, server]) => (
                       <Surface
-                        key={id}
+                        key={name}
                         className="p-4 rounded-xl ring ring-kumo-line"
                       >
                         <div className="flex items-start justify-between">
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <Text size="sm" bold>
-                                {server.name}
+                                {server.config.name}
                               </Text>
-                              <Badge
-                                variant={
-                                  server.state === "ready"
-                                    ? "primary"
-                                    : server.state === "failed"
-                                    ? "destructive"
-                                    : "secondary"
-                                }
-                              >
-                                {server.state}
-                              </Badge>
+                              {server.connected ? (
+                                <Badge variant="primary">
+                                  <CheckCircleIcon size={12} weight="fill" className="mr-1" />
+                                  Active
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Inactive</Badge>
+                              )}
                             </div>
+                            <Text size="xs" variant="secondary" className="mt-1">
+                              {server.config.description}
+                            </Text>
                             <span className="mt-0.5 font-mono block">
                               <Text size="xs" variant="secondary">
-                                {server.server_url}
+                                {server.config.url}
                               </Text>
                             </span>
-                            {server.state === "failed" && server.error && (
-                              <span className="text-red-500 mt-1 block">
+                            {server.error && (
+                              <div className="flex items-center gap-1 mt-2 text-red-500">
+                                <WarningIcon size={14} weight="fill" />
                                 <Text size="xs">{server.error}</Text>
-                              </span>
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            {server.state === "authenticating" &&
-                              server.auth_url && (
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  icon={<SignInIcon size={14} />}
-                                  onClick={() =>
-                                    openPopup(server.auth_url as string)
-                                  }
-                                >
-                                  Authorize
-                                </Button>
-                              )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={
-                                disconnectingId === id ? (
-                                  <SpinnerIcon
-                                    size={14}
-                                    className="animate-spin"
-                                  />
-                                ) : (
-                                  <TrashIcon size={14} />
-                                )
-                              }
-                              aria-label={`Disconnect ${server.name}`}
-                              disabled={disconnectingId === id}
-                              onClick={() => handleDisconnect(id, server.name)}
-                            />
+                            {togglingServer === name ? (
+                              <SpinnerIcon size={20} className="animate-spin text-kumo-accent" />
+                            ) : (
+                              <Switch
+                                checked={server.connected}
+                                onChange={() => handleToggleServer(name)}
+                                aria-label={`Toggle ${name}`}
+                              />
+                            )}
                           </div>
                         </div>
                       </Surface>
                     ))}
                   </div>
-                )}
-              </section>
+                </section>
+              )}
 
-              {/* Tools */}
+              {/* Connected Tools */}
               {mcpState.tools.length > 0 && (
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <WrenchIcon
-                      size={18}
-                      weight="bold"
-                      className="text-kumo-subtle"
-                    />
+                    <WrenchIcon size={18} weight="bold" className="text-kumo-subtle" />
                     <Text size="base" bold>
                       Available Tools
                     </Text>
