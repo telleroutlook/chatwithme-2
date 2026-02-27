@@ -1,6 +1,6 @@
 {
-  "name": "@cloudflare/agents-mcp-client-example",
-  "description": "MCP client demo — connect to remote MCP servers with OAuth support",
+  "name": "chatwithme-mcp",
+  "description": "ChatWithMe MCP - AI Chat with MCP tool integration",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "@cloudflare/kumo": "^1.7.0",
     "@phosphor-icons/react": "^2.1.10",
     "agents": "*",
-    "nanoid": "^5.1.6"
+    "nanoid": "^5.1.6",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4",

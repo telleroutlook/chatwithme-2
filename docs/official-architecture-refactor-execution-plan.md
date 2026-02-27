@@ -67,3 +67,96 @@
 2. After Phase 1 completes, update the plan with the location of the new files (`/home/dev/github/chatwithme/apps/api/src/agents/chat-agent.ts` and `/home/dev/github/chatwithme-2/docs/official-architecture-refactor-execution-plan.md`).
 3. Use GitHub actions or a local script to automate the lint/type/test/build pipeline before pushing updates from `/home/dev/github/chatwithme-2`.
 4. Keep the documentation in this file as the single source of truth for the architecture refactor; extend it only by appending new numbered sections or bullet points.
+
+---
+
+## 8. Implementation Status (Updated 2026-02-27)
+
+### Completed Tasks
+
+#### Phase 1: ChatAgent Foundation
+- **File Created**: `/home/dev/github/chatwithme/apps/api/src/agents/chat-agent.ts`
+  - Extends `Agent<Env, ChatAgentState>` from Cloudflare Agent SDK
+  - Implements lifecycle hooks: `onStart`, `onConnect`, `onClose`, `onIdleTimeout`
+  - 15-minute idle timeout with automatic cleanup
+  - MCP connection management (reuses MCPAgent pattern)
+  - Callable methods: `initializeConversation`, `sendMessage`, `listTools`, `getState`, `resetState`
+
+#### Phase 2: Core Logic Port
+- **Ported from** `/home/dev/github/chatwithme/apps/api/src/routes/chat.ts`:
+  - `buildModelCandidates` (simplified - no image models)
+  - `buildOpenAIMessages`
+  - `buildStructuredReplyMessages`
+  - `parseCompletionText`
+  - `parseStructuredReply`
+  - Two-phase LLM calls (tool execution + final response)
+  - Tool execution status tracking (`ToolRun` state machine)
+
+#### Phase 3: Frontend Agent Client
+- **File Created**: `/home/dev/github/chatwithme/apps/web/app/lib/agentClient.ts`
+  - `useChatAgent` hook (REST + header mode for now)
+  - `useAgentOrRest` hook (smart Agent vs REST selection)
+
+- **File Created**: `/home/dev/github/chatwithme/packages/shared/src/agent-types.ts`
+  - Shared types: `ChatAgentState`, `ToolRun`, `ChatUIBlock`, `SendMessageParams`, `SendMessageResult`
+
+#### Phase 4: REST Compatibility Layer
+- **Modified**: `/home/dev/github/chatwithme/apps/api/src/routes/chat.ts`
+  - Added `X-Use-Agent` header detection in `/chat/respond`
+  - Agent path on success, fallback to REST on error
+
+- **Modified**: `/home/dev/github/chatwithme/apps/web/app/pages/home/hooks/useChatActions.ts`
+  - Added `USE_AGENT_MODE` feature flag (controlled by `VITE_USE_AGENT` env var)
+  - Added `getApiHeaders()` helper to inject `X-Use-Agent` header
+
+#### Configuration Updates
+- **Modified**: `/home/dev/github/chatwithme/apps/api/wrangler.toml`
+  - Added `ChatAgent` binding
+  - Added v4 migration
+
+- **Modified**: `/home/dev/github/chatwithme/apps/api/src/index.ts`
+  - Added `routeAgentRequest` for WebSocket routing
+  - Exported `ChatAgent` class
+
+- **Modified**: `/home/dev/github/chatwithme/apps/api/src/store-context.ts`
+  - Added `ChatAgent` type to `Env` interface
+
+### Verification Results
+```
+✅ Lint: Passed (4 prettier warnings only)
+✅ TypeCheck: All packages passed
+✅ Build: Successful
+   - MCPAgent Durable Object ✓
+   - ChatAgent Durable Object ✓
+   - All bindings ready ✓
+✅ Tests: 180 tests passed
+```
+
+### How to Enable Agent Mode
+1. Set environment variable: `VITE_USE_AGENT=true`
+2. The frontend will automatically include `X-Use-Agent: true` header
+3. The API will route requests through ChatAgent instead of REST
+
+### File Change Summary
+| File | Type |
+|------|------|
+| `apps/api/src/agents/chat-agent.ts` | Created |
+| `apps/api/src/index.ts` | Modified |
+| `apps/api/src/store-context.ts` | Modified |
+| `apps/api/wrangler.toml` | Modified |
+| `apps/api/src/routes/chat.ts` | Modified |
+| `apps/web/app/lib/agentClient.ts` | Created |
+| `apps/web/app/pages/home/hooks/useChatActions.ts` | Modified |
+| `packages/shared/src/agent-types.ts` | Created |
+| `packages/shared/src/index.ts` | Modified |
+
+### Known Limitations
+1. Frontend `agentClient.ts` uses REST + header mode, not full WebSocket
+2. Agent state is not fully synchronized with D1 database (messages are stored in both)
+3. Full WebSocket streaming UI updates are not yet implemented
+
+### Future Enhancements
+1. Implement full WebSocket connection using `useAgent` from `agents/react`
+2. Add real-time state streaming for `toolRuns` and `uiBlocks`
+3. Implement UI block rendering components (`TextBlock`, `ToolResultBlock`, etc.)
+4. Add unit tests for ChatAgent methods

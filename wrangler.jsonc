@@ -1,8 +1,9 @@
 {
-  "name": "mcp-client",
+  "name": "chatwithme2mcp",
   "main": "src/server.ts",
   "compatibility_date": "2026-01-28",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
 
   "assets": {
     "not_found_handling": "single-page-application",
@@ -11,16 +12,28 @@
   "durable_objects": {
     "bindings": [
       {
-        "class_name": "MyAgent",
-        "name": "MyAgent"
+        "class_name": "McpClientAgent",
+        "name": "McpClientAgent"
+      },
+      {
+        "class_name": "ChatAgent",
+        "name": "ChatAgent"
       }
     ]
   },
 
   "migrations": [
     {
-      "new_sqlite_classes": ["MyAgent"],
-      "tag": "v1"
+      "tag": "v1",
+      "new_sqlite_classes": ["MyAgent"]
+    },
+    {
+      "tag": "v2",
+      "deleted_classes": ["MyAgent"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["McpClientAgent", "ChatAgent"]
     }
   ],
 
@@ -28,9 +41,10 @@
     "logs": {
       "enabled": true
     }
+  },
+
+  "vars": {
+    "HOST": "chatwithme2mcp.lintao-mailbox.workers.dev",
+    "BIGMODEL_API_KEY": "282835d3978b4c2490a4647fa1ae2796.hjggKnNzl0VEwEoc"
   }
-  // Optional: Override the auto-detected host
-  // "vars": {
-  //   "HOST": "<DEPLOYED_HOSTNAME>"
-  // }
 }
