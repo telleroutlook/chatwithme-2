@@ -13,12 +13,9 @@ import {
 } from "@cloudflare/agents-ui";
 import { Button, Badge, Surface, Text, Empty, Switch } from "@cloudflare/kumo";
 import {
-  PlusIcon,
   PlugIcon,
   PlugsConnectedIcon,
   WrenchIcon,
-  TrashIcon,
-  SignInIcon,
   InfoIcon,
   SpinnerIcon,
   ChatCircleIcon,
@@ -74,9 +71,9 @@ function App() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // MCP Client Agent
-  const mcpAgent = useAgent({
-    agent: "mcp-client-agent",
+  // Single unified agent for both Chat and MCP
+  const agent = useAgent({
+    agent: "chat-agent",
     name: sessionId!,
     onClose: useCallback(() => setConnectionStatus("disconnected"), []),
     onMcpUpdate: useCallback((mcpServers: MCPServersState) => {
@@ -84,29 +81,20 @@ function App() {
     }, []),
     onOpen: useCallback(() => {
       setConnectionStatus("connected");
-      // Load pre-configured servers
       loadPreconfiguredServers();
     }, [])
   });
 
-  // Chat Agent
-  const chatAgent = useAgent({
-    agent: "chat-agent",
-    name: sessionId!,
-    onClose: useCallback(() => console.log("Chat agent disconnected"), []),
-    onOpen: useCallback(() => console.log("Chat agent connected"), [])
-  });
-
   const loadPreconfiguredServers = useCallback(async () => {
     try {
-      const servers = await mcpAgent.call("getPreconfiguredServers", []);
+      const servers = await agent.call("getPreconfiguredServers", []);
       setPreconfiguredServers(servers as Record<string, PreconfiguredServer>);
     } catch (error) {
       console.error("Failed to load pre-configured servers:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [mcpAgent]);
+  }, [agent]);
 
   useEffect(() => {
     if (connectionStatus === "connected") {
@@ -118,13 +106,12 @@ function App() {
     async (name: string) => {
       setTogglingServer(name);
       try {
-        const result = await mcpAgent.call("toggleServer", [name]);
+        const result = await agent.call("toggleServer", [name]);
         if (result.success) {
           addToast(
             `Server "${name}" ${result.active ? "activated" : "deactivated"}`,
             "success"
           );
-          // Reload servers
           await loadPreconfiguredServers();
         } else {
           addToast(`Failed to toggle server: ${result.error}`, "error");
@@ -141,7 +128,7 @@ function App() {
         setTogglingServer(null);
       }
     },
-    [mcpAgent, addToast, loadPreconfiguredServers]
+    [agent, addToast, loadPreconfiguredServers]
   );
 
   const handleChatSubmit = useCallback(
@@ -158,7 +145,7 @@ function App() {
       setIsChatLoading(true);
 
       try {
-        const response = await chatAgent.call("chat", [userMessage]);
+        const response = await agent.call("chat", [userMessage]);
         setChatMessages((prev) => [
           ...prev,
           { role: "assistant", content: response as string }
@@ -181,7 +168,7 @@ function App() {
         }, 100);
       }
     },
-    [chatInput, isChatLoading, chatAgent, addToast]
+    [chatInput, isChatLoading, agent, addToast]
   );
 
   const serverEntries = useMemo(
@@ -193,6 +180,8 @@ function App() {
     () => Object.entries(preconfiguredServers),
     [preconfiguredServers]
   );
+
+  const activeToolsCount = mcpState.tools.length;
 
   return (
     <div className="h-full flex flex-col bg-kumo-base">
@@ -228,6 +217,9 @@ function App() {
           >
             <ChatCircleIcon size={18} weight="bold" />
             Chat
+            {activeToolsCount > 0 && (
+              <Badge variant="primary">{activeToolsCount} tools</Badge>
+            )}
           </button>
           <button
             onClick={() => setActiveTab("mcp")}
@@ -261,7 +253,11 @@ function App() {
                     <Empty
                       icon={<ChatCircleIcon size={32} />}
                       title="Start a conversation"
-                      description="Type a message below to chat with the AI assistant. Connected MCP tools will be used automatically when needed."
+                      description={
+                        activeToolsCount > 0
+                          ? `AI has access to ${activeToolsCount} tools (web search, reading). Just ask anything!`
+                          : "Connect MCP servers in the MCP tab to enable tool access."
+                      }
                     />
                   </div>
                 ) : (
@@ -304,7 +300,11 @@ function App() {
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder={
+                    activeToolsCount > 0
+                      ? "Ask anything... (AI can search web & read pages)"
+                      : "Type a message..."
+                  }
                   disabled={isChatLoading}
                   className="flex-1 px-4 py-2 text-sm rounded-xl border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:opacity-50"
                 />

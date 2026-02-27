@@ -1,7 +1,6 @@
 import { routeAgentRequest } from "agents";
 
-// Export agents - following playground pattern
-export { McpClientAgent } from "./demos/mcp/mcp-client-agent";
+// Export unified Chat + MCP Agent
 export { ChatAgent } from "./demos/chat/chat-agent";
 
 // Main entry point

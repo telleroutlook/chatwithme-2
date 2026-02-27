@@ -12,10 +12,6 @@
   "durable_objects": {
     "bindings": [
       {
-        "class_name": "McpClientAgent",
-        "name": "McpClientAgent"
-      },
-      {
         "class_name": "ChatAgent",
         "name": "ChatAgent"
       }
@@ -34,6 +30,10 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["McpClientAgent", "ChatAgent"]
+    },
+    {
+      "tag": "v4",
+      "deleted_classes": ["McpClientAgent"]
     }
   ],
 
@@ -46,6 +46,4 @@
   "vars": {
     "HOST": "chatwithme2mcp.lintao-mailbox.workers.dev"
   }
-  // Note: BIGMODEL_API_KEY should be set via wrangler secret:
-  // wrangler secret put BIGMODEL_API_KEY
 }
