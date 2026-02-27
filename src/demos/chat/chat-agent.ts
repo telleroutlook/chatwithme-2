@@ -210,9 +210,12 @@ After I execute the tool, I will provide you with the results.`;
 
   @callable({ description: "Send a chat message and get AI response" })
   async chat(userMessage: string): Promise<string> {
+    // Ensure state is initialized
+    const currentMessages = this.state?.messages || [];
+
     // Add user message to history
     const messages: ChatMessage[] = [
-      ...this.state.messages,
+      ...currentMessages,
       { role: "user", content: userMessage }
     ];
 
@@ -245,6 +248,7 @@ After I execute the tool, I will provide you with the results.`;
 
     // Save to history
     this.setState({
+      ...this.state,
       messages: [...messages, { role: "assistant", content: assistantMessage }]
     });
 
