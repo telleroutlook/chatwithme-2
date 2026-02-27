@@ -1,6 +1,77 @@
-# MCP Client
+# ChatWithMe-2
 
-An Agent that acts as an MCP **client** — dynamically connects to remote MCP servers, handles OAuth authentication, and aggregates tools, prompts, and resources from all connected servers.
+A reference implementation and planning repository for refactoring [ChatWithMe](../chatwithme) into an Agent-first architecture.
+
+## Project Purpose
+
+This repository serves as:
+- **Planning documentation** for the ChatWithMe architecture refactor
+- **Reference implementation** inspired by Cloudflare Agents examples
+- **Sandbox** for testing optimizations before applying to the main project
+
+> ⚠️ **Note**: This is a planning/reference repo. The actual implementation lives in `/home/dev/github/chatwithme`.
+
+## Related Projects
+
+### mcp-client-tool (Production MCP Manager)
+
+A standalone tool for managing MCP server connections, deployed at:
+
+| Resource | URL |
+|----------|-----|
+| **Production** | https://mcp-client-tool.3we.org |
+| **GitHub** | https://github.com/telleroutlook/mcp-client |
+| **Worker** | `mcp-client-tool` |
+
+**Features**:
+- Connect to remote MCP servers with OAuth support
+- View available tools, prompts, and resources
+- Toast notifications, loading states, form validation
+- Memoized components for better performance
+
+**Usage**: Use this tool to test and debug MCP servers before integrating them into ChatWithMe.
+
+> 📖 For detailed documentation, debugging guide, and upgrade instructions, see the [mcp-client README](https://github.com/telleroutlook/mcp-client#readme).
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Project Ecosystem                             │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────┐     ┌───────────────────┐     ┌────────────────┐
+│   chatwithme      │     │   chatwithme-2    │     │  mcp-client    │
+│   (Main App)      │     │   (Planning)      │     │  (Dev Tool)    │
+│   ============    │     │   ============    │     │  ===========   │
+│ • Chat UI         │◄────│ • Architecture    │     │ • MCP Manager  │
+│ • MCP Agent       │     │   documentation   │     │ • Test MCP     │
+│ • D1 + R2         │     │ • Execution plan  │     │   connections  │
+│ • Production      │     │ • Experiments     │     │ • Debugging    │
+└───────────────────┘     └───────────────────┘     └────────────────┘
+         │                                                   │
+         │                    MCP Protocol                   │
+         └─────────────────────────┬─────────────────────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────┐
+                    │   External MCP Servers   │
+                    │   (GitHub, Slack, etc.)  │
+                    └──────────────────────────┘
+```
+
+## Documentation
+
+- **Architecture Plan**: [docs/official-architecture-refactor-execution-plan.md](docs/official-architecture-refactor-execution-plan.md)
+- **Project Instructions**: [CLAUDE.md](CLAUDE.md)
+
+---
+
+## Original MCP Client Demo
+
+*The following is the original documentation from the Cloudflare Agents example.*
+
+---
 
 ## What it demonstrates
 
