@@ -150,7 +150,7 @@ export function confirm(config: ConfirmConfig): Promise<boolean> {
             {config.cancelText || "Cancel"}
           </Button>
           <Button
-            variant={config.danger ? "danger" : "primary"}
+            variant={config.danger ? "destructive" : "primary"}
             onClick={handleOk}
           >
             {config.okText || "OK"}

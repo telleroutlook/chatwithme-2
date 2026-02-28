@@ -7,9 +7,10 @@ import { XIcon } from "@phosphor-icons/react";
 // ============ Dev Singleton Guard ============
 
 const singletons = new Set<string>();
+const isDev = import.meta.env.DEV;
 
 function registerDevSingleton(name: string, scope: string = "default"): void {
-  if (process.env.NODE_ENV === "development") {
+  if (isDev) {
     const key = `${name}:${scope}`;
     if (singletons.has(key)) {
       throw new Error(
@@ -22,10 +23,24 @@ function registerDevSingleton(name: string, scope: string = "default"): void {
 }
 
 function unregisterDevSingleton(name: string, scope: string = "default"): void {
-  if (process.env.NODE_ENV === "development") {
+  if (isDev) {
     const key = `${name}:${scope}`;
     singletons.delete(key);
   }
+}
+
+function resolveZIndex(id: string | number, zIndex?: number): number {
+  if (typeof zIndex === "number" && Number.isFinite(zIndex)) {
+    return zIndex;
+  }
+
+  const numericId =
+    typeof id === "number"
+      ? id
+      : Number.parseInt(id.replace(/\D/g, ""), 10);
+
+  const safeOffset = Number.isFinite(numericId) ? numericId : 0;
+  return 1000 + safeOffset;
 }
 
 // ============ Modal Component ============
@@ -98,7 +113,7 @@ const Modal = memo(function Modal({
     <div
       className="fixed inset-0 flex items-center justify-center"
       style={{
-        zIndex: zIndex ?? 1000 + Number(id),
+        zIndex: resolveZIndex(id, zIndex),
       }}
     >
       {/* Mask */}

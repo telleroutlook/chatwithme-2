@@ -15,6 +15,16 @@ type ToolCallState =
   | "error"
   | "approval-requested";
 
+function isToolCallState(value: unknown): value is ToolCallState {
+  return (
+    value === "input-streaming" ||
+    value === "input-available" ||
+    value === "output-available" ||
+    value === "error" ||
+    value === "approval-requested"
+  );
+}
+
 interface ToolCallCardProps {
   toolName: string;
   state: ToolCallState;
@@ -166,20 +176,29 @@ export function extractToolCalls(
   for (const part of parts) {
     // Handle dynamic-tool type
     if (part.type === "dynamic-tool") {
-      const dynamicPart = part as {
-        toolName: string;
-        state: string;
+      const dynamicPart = part as unknown as {
+        toolName?: unknown;
+        state?: unknown;
         input?: unknown;
         output?: unknown;
-        errorText?: string;
+        errorText?: unknown;
       };
+      if (typeof dynamicPart.toolName !== "string") {
+        continue;
+      }
+      const state = isToolCallState(dynamicPart.state)
+        ? dynamicPart.state
+        : "error";
 
       toolCalls.push({
         toolName: dynamicPart.toolName,
-        state: dynamicPart.state as ToolCallState,
+        state,
         input: dynamicPart.input as Record<string, unknown> | undefined,
         output: dynamicPart.output,
-        errorText: dynamicPart.errorText
+        errorText:
+          typeof dynamicPart.errorText === "string"
+            ? dynamicPart.errorText
+            : undefined
       });
     }
 
@@ -188,19 +207,20 @@ export function extractToolCalls(
       const toolPart = part as {
         type: string;
         toolCallId?: string;
-        state: string;
+        state: unknown;
         input?: unknown;
         output?: unknown;
-        errorText?: string;
+        errorText?: unknown;
       };
 
       const toolName = part.type.replace("tool-", "");
+      const state = isToolCallState(toolPart.state) ? toolPart.state : "error";
       toolCalls.push({
         toolName,
-        state: toolPart.state as ToolCallState,
+        state,
         input: toolPart.input as Record<string, unknown> | undefined,
         output: toolPart.output,
-        errorText: toolPart.errorText
+        errorText: typeof toolPart.errorText === "string" ? toolPart.errorText : undefined
       });
     }
   }

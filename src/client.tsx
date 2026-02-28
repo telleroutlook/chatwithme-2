@@ -5,6 +5,13 @@ import { ToolCallCard, extractToolCalls } from "./components/ToolCallCard";
 import { MessageActions } from "./components/MessageActions";
 import { ChatInput } from "./components/ChatInput";
 import { ModalHost } from "./components/modal";
+import {
+  ConnectionIndicator,
+  ModeToggle,
+  PoweredByAgents,
+  ThemeProvider,
+  type ConnectionStatus
+} from "./components/AgentsUiCompat";
 import { ToastProvider, useToast } from "./hooks/useToast";
 import { useResponsive } from "./hooks/useResponsive";
 import { useAgent } from "agents/react";
@@ -12,13 +19,6 @@ import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { VList, VListHandle } from "virtua";
-import { ThemeProvider } from "@cloudflare/agents-ui/hooks";
-import {
-  ConnectionIndicator,
-  ModeToggle,
-  PoweredByAgents,
-  type ConnectionStatus
-} from "@cloudflare/agents-ui";
 import { Button, Badge, Surface, Text, Empty, Switch } from "@cloudflare/kumo";
 import {
   PlugIcon,
@@ -37,7 +37,8 @@ import {
   XIcon,
   ListIcon
 } from "@phosphor-icons/react";
-import type { MCPServersState, UIMessage } from "agents";
+import type { UIMessage } from "ai";
+import type { MCPServersState } from "agents";
 import { nanoid } from "nanoid";
 import "./styles.css";
 
@@ -99,12 +100,24 @@ function deleteSessionMeta(sessionId: string): void {
 // ============ Helper to extract text from UIMessage ============
 
 function getMessageText(message: UIMessage): string {
-  if (typeof message.content === "string") {
-    return message.content;
+  const candidate = message as unknown as {
+    content?: unknown;
+    parts?: unknown;
+  };
+
+  if (typeof candidate.content === "string") {
+    return candidate.content;
   }
-  if (Array.isArray(message.parts)) {
-    return message.parts
-      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+  if (Array.isArray(candidate.parts)) {
+    type TextPart = { type: "text"; text: string };
+    return candidate.parts
+      .filter((part: unknown): part is TextPart => {
+        if (!part || typeof part !== "object") {
+          return false;
+        }
+        const candidate = part as { type?: unknown; text?: unknown };
+        return candidate.type === "text" && typeof candidate.text === "string";
+      })
       .map((part) => part.text)
       .join("");
   }
@@ -124,6 +137,28 @@ interface PreconfiguredServer {
   serverId?: string;
   connected: boolean;
   error?: string;
+}
+
+interface ToggleServerResult {
+  success: boolean;
+  active?: boolean;
+  error?: string;
+}
+
+function isToggleServerResult(value: unknown): value is ToggleServerResult {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as {
+    success?: unknown;
+    active?: unknown;
+    error?: unknown;
+  };
+  return (
+    typeof candidate.success === "boolean" &&
+    (candidate.active === undefined || typeof candidate.active === "boolean") &&
+    (candidate.error === undefined || typeof candidate.error === "string")
+  );
 }
 
 function App() {
@@ -156,7 +191,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Responsive hook for mobile detection
-  const { mobile, tablet, desktop } = useResponsive();
+  const { mobile } = useResponsive();
 
   // On mobile, sidebar starts closed
   useEffect(() => {
@@ -167,8 +202,10 @@ function App() {
 
   // Chat input
   const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const vListRef = useRef<VListHandle>(null);
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<UIMessage["id"]>>(
+    () => new Set()
+  );
 
   // Load sessions on mount
   useEffect(() => {
@@ -178,6 +215,10 @@ function App() {
   // Save current session ID when changed
   useEffect(() => {
     localStorage.setItem("currentSessionId", currentSessionId);
+  }, [currentSessionId]);
+
+  useEffect(() => {
+    setHiddenMessageIds(new Set());
   }, [currentSessionId]);
 
   // Agent connection
@@ -198,16 +239,20 @@ function App() {
   const {
     messages,
     sendMessage,
-    clearHistory,
     status,
     stop
   } = useAgentChat({
     agent,
-    onToolCall: async ({ toolCall, addToolOutput }) => {
+    onToolCall: async ({ toolCall }) => {
       // Handle client-side tools if needed
       console.log("Tool call:", toolCall);
     }
   });
+
+  const visibleMessages = useMemo(
+    () => messages.filter((msg) => !hiddenMessageIds.has(msg.id)),
+    [messages, hiddenMessageIds]
+  );
 
   const isStreaming = status === "streaming";
   const isConnected = connectionStatus === "connected";
@@ -225,11 +270,11 @@ function App() {
 
   // Auto-scroll on new messages (using VList scrollToIndex)
   useEffect(() => {
-    if (messages.length > 0 && vListRef.current) {
+    if (visibleMessages.length > 0 && vListRef.current) {
       // Scroll to the last message
-      vListRef.current.scrollToIndex(messages.length - 1, { align: "end" });
+      vListRef.current.scrollToIndex(visibleMessages.length - 1, { align: "end" });
     }
-  }, [messages.length]);
+  }, [visibleMessages.length]);
 
   // Update session meta when messages change
   useEffect(() => {
@@ -272,8 +317,7 @@ function App() {
 
   // Delete session
   const handleDeleteSession = useCallback(
-    (sessionId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
+    (sessionId: string) => {
       deleteSessionMeta(sessionId);
       setSessions(loadSessions());
 
@@ -286,11 +330,26 @@ function App() {
     [currentSessionId, handleNewSession, addToast]
   );
 
+  const handleDeleteMessage = useCallback(
+    (messageId: UIMessage["id"]) => {
+      setHiddenMessageIds((prev) => {
+        const next = new Set(prev);
+        next.add(messageId);
+        return next;
+      });
+      addToast("Message removed from view", "info");
+    },
+    [addToast]
+  );
+
   const handleToggleServer = useCallback(
     async (name: string) => {
       setTogglingServer(name);
       try {
         const result = await agent.call("toggleServer", [name]);
+        if (!isToggleServerResult(result)) {
+          throw new Error("Invalid toggleServer response");
+        }
         if (result.success) {
           addToast(
             `Server "${name}" ${result.active ? "activated" : "deactivated"}`,
@@ -385,6 +444,7 @@ function App() {
           </Button>
           {mobile && (
             <button
+              type="button"
               onClick={() => setSidebarOpen(false)}
               className="ml-2 p-2 rounded-lg hover:bg-kumo-control transition-colors"
               aria-label="Close sidebar"
@@ -403,34 +463,39 @@ function App() {
             </div>
           ) : (
             sessions.map((session) => (
-              <button
+              <div
                 key={session.id}
                 onClick={() => {
                   handleSelectSession(session.id);
                   if (mobile) setSidebarOpen(false);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleSelectSession(session.id);
+                    if (mobile) setSidebarOpen(false);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
                 className={`w-full text-left p-3 rounded-lg transition-colors group ${
                   currentSessionId === session.id
                     ? "bg-kumo-accent/10 ring-1 ring-kumo-accent"
                     : "hover:bg-kumo-control"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <Text
-                      size="sm"
-                      bold={currentSessionId === session.id}
-                      className="truncate"
-                    >
-                      {session.title}
-                    </Text>
-                    <Text
-                      size="xs"
-                      variant="secondary"
-                      className="truncate mt-0.5"
-                    >
-                      {session.lastMessage || "No messages"}
-                    </Text>
+                    <span className="block truncate">
+                      <Text size="sm" bold={currentSessionId === session.id}>
+                        {session.title}
+                      </Text>
+                    </span>
+                    <span className="block truncate mt-0.5">
+                      <Text size="xs" variant="secondary">
+                        {session.lastMessage || "No messages"}
+                      </Text>
+                    </span>
                     <div className="flex items-center gap-2 mt-1">
                       <Text size="xs" variant="secondary">
                         {formatTime(session.timestamp)}
@@ -443,14 +508,18 @@ function App() {
                     </div>
                   </div>
                   <button
-                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSession(session.id);
+                    }}
                     className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-kumo-danger/20 text-kumo-subtle hover:text-kumo-danger transition-all"
                     aria-label="Delete session"
                   >
                     <TrashIcon size={14} />
                   </button>
                 </div>
-              </button>
+              </div>
             ))
           )}
         </div>
@@ -463,6 +532,7 @@ function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-lg hover:bg-kumo-control transition-colors"
                 aria-label={mobile ? "Open menu" : "Toggle sidebar"}
@@ -489,6 +559,7 @@ function App() {
         <div className="border-b border-kumo-line">
           <div className="flex">
             <button
+              type="button"
               onClick={() => setActiveTab("chat")}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "chat"
@@ -503,6 +574,7 @@ function App() {
               )}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("mcp")}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "mcp"
@@ -525,7 +597,7 @@ function App() {
             <div className="flex flex-col h-[calc(100vh-280px)]">
               {/* Chat Messages with Virtual Scrolling */}
               <div className="flex-1 overflow-hidden mb-4">
-                {messages.length === 0 ? (
+                {visibleMessages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <Empty
                       icon={<ChatCircleIcon size={32} />}
@@ -543,7 +615,7 @@ function App() {
                     style={{ height: "100%" }}
                     className="space-y-4 px-1"
                   >
-                    {messages.map((msg) => {
+                    {visibleMessages.map((msg) => {
                       const isUser = msg.role === "user";
                       const text = getMessageText(msg);
                       // Extract tool calls from message parts
@@ -583,13 +655,13 @@ function App() {
                             }`}
                           >
                             {isUser ? (
-                              <Text size="sm" className="whitespace-pre-wrap">
-                                {text}
-                              </Text>
+                              <span className="whitespace-pre-wrap block">
+                                <Text size="sm">{text}</Text>
+                              </span>
                             ) : (
                               <MarkdownRenderer
                                 content={text}
-                                isStreaming={isStreaming && msg === messages[messages.length - 1]}
+                                isStreaming={isStreaming && msg === visibleMessages[visibleMessages.length - 1]}
                               />
                             )}
                           </div>
@@ -600,6 +672,7 @@ function App() {
                               showRegenerate={!isUser}
                               showEdit={isUser}
                               showDelete={true}
+                              onDelete={() => handleDeleteMessage(msg.id)}
                               disabled={isStreaming}
                               compact={true}
                             />
@@ -659,7 +732,9 @@ function App() {
               {isLoading && (
                 <div className="flex items-center justify-center py-8">
                   <SpinnerIcon size={24} className="animate-spin text-kumo-accent" />
-                  <Text size="sm" className="ml-2">Loading servers...</Text>
+                  <span className="ml-2">
+                    <Text size="sm">Loading servers...</Text>
+                  </span>
                 </div>
               )}
 
@@ -693,9 +768,11 @@ function App() {
                                 <Badge variant="secondary">Inactive</Badge>
                               )}
                             </div>
-                            <Text size="xs" variant="secondary" className="mt-1">
-                              {server.config.description}
-                            </Text>
+                            <span className="mt-1 block">
+                              <Text size="xs" variant="secondary">
+                                {server.config.description}
+                              </Text>
+                            </span>
                             <span className="mt-0.5 font-mono block">
                               <Text size="xs" variant="secondary">
                                 {server.config.url}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Text, Surface, Badge } from "@cloudflare/kumo";
-import { ChartBarIcon, CodeIcon } from "@phosphor-icons/react";
+import { ChartBarIcon } from "@phosphor-icons/react";
 
 // ============ Mermaid Renderer ============
 
@@ -22,15 +22,14 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
         mermaid.initialize({
           startOnLoad: false,
           theme: "default",
-          securityLevel: "loose",
+          securityLevel: "strict",
         });
 
-        const { svg } = await mermaid.render(
-          `mermaid-${Date.now()}`,
-          code.trim()
-        );
+        const renderId = `mermaid-${Math.random().toString(36).slice(2)}`;
+        const { svg } = await mermaid.render(renderId, code.trim());
 
         if (mounted && containerRef.current) {
+          containerRef.current.innerHTML = "";
           containerRef.current.innerHTML = svg;
           setError(null);
         }
@@ -49,14 +48,17 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
 
     return () => {
       mounted = false;
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
     };
   }, [code]);
 
   if (error) {
     return (
       <Surface className="p-3 rounded-lg ring ring-red-300 bg-red-50">
-        <Text size="xs" className="text-red-600">
-          Mermaid Error: {error}
+        <Text size="xs">
+          <span className="text-red-600">Mermaid Error: {error}</span>
         </Text>
       </Surface>
     );
@@ -73,10 +75,7 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
       {isLoading ? (
         <div className="text-center py-4 text-kumo-subtle">Rendering...</div>
       ) : (
-        <div
-          ref={containerRef}
-          className="mermaid-container overflow-x-auto"
-        />
+        <div ref={containerRef} className="mermaid-container overflow-x-auto" />
       )}
     </Surface>
   );
@@ -93,6 +92,18 @@ interface G2ChartRendererProps {
   };
 }
 
+interface G2ChartInstance {
+  mark: (type: "interval" | "line" | "point" | "area" | "cell" | "rect") => void;
+  data: (data: Record<string, unknown>[]) => void;
+  encode: (encode: Record<string, string | number>) => void;
+  axis: (axis: Record<string, unknown>) => void;
+  legend: (legend: Record<string, unknown>) => void;
+  scale: (scale: Record<string, unknown>) => void;
+  style: (style: Record<string, unknown>) => void;
+  render: () => Promise<void>;
+  destroy: () => void;
+}
+
 export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +111,7 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
 
   useEffect(() => {
     let mounted = true;
-    let chart: { destroy: () => void } | null = null;
+    let chart: G2ChartInstance | null = null;
 
     const renderChart = async () => {
       try {
@@ -112,9 +123,8 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
           container: containerRef.current,
           autoFit: true,
           height: 300,
-        });
+        }) as unknown as G2ChartInstance;
 
-        // Apply the spec
         if (spec.type) {
           chart.mark(spec.type as "interval" | "line" | "point" | "area" | "cell" | "rect");
         }
@@ -127,7 +137,6 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
           chart.encode(spec.encode as Record<string, string | number>);
         }
 
-        // Apply any additional options
         if (spec.axis) chart.axis(spec.axis as Record<string, unknown>);
         if (spec.legend) chart.legend(spec.legend as Record<string, unknown>);
         if (spec.scale) chart.scale(spec.scale as Record<string, unknown>);
@@ -162,8 +171,8 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
   if (error) {
     return (
       <Surface className="p-3 rounded-lg ring ring-red-300 bg-red-50">
-        <Text size="xs" className="text-red-600">
-          G2 Chart Error: {error}
+        <Text size="xs">
+          <span className="text-red-600">G2 Chart Error: {error}</span>
         </Text>
       </Surface>
     );
@@ -178,7 +187,6 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         </Text>
         {spec.type && <Badge variant="secondary">{spec.type}</Badge>}
       </div>
-      {/* Always render container for ref, show loading overlay */}
       <div className="relative">
         <div ref={containerRef} className="g2-chart-container" style={{ minHeight: 300 }} />
         {isLoading && (
@@ -199,7 +207,6 @@ interface ChartContent {
 }
 
 export function parseChartFromText(text: string): ChartContent | null {
-  // Check for Mermaid code block
   const mermaidMatch = text.match(/```mermaid\s*([\s\S]*?)```/);
   if (mermaidMatch) {
     return {
@@ -208,7 +215,6 @@ export function parseChartFromText(text: string): ChartContent | null {
     };
   }
 
-  // Check for G2 JSON code block
   const g2Match = text.match(/```g2\s*([\s\S]*?)```/);
   if (g2Match) {
     try {
@@ -222,12 +228,10 @@ export function parseChartFromText(text: string): ChartContent | null {
     }
   }
 
-  // Check for inline G2 spec (JSON with type and data)
   const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[1].trim());
-      // Check if it looks like a G2 spec
       if (parsed.chartType === "g2" || (parsed.type && parsed.data)) {
         return {
           type: "g2",
@@ -271,9 +275,8 @@ export function ChartDisplay({ text }: ChartDisplayProps) {
 function extractAllCharts(text: string): ChartContent[] {
   const charts: ChartContent[] = [];
 
-  // Extract all Mermaid blocks
   const mermaidRegex = /```mermaid\s*([\s\S]*?)```/g;
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = mermaidRegex.exec(text)) !== null) {
     charts.push({
       type: "mermaid",
@@ -281,7 +284,6 @@ function extractAllCharts(text: string): ChartContent[] {
     });
   }
 
-  // Extract all G2 blocks
   const g2Regex = /```g2\s*([\s\S]*?)```/g;
   while ((match = g2Regex.exec(text)) !== null) {
     try {

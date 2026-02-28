@@ -27,6 +27,35 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
     customServers: {}
   };
 
+  private get runtimeEnv(): Env {
+    return (this as unknown as { env: Env }).env;
+  }
+
+  private buildMcpServerOptions(apiKey?: string): {
+    callbackHost?: string;
+    transport?: { type?: "streamable-http"; headers?: HeadersInit };
+  } {
+    const options: {
+      callbackHost?: string;
+      transport?: { type?: "streamable-http"; headers?: HeadersInit };
+    } = {};
+
+    if (this.runtimeEnv.HOST) {
+      options.callbackHost = this.runtimeEnv.HOST;
+    }
+
+    if (apiKey) {
+      options.transport = {
+        type: "streamable-http",
+        headers: {
+          Authorization: `Bearer ${apiKey}`
+        }
+      };
+    }
+
+    return options;
+  }
+
   async onStart() {
     // Call parent onStart for OAuth callback
     super.onStart();
@@ -62,26 +91,14 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
     }
 
     const config = serverEntry.config;
-    const apiKey = getApiKey(config, this.env);
+    const apiKey = getApiKey(config, this.runtimeEnv);
 
     try {
-      const options: {
-        callbackHost: string | undefined;
-        transport?: { type: string; headers: Record<string, string> };
-      } = {
-        callbackHost: this.env.HOST
-      };
-
-      if (apiKey) {
-        options.transport = {
-          type: "streamable-http",
-          headers: {
-            Authorization: `Bearer ${apiKey}`
-          }
-        };
-      }
-
-      const result = await this.addMcpServer(name, config.url, options);
+      const result = await this.addMcpServer(
+        name,
+        config.url,
+        this.buildMcpServerOptions(apiKey)
+      );
 
       // Update state
       const preconfiguredServers = { ...this.state.preconfiguredServers };
@@ -91,7 +108,10 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
         connected: true,
         error: undefined
       };
-      this.setState({ preconfiguredServers });
+      this.setState({
+        preconfiguredServers,
+        customServers: this.state.customServers
+      });
 
       return { success: true };
     } catch (error) {
@@ -104,7 +124,10 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
         connected: false,
         error: message
       };
-      this.setState({ preconfiguredServers });
+      this.setState({
+        preconfiguredServers,
+        customServers: this.state.customServers
+      });
 
       return { success: false, error: message };
     }
@@ -127,7 +150,10 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
         serverId: undefined,
         connected: false
       };
-      this.setState({ preconfiguredServers });
+      this.setState({
+        preconfiguredServers,
+        customServers: this.state.customServers
+      });
 
       return { success: true };
     } catch (error) {
@@ -159,28 +185,19 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
     apiKey?: string
   ): Promise<{ success: boolean; serverId?: string; error?: string }> {
     try {
-      const options: {
-        callbackHost: string | undefined;
-        transport?: { type: string; headers: Record<string, string> };
-      } = {
-        callbackHost: this.env.HOST
-      };
-
-      if (apiKey) {
-        options.transport = {
-          type: "streamable-http",
-          headers: {
-            Authorization: `Bearer ${apiKey}`
-          }
-        };
-      }
-
-      const result = await this.addMcpServer(name, url, options);
+      const result = await this.addMcpServer(
+        name,
+        url,
+        this.buildMcpServerOptions(apiKey)
+      );
 
       // Track custom server
       const customServers = { ...this.state.customServers };
       customServers[result.id] = { name, url };
-      this.setState({ customServers });
+      this.setState({
+        preconfiguredServers: this.state.preconfiguredServers,
+        customServers
+      });
 
       return { success: true, serverId: result.id };
     } catch (error) {
@@ -197,7 +214,10 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
       // Remove from tracking
       const customServers = { ...this.state.customServers };
       delete customServers[serverId];
-      this.setState({ customServers });
+      this.setState({
+        preconfiguredServers: this.state.preconfiguredServers,
+        customServers
+      });
 
       return { success: true };
     } catch (error) {
@@ -208,8 +228,7 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
 
   @callable({ description: "Get list of available MCP tools" })
   async getAvailableTools() {
-    const state = await this.mcp.getState();
-    return state.tools.map(tool => ({
+    return this.mcp.listTools().map((tool) => ({
       name: tool.name,
       description: tool.description,
       serverId: tool.serverId,

@@ -8,6 +8,7 @@
     "dev:vite": "vite dev",
     "start": "vite build && wrangler dev --port 8787",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "deploy": "vite build && wrangler deploy",
     "types": "wrangler types env.d.ts --include-runtime false",
     "test": "vitest",

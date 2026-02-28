@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MessageActions, ActionIcon } from './MessageActions';
 
 describe('MessageActions', () => {
@@ -16,17 +16,16 @@ describe('MessageActions', () => {
   });
 
   it('should copy content to clipboard when copy button is clicked', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('navigator', {
-      clipboard: { writeText },
-    });
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
 
     render(<MessageActions content="Test content" showCopy={true} />);
 
     const copyButton = screen.getByLabelText('Copy message');
     fireEvent.click(copyButton);
 
-    expect(writeText).toHaveBeenCalledWith('Test content');
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('Test content');
+    });
   });
 
   it('should show regenerate button when showRegenerate is true', () => {

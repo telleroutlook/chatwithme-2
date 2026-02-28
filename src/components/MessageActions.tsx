@@ -11,6 +11,8 @@ import {
 interface MessageActionsProps {
   /** Message content to copy */
   content: string;
+  /** Show copy button */
+  showCopy?: boolean;
   /** Called when user requests regeneration */
   onRegenerate?: () => void;
   /** Called when user requests edit */
@@ -40,6 +42,7 @@ interface MessageActionsProps {
  */
 export const MessageActions = memo(function MessageActions({
   content,
+  showCopy = true,
   onRegenerate,
   onEdit,
   onDelete,
@@ -53,6 +56,10 @@ export const MessageActions = memo(function MessageActions({
 
   const handleCopy = useCallback(async () => {
     if (disabled) return;
+    if (!navigator.clipboard?.writeText) {
+      console.error("Clipboard API is unavailable");
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(content);
@@ -84,16 +91,18 @@ export const MessageActions = memo(function MessageActions({
   return (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
       {/* Copy button */}
-      <Button
-        variant="secondary"
-        size={buttonSize}
-        onClick={handleCopy}
-        disabled={disabled}
-        icon={copied ? <CheckIcon size={iconSize} /> : <CopyIcon size={iconSize} />}
-        aria-label={copied ? "Copied" : "Copy message"}
-      >
-        {!compact && (copied ? "Copied" : "Copy")}
-      </Button>
+      {showCopy && (
+        <Button
+          variant="secondary"
+          size={buttonSize}
+          onClick={handleCopy}
+          disabled={disabled}
+          icon={copied ? <CheckIcon size={iconSize} /> : <CopyIcon size={iconSize} />}
+          aria-label={copied ? "Copied" : "Copy message"}
+        >
+          {!compact && (copied ? "Copied" : "Copy")}
+        </Button>
+      )}
 
       {/* Regenerate button */}
       {showRegenerate && onRegenerate && (
@@ -124,12 +133,12 @@ export const MessageActions = memo(function MessageActions({
       )}
 
       {/* Delete button */}
-      {showDelete && onDelete && (
+      {showDelete && (
         <Button
           variant="secondary"
           size={buttonSize}
           onClick={handleDelete}
-          disabled={disabled}
+          disabled={disabled || !onDelete}
           icon={<TrashIcon size={iconSize} />}
           aria-label="Delete message"
           className="hover:!bg-red-500/20 hover:!text-red-500"

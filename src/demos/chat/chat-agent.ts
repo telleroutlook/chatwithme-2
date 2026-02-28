@@ -4,7 +4,8 @@ import {
   streamText,
   generateText,
   convertToModelMessages,
-  pruneMessages
+  pruneMessages,
+  type ModelMessage
 } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { MCP_SERVERS, getApiKey, type McpServerConfig } from "../../mcp-config";
@@ -40,6 +41,17 @@ export class ChatAgent extends AIChatAgent<Env> {
     preconfiguredServers: {}
   };
 
+  private get runtimeEnv(): Env {
+    return (this as unknown as { env: Env }).env;
+  }
+
+  private getMessageText(message: { parts: Array<{ type: string; text?: string }> }): string {
+    return message.parts
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text)
+      .join("\n");
+  }
+
   async onStart() {
     // Initialize pre-configured servers
     for (const config of MCP_SERVERS) {
@@ -66,17 +78,19 @@ export class ChatAgent extends AIChatAgent<Env> {
     const systemPrompt = await this.buildSystemPrompt();
 
     // Get and prune messages for context
+    const modelMessages = await convertToModelMessages(this.messages);
     const messages = pruneMessages({
-      messages: await convertToModelMessages(this.messages),
-      keptMessageCount: 50, // Keep last 50 messages
+      messages: modelMessages.slice(-50) // Keep last 50 messages
     });
 
     // Create GLM provider using OpenAI-compatible interface
     const glm = createOpenAICompatible({
       name: "glm",
-      apiKey: this.env.BIGMODEL_API_KEY,
+      apiKey: this.runtimeEnv.BIGMODEL_API_KEY,
       baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
     });
+
+    let streamedText = "";
 
     // Stream response from GLM
     const result = streamText({
@@ -85,16 +99,15 @@ export class ChatAgent extends AIChatAgent<Env> {
       system: systemPrompt,
       messages,
       temperature: 0.7,
-      onChunk: async ({ chunk, finishReason }) => {
-        // Check for tool calls in the response
-        if (finishReason === "stop" && chunk.type === "text-delta") {
-          const text = chunk.textDelta;
-          // Check if this contains a tool call pattern
-          const toolResult = await this.tryExecuteToolCall(text);
-          if (toolResult.executed) {
-            // Tool was executed, the result will be added as context
-            console.log(`Tool ${toolResult.toolName} executed successfully`);
-          }
+      onChunk: async ({ chunk }) => {
+        if (chunk.type === "text-delta") {
+          streamedText += chunk.text;
+        }
+      },
+      onFinish: async ({ text }) => {
+        const toolResult = await this.tryExecuteToolCall(text || streamedText);
+        if (toolResult.executed) {
+          console.log(`Tool ${toolResult.toolName} executed successfully`);
         }
       }
     });
@@ -290,7 +303,7 @@ IMPORTANT:
     // Create GLM provider
     const glm = createOpenAICompatible({
       name: "glm",
-      apiKey: this.env.BIGMODEL_API_KEY,
+      apiKey: this.runtimeEnv.BIGMODEL_API_KEY,
       baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
     });
 
@@ -298,7 +311,7 @@ IMPORTANT:
     const currentMessages = Array.isArray(this.messages) ? this.messages : [];
 
     // Convert messages for the model
-    let existingMessages: Array<{ role: string; content: string }> = [];
+    let existingMessages: ModelMessage[] = [];
     try {
       existingMessages = await convertToModelMessages(currentMessages);
     } catch (e) {
@@ -307,7 +320,10 @@ IMPORTANT:
     }
 
     // Create user message
-    const userMessage = { role: "user" as const, content: message };
+    const userMessage: ModelMessage = {
+      role: "user",
+      content: [{ type: "text", text: message }]
+    };
     const messages = [...existingMessages, userMessage];
 
     // Generate initial response
@@ -329,10 +345,20 @@ IMPORTANT:
       // Tool was executed, now generate a follow-up response with the tool result
       const toolContextMessage = {
         role: "user" as const,
-        content: `Tool "${toolResult.toolName}" returned the following result:\n\n${toolResult.result}\n\nPlease use this information to provide a helpful response to the user's original question.`
+        content: [{
+          type: "text" as const,
+          text: `Tool "${toolResult.toolName}" returned the following result:\n\n${toolResult.result}\n\nPlease use this information to provide a helpful response to the user's original question.`
+        }]
       };
 
-      const followUpMessages = [...messages, { role: "assistant" as const, content: text }, toolContextMessage];
+      const followUpMessages: ModelMessage[] = [
+        ...messages,
+        {
+          role: "assistant",
+          content: [{ type: "text", text }]
+        },
+        toolContextMessage
+      ];
 
       const { text: followUpText } = await generateText({
         model: glm("GLM-4.7"),
@@ -352,16 +378,12 @@ IMPORTANT:
         {
           id: `user-${timestamp}`,
           role: "user",
-          content: message,
-          parts: [{ type: "text", text: message }],
-          createdAt: new Date()
+          parts: [{ type: "text", text: message }]
         },
         {
           id: `assistant-${timestamp}`,
           role: "assistant",
-          content: finalResponse,
-          parts: [{ type: "text", text: finalResponse }],
-          createdAt: new Date()
+          parts: [{ type: "text", text: finalResponse }]
         }
       ]);
     } catch (e) {
@@ -377,7 +399,7 @@ IMPORTANT:
     return messages.map((msg) => ({
       id: msg.id,
       role: msg.role,
-      content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)
+      content: this.getMessageText(msg)
     }));
   }
 
@@ -410,15 +432,18 @@ IMPORTANT:
     }
 
     const config = serverEntry.config;
-    const apiKey = getApiKey(config, this.env);
+    const runtimeEnv = this.runtimeEnv;
+    const apiKey = getApiKey(config, runtimeEnv);
 
     try {
       const options: {
-        callbackHost: string | undefined;
-        transport?: { type: string; headers: Record<string, string> };
-      } = {
-        callbackHost: this.env.HOST
-      };
+        callbackHost?: string;
+        transport?: { type?: "streamable-http"; headers?: HeadersInit };
+      } = {};
+
+      if (runtimeEnv.HOST) {
+        options.callbackHost = runtimeEnv.HOST;
+      }
 
       if (apiKey) {
         options.transport = {
@@ -501,7 +526,7 @@ IMPORTANT:
       return tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
-        serverId: tool.name.includes('.') ? tool.name.split('.')[0] : tool.serverId
+        serverId: tool.name.includes(".") ? tool.name.split(".")[0] : tool.serverId
       }));
     } catch (error) {
       console.error("Failed to get MCP tools:", error);

@@ -1,4 +1,4 @@
-import { useToast } from "../hooks/useToast.tsx";
+import { useToast } from "../hooks/useToast";
 
 export function Toaster() {
   const { toasts, removeToast } = useToast();
@@ -25,6 +25,7 @@ export function Toaster() {
         >
           <span className="flex-1 text-sm">{toast.message}</span>
           <button
+            type="button"
             onClick={() => removeToast(toast.id)}
             className="opacity-70 hover:opacity-100 transition-opacity"
             aria-label="Dismiss notification"
