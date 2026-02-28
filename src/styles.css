@@ -26,3 +26,17 @@ body,
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+/* Blinking cursor animation for streaming */
+@keyframes blink-cursor {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+.animate-blink-cursor {
+  animation: blink-cursor 1s infinite;
+}

@@ -2,6 +2,7 @@ import { McpItemCard } from "./components/McpItemCard";
 import { Toaster } from "./components/Toaster";
 import { ToastProvider, useToast } from "./hooks/useToast.tsx";
 import { useAgent } from "agents/react";
+import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "@cloudflare/agents-ui/hooks";
@@ -24,9 +25,10 @@ import {
   WarningIcon,
   PlusIcon,
   TrashIcon,
-  ChatCircleDotsIcon
+  ChatCircleDotsIcon,
+  StopIcon
 } from "@phosphor-icons/react";
-import type { MCPServersState } from "agents";
+import type { MCPServersState, UIMessage } from "agents";
 import { nanoid } from "nanoid";
 import "./styles.css";
 
@@ -64,7 +66,6 @@ function updateSessionMeta(
 
   if (index >= 0) {
     sessions[index] = { ...sessions[index], ...updates };
-    // Move to top (most recent)
     const session = sessions.splice(index, 1)[0];
     sessions.unshift(session);
   } else {
@@ -84,6 +85,21 @@ function updateSessionMeta(
 function deleteSessionMeta(sessionId: string): void {
   const sessions = loadSessions().filter((s) => s.id !== sessionId);
   saveSessions(sessions);
+}
+
+// ============ Helper to extract text from UIMessage ============
+
+function getMessageText(message: UIMessage): string {
+  if (typeof message.content === "string") {
+    return message.content;
+  }
+  if (Array.isArray(message.parts)) {
+    return message.parts
+      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map((part) => part.text)
+      .join("");
+  }
+  return "";
 }
 
 // ============ Main App ============
@@ -130,13 +146,9 @@ function App() {
   >({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Chat state
-  const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<
-    Array<{ role: "user" | "assistant"; content: string }>
-  >([]);
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  // Chat input
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load sessions on mount
   useEffect(() => {
@@ -148,7 +160,7 @@ function App() {
     localStorage.setItem("currentSessionId", currentSessionId);
   }, [currentSessionId]);
 
-  // Single unified agent for both Chat and MCP
+  // Agent connection
   const agent = useAgent({
     agent: "chat-agent",
     name: currentSessionId,
@@ -159,21 +171,26 @@ function App() {
     onOpen: useCallback(() => {
       setConnectionStatus("connected");
       loadPreconfiguredServers();
-      loadChatHistory();
     }, [])
   });
 
-  const loadChatHistory = useCallback(async () => {
-    try {
-      const history = await agent.call("getHistory", []);
-      const messages = (history as Array<{ role: string; content: string }>)
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-      setChatMessages(messages);
-    } catch (error) {
-      console.error("Failed to load chat history:", error);
+  // useAgentChat hook for AIChatAgent integration
+  const {
+    messages,
+    sendMessage,
+    clearHistory,
+    status,
+    stop
+  } = useAgentChat({
+    agent,
+    onToolCall: async ({ toolCall, addToolOutput }) => {
+      // Handle client-side tools if needed
+      console.log("Tool call:", toolCall);
     }
-  }, [agent]);
+  });
+
+  const isStreaming = status === "streaming";
+  const isConnected = connectionStatus === "connected";
 
   const loadPreconfiguredServers = useCallback(async () => {
     try {
@@ -186,17 +203,40 @@ function App() {
     }
   }, [agent]);
 
+  // Auto-scroll on new messages
   useEffect(() => {
-    if (connectionStatus === "connected") {
-      loadPreconfiguredServers();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Update session meta when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      const text = getMessageText(lastMsg);
+
+      // Only update on assistant messages
+      if (lastMsg.role === "assistant" && text) {
+        const firstUserMsg = messages.find((m) => m.role === "user");
+        const title = firstUserMsg
+          ? getMessageText(firstUserMsg).slice(0, 30) +
+            (getMessageText(firstUserMsg).length > 30 ? "..." : "")
+          : "New Chat";
+
+        updateSessionMeta(currentSessionId, {
+          title,
+          lastMessage: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
+          timestamp: new Date().toISOString(),
+          messageCount: messages.length
+        });
+        setSessions(loadSessions());
+      }
     }
-  }, [connectionStatus, loadPreconfiguredServers]);
+  }, [messages, currentSessionId]);
 
   // Create new session
   const handleNewSession = useCallback(() => {
     const newId = nanoid(8);
     setCurrentSessionId(newId);
-    setChatMessages([]);
     setConnectionStatus("connecting");
   }, []);
 
@@ -204,22 +244,24 @@ function App() {
   const handleSelectSession = useCallback((sessionId: string) => {
     if (sessionId === currentSessionId) return;
     setCurrentSessionId(sessionId);
-    setChatMessages([]);
     setConnectionStatus("connecting");
   }, [currentSessionId]);
 
   // Delete session
-  const handleDeleteSession = useCallback((sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    deleteSessionMeta(sessionId);
-    setSessions(loadSessions());
+  const handleDeleteSession = useCallback(
+    (sessionId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      deleteSessionMeta(sessionId);
+      setSessions(loadSessions());
 
-    if (sessionId === currentSessionId) {
-      handleNewSession();
-    }
+      if (sessionId === currentSessionId) {
+        handleNewSession();
+      }
 
-    addToast("Session deleted", "success");
-  }, [currentSessionId, handleNewSession, addToast]);
+      addToast("Session deleted", "success");
+    },
+    [currentSessionId, handleNewSession, addToast]
+  );
 
   const handleToggleServer = useCallback(
     async (name: string) => {
@@ -250,61 +292,12 @@ function App() {
     [agent, addToast, loadPreconfiguredServers]
   );
 
-  const handleChatSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!chatInput.trim() || isChatLoading) return;
-
-      const userMessage = chatInput.trim();
-      setChatInput("");
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "user", content: userMessage }
-      ]);
-      setIsChatLoading(true);
-
-      try {
-        const response = await agent.call("chat", [userMessage]);
-        const assistantMessage = response as string;
-
-        setChatMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: assistantMessage }
-        ]);
-
-        // Update session metadata
-        const newCount = chatMessages.length + 2;
-        const title = chatMessages.length === 0
-          ? userMessage.slice(0, 30) + (userMessage.length > 30 ? "..." : "")
-          : undefined;
-
-        updateSessionMeta(currentSessionId, {
-          title,
-          lastMessage: assistantMessage.slice(0, 50) + (assistantMessage.length > 50 ? "..." : ""),
-          timestamp: new Date().toISOString(),
-          messageCount: newCount
-        });
-        setSessions(loadSessions());
-      } catch (error) {
-        console.error("Chat error:", error);
-        addToast(
-          `Chat error: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
-          "error"
-        );
-      } finally {
-        setIsChatLoading(false);
-        setTimeout(() => {
-          chatContainerRef.current?.scrollTo({
-            top: chatContainerRef.current.scrollHeight,
-            behavior: "smooth"
-          });
-        }, 100);
-      }
-    },
-    [chatInput, isChatLoading, agent, addToast, chatMessages.length, currentSessionId]
-  );
+  const handleSend = useCallback(() => {
+    const text = input.trim();
+    if (!text || isStreaming) return;
+    setInput("");
+    sendMessage({ role: "user", parts: [{ type: "text", text }] });
+  }, [input, isStreaming, sendMessage]);
 
   const serverEntries = useMemo(
     () => Object.entries(mcpState.servers),
@@ -481,11 +474,8 @@ function App() {
             /* Chat Tab */
             <div className="flex flex-col h-[calc(100vh-280px)]">
               {/* Chat Messages */}
-              <div
-                ref={chatContainerRef}
-                className="flex-1 overflow-auto space-y-4 mb-4"
-              >
-                {chatMessages.length === 0 ? (
+              <div className="flex-1 overflow-auto space-y-4 mb-4">
+                {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <Empty
                       icon={<ChatCircleIcon size={32} />}
@@ -498,67 +488,82 @@ function App() {
                     />
                   </div>
                 ) : (
-                  chatMessages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex ${
-                        msg.role === "user" ? "justify-end" : "justify-start"
-                      }`}
-                    >
+                  messages.map((msg) => {
+                    const isUser = msg.role === "user";
+                    const text = getMessageText(msg);
+                    return (
                       <div
-                        className={`max-w-[80%] px-4 py-2 rounded-xl ${
-                          msg.role === "user"
-                            ? "bg-kumo-accent text-white"
-                            : "bg-kumo-surface ring ring-kumo-line text-kumo-default"
+                        key={msg.id}
+                        className={`flex ${
+                          isUser ? "justify-end" : "justify-start"
                         }`}
                       >
-                        <Text size="sm" className="whitespace-pre-wrap">
-                          {msg.content}
-                        </Text>
+                        <div
+                          className={`max-w-[80%] px-4 py-2 rounded-xl ${
+                            isUser
+                              ? "bg-kumo-accent text-white"
+                              : "bg-kumo-surface ring ring-kumo-line text-kumo-default"
+                          }`}
+                        >
+                          <Text size="sm" className="whitespace-pre-wrap">
+                            {text}
+                            {!isUser && isStreaming && msg === messages[messages.length - 1] && (
+                              <span className="inline-block w-0.5 h-[1em] bg-kumo-brand ml-0.5 animate-blink-cursor" />
+                            )}
+                          </Text>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
-                {isChatLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-kumo-surface ring ring-kumo-line px-4 py-2 rounded-xl">
-                      <SpinnerIcon
-                        size={16}
-                        className="animate-spin text-kumo-subtle"
-                      />
-                    </div>
-                  </div>
-                )}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Chat Input */}
-              <form onSubmit={handleChatSubmit} className="flex gap-2">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+                className="flex gap-2"
+              >
                 <input
                   type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
                   placeholder={
                     activeToolsCount > 0
                       ? "Ask anything... (AI can search web & read pages)"
                       : "Type a message..."
                   }
-                  disabled={isChatLoading}
+                  disabled={!isConnected || isStreaming}
                   className="flex-1 px-4 py-2 text-sm rounded-xl border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:opacity-50"
                 />
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={!chatInput.trim() || isChatLoading}
-                  icon={
-                    isChatLoading ? (
-                      <SpinnerIcon size={16} className="animate-spin" />
-                    ) : (
-                      <PaperPlaneTiltIcon size={16} />
-                    )
-                  }
-                >
-                  Send
-                </Button>
+                {isStreaming ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={stop}
+                    icon={<StopIcon size={16} weight="fill" />}
+                  >
+                    Stop
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!input.trim() || !isConnected}
+                    icon={<PaperPlaneTiltIcon size={16} />}
+                  >
+                    Send
+                  </Button>
+                )}
               </form>
             </div>
           ) : (
