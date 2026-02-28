@@ -20,6 +20,14 @@ export interface McpServerState {
   }>;
 }
 
+interface ToolExecutionResult {
+  detected: boolean;
+  executed: boolean;
+  toolName?: string;
+  result?: string;
+  error?: string;
+}
+
 /**
  * Unified Chat + MCP Agent
  *
@@ -40,6 +48,7 @@ export class ChatAgent extends AIChatAgent<Env> {
   private mcpServerState: McpServerState = {
     preconfiguredServers: {}
   };
+  private mcpInitPromise: Promise<void> | null = null;
 
   private get runtimeEnv(): Env {
     return (this as unknown as { env: Env }).env;
@@ -52,6 +61,61 @@ export class ChatAgent extends AIChatAgent<Env> {
       .join("\n");
   }
 
+  private extractToolCallJson(message: string): string | null {
+    const jsonMatch = message.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch?.[1]) {
+      return jsonMatch[1].trim();
+    }
+
+    const objectMatch = message.match(/\{[\s\S]*"tool_call"[\s\S]*\}/);
+    return objectMatch?.[0]?.trim() ?? null;
+  }
+
+  private normalizeToolArguments(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Record<string, unknown> {
+    const normalized = { ...args };
+
+    if (toolName === "webSearchPrime") {
+      const queryValue =
+        typeof normalized.search_query === "string"
+          ? normalized.search_query
+          : typeof normalized.query === "string"
+            ? normalized.query
+            : "";
+      if (queryValue) {
+        normalized.search_query = queryValue;
+      }
+      delete normalized.query;
+    }
+
+    if (toolName === "webReader") {
+      const urlValue =
+        typeof normalized.url === "string"
+          ? normalized.url
+          : typeof normalized.link === "string"
+            ? normalized.link
+            : "";
+      if (urlValue) {
+        normalized.url = urlValue;
+      }
+      delete normalized.link;
+    }
+
+    return normalized;
+  }
+
+  private async reconnectActiveServersIfNeeded(): Promise<void> {
+    const reconnectTargets = Object.values(this.mcpServerState.preconfiguredServers)
+      .filter((entry) => entry.config.active && !entry.connected)
+      .map((entry) => entry.config.name);
+
+    for (const serverName of reconnectTargets) {
+      await this.activateServer(serverName);
+    }
+  }
+
   async onStart() {
     // Initialize pre-configured servers
     for (const config of MCP_SERVERS) {
@@ -60,12 +124,26 @@ export class ChatAgent extends AIChatAgent<Env> {
         connected: false
       };
     }
+  }
 
-    // Auto-connect to active servers
-    for (const config of MCP_SERVERS) {
-      if (config.active) {
-        await this.activateServer(config.name);
+  private async ensureMcpConnections(): Promise<void> {
+    if (this.mcpInitPromise) {
+      await this.mcpInitPromise;
+      return;
+    }
+
+    this.mcpInitPromise = (async () => {
+      for (const config of MCP_SERVERS) {
+        if (config.active) {
+          await this.activateServer(config.name);
+        }
       }
+    })();
+
+    try {
+      await this.mcpInitPromise;
+    } finally {
+      this.mcpInitPromise = null;
     }
   }
 
@@ -121,6 +199,7 @@ export class ChatAgent extends AIChatAgent<Env> {
   private async buildSystemPrompt(): Promise<string> {
     let toolList = "";
     try {
+      await this.ensureMcpConnections();
       if (this.mcp) {
         const tools = this.mcp.listTools();
         toolList = tools
@@ -236,26 +315,26 @@ IMPORTANT:
    */
   private async tryExecuteToolCall(
     message: string
-  ): Promise<{ executed: boolean; toolName?: string; result?: string; error?: string }> {
+  ): Promise<ToolExecutionResult> {
     try {
-      // Extract JSON from code block
-      const jsonMatch = message.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (!jsonMatch) {
-        return { executed: false, error: "No JSON code block found" };
+      await this.ensureMcpConnections();
+      const jsonStr = this.extractToolCallJson(message);
+      if (!jsonStr) {
+        return { detected: false, executed: false };
       }
 
-      const jsonStr = jsonMatch[1].trim();
       const parsed = JSON.parse(jsonStr);
 
       if (!parsed.tool_call || !parsed.tool_call.name) {
-        return { executed: false, error: "No tool_call in JSON" };
+        return { detected: false, executed: false };
       }
 
       const { name, arguments: args } = parsed.tool_call;
+      const normalizedArgs = this.normalizeToolArguments(name, args || {});
 
       // Check MCP availability using listTools() method
       if (!this.mcp) {
-        return { executed: false, error: "MCP not available" };
+        return { detected: true, executed: false, toolName: name, error: "MCP not available" };
       }
 
       // Get available tools using listTools()
@@ -263,20 +342,31 @@ IMPORTANT:
       console.log("Available MCP tools:", tools?.map(t => t.name));
 
       // Find the tool - tools are namespaced as "serverId.toolName"
-      const toolInfo = tools?.find((t) => t.name === name || t.name.endsWith(`.${name}`));
+      let toolInfo = tools?.find((t) => t.name === name || t.name.endsWith(`.${name}`));
 
       if (!toolInfo) {
-        return { executed: false, error: `Tool "${name}" not found in available tools` };
+        await this.reconnectActiveServersIfNeeded();
+        const refreshedTools = this.mcp.listTools();
+        toolInfo = refreshedTools?.find((t) => t.name === name || t.name.endsWith(`.${name}`));
+      }
+
+      if (!toolInfo) {
+        return {
+          detected: true,
+          executed: false,
+          toolName: name,
+          error: `Tool "${name}" not found in available tools`
+        };
       }
 
       // Extract serverId from the namespaced tool name
       const serverId = toolInfo.name.includes('.') ? toolInfo.name.split('.')[0] : toolInfo.serverId;
 
-      console.log(`Executing tool: ${name} on server: ${serverId} with args:`, args);
+      console.log(`Executing tool: ${name} on server: ${serverId} with args:`, normalizedArgs);
       const toolResult = await this.mcp.callTool({
         name,
         serverId,
-        arguments: args || {}
+        arguments: normalizedArgs
       });
 
       const resultText =
@@ -285,11 +375,11 @@ IMPORTANT:
           : JSON.stringify(toolResult, null, 2);
 
       console.log(`Tool ${name} result:`, resultText.substring(0, 200));
-      return { executed: true, toolName: name, result: resultText };
+      return { detected: true, executed: true, toolName: name, result: resultText };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("Tool call error:", error);
-      return { executed: false, error: errorMsg };
+      return { detected: true, executed: false, error: errorMsg };
     }
   }
 
@@ -362,12 +452,87 @@ IMPORTANT:
 
       const { text: followUpText } = await generateText({
         model: glm("GLM-4.7"),
-        system: systemPrompt,
+        system:
+          `${systemPrompt}\n\n` +
+          "A tool result has already been provided. Do not output tool_call JSON again. " +
+          "Respond directly to the user with a final answer.",
         messages: followUpMessages,
         temperature: 0.7
       });
 
       finalResponse = followUpText;
+    } else if (toolResult.detected && !toolResult.executed) {
+      // Avoid returning raw tool_call JSON to user when tool execution fails.
+      const fallbackContextMessage: ModelMessage = {
+        role: "user",
+        content: [{
+          type: "text",
+          text:
+            `Tool call failed${toolResult.toolName ? ` (${toolResult.toolName})` : ""}: ${toolResult.error || "unknown error"}.\n` +
+            "Please answer the user's question directly without outputting tool_call JSON."
+        }]
+      };
+
+      const fallbackMessages: ModelMessage[] = [
+        ...messages,
+        {
+          role: "assistant",
+          content: [{ type: "text", text }]
+        },
+        fallbackContextMessage
+      ];
+
+      const { text: fallbackText } = await generateText({
+        model: glm("GLM-4.7"),
+        system:
+          `${systemPrompt}\n\n` +
+          "Do not output tool_call JSON. Answer directly based on your own knowledge and be explicit about uncertainty.",
+        messages: fallbackMessages,
+        temperature: 0.7
+      });
+
+      finalResponse = fallbackText;
+    }
+
+    // Final guardrail: never return raw tool_call JSON to API clients.
+    if (this.extractToolCallJson(finalResponse)) {
+      if (toolResult.executed && toolResult.result) {
+        const { text: forcedFinalText } = await generateText({
+          model: glm("GLM-4.7"),
+          system:
+            "You are given user question and tool result. " +
+            "Return a direct final answer in Markdown. Never output JSON tool calls.",
+          messages: [
+            {
+              role: "user",
+              content: [{
+                type: "text",
+                text:
+                  `User question:\n${message}\n\n` +
+                  `Tool result:\n${toolResult.result}\n\n` +
+                  "Please provide the final answer directly."
+              }]
+            }
+          ],
+          temperature: 0.4
+        });
+        finalResponse = forcedFinalText;
+      } else {
+        const { text: forcedFallbackText } = await generateText({
+          model: glm("GLM-4.7"),
+          system:
+            "Answer the user directly without using tools. " +
+            "Never output JSON tool calls.",
+          messages: [
+            {
+              role: "user",
+              content: [{ type: "text", text: message }]
+            }
+          ],
+          temperature: 0.6
+        });
+        finalResponse = forcedFallbackText;
+      }
     }
 
     // Persist messages to storage using proper ChatMessage format
@@ -554,6 +719,7 @@ IMPORTANT:
   @callable({ description: "Get available MCP tools" })
   async getAvailableTools() {
     try {
+      await this.ensureMcpConnections();
       if (!this.mcp) {
         return [];
       }

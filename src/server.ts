@@ -12,6 +12,28 @@ const app = new Hono<{ Bindings: Env }>();
 // Enable CORS for all routes
 app.use("*", cors());
 
+function resolveSessionIdFromBody(body: unknown): string {
+  if (!body || typeof body !== "object") {
+    return "default";
+  }
+  const payload = body as { sessionId?: unknown; conversationId?: unknown };
+  if (typeof payload.sessionId === "string" && payload.sessionId.trim()) {
+    return payload.sessionId.trim();
+  }
+  if (typeof payload.conversationId === "string" && payload.conversationId.trim()) {
+    return payload.conversationId.trim();
+  }
+  return "default";
+}
+
+function resolveSessionIdFromQuery(c: { req: { query: (key: string) => string | undefined } }): string {
+  const sessionId = c.req.query("sessionId");
+  const conversationId = c.req.query("conversationId");
+  if (sessionId?.trim()) return sessionId.trim();
+  if (conversationId?.trim()) return conversationId.trim();
+  return "default";
+}
+
 // ============ REST API Routes ============
 
 /**
@@ -22,14 +44,15 @@ app.use("*", cors());
 app.post("/api/chat", async (c) => {
   try {
     const body = await c.req.json();
-    const { message, sessionId = "default" } = body;
+    const resolvedSessionId = resolveSessionIdFromBody(body);
+    const { message } = body as { message?: string };
 
     if (!message) {
       return c.json({ success: false, error: "Message is required" }, 400);
     }
 
     // Get or create agent instance
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const agent = await getAgentByName(c.env.ChatAgent, resolvedSessionId);
 
     // Call the chat method
     const response = await agent.chat(message);
@@ -37,7 +60,7 @@ app.post("/api/chat", async (c) => {
     return c.json({
       success: true,
       response,
-      sessionId
+      sessionId: resolvedSessionId
     });
   } catch (error) {
     console.error("Chat API error:", error);
@@ -55,7 +78,7 @@ app.post("/api/chat", async (c) => {
  */
 app.get("/api/chat/history", async (c) => {
   try {
-    const sessionId = c.req.query("sessionId") || "default";
+    const sessionId = resolveSessionIdFromQuery(c);
 
     const agent = await getAgentByName(c.env.ChatAgent, sessionId);
     const history = await agent.getHistory();
@@ -81,7 +104,7 @@ app.get("/api/chat/history", async (c) => {
  */
 app.delete("/api/chat/history", async (c) => {
   try {
-    const sessionId = c.req.query("sessionId") || "default";
+    const sessionId = resolveSessionIdFromQuery(c);
 
     const agent = await getAgentByName(c.env.ChatAgent, sessionId);
     await agent.clearChat();
@@ -106,7 +129,7 @@ app.delete("/api/chat/history", async (c) => {
  */
 app.get("/api/mcp/servers", async (c) => {
   try {
-    const sessionId = c.req.query("sessionId") || "default";
+    const sessionId = resolveSessionIdFromQuery(c);
 
     const agent = await getAgentByName(c.env.ChatAgent, sessionId);
     const servers = await agent.getPreconfiguredServers();
@@ -133,7 +156,8 @@ app.get("/api/mcp/servers", async (c) => {
 app.post("/api/mcp/toggle", async (c) => {
   try {
     const body = await c.req.json();
-    const { name, sessionId = "default" } = body;
+    const { name } = body as { name?: string };
+    const sessionId = resolveSessionIdFromBody(body);
 
     if (!name) {
       return c.json({ success: false, error: "Server name is required" }, 400);
@@ -165,7 +189,8 @@ app.post("/api/mcp/toggle", async (c) => {
 app.post("/api/mcp/activate", async (c) => {
   try {
     const body = await c.req.json();
-    const { name, sessionId = "default" } = body;
+    const { name } = body as { name?: string };
+    const sessionId = resolveSessionIdFromBody(body);
 
     if (!name) {
       return c.json({ success: false, error: "Server name is required" }, 400);
@@ -195,7 +220,8 @@ app.post("/api/mcp/activate", async (c) => {
 app.post("/api/mcp/deactivate", async (c) => {
   try {
     const body = await c.req.json();
-    const { name, sessionId = "default" } = body;
+    const { name } = body as { name?: string };
+    const sessionId = resolveSessionIdFromBody(body);
 
     if (!name) {
       return c.json({ success: false, error: "Server name is required" }, 400);
@@ -224,7 +250,7 @@ app.post("/api/mcp/deactivate", async (c) => {
  */
 app.get("/api/tools", async (c) => {
   try {
-    const sessionId = c.req.query("sessionId") || "default";
+    const sessionId = resolveSessionIdFromQuery(c);
 
     const agent = await getAgentByName(c.env.ChatAgent, sessionId);
     const tools = await agent.getAvailableTools();
