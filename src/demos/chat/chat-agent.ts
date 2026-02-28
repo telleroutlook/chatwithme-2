@@ -5,6 +5,8 @@ import {
   generateText,
   convertToModelMessages,
   pruneMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   type ModelMessage
 } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
@@ -152,45 +154,42 @@ export class ChatAgent extends AIChatAgent<Env> {
    * AIChatAgent automatically handles message persistence
    */
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
-    // Build system prompt with available MCP tools
-    const systemPrompt = await this.buildSystemPrompt();
+    const latestUserMessage = [...this.messages]
+      .reverse()
+      .find((msg) => msg.role === "user");
 
-    // Get and prune messages for context
-    const modelMessages = await convertToModelMessages(this.messages);
-    const messages = pruneMessages({
-      messages: modelMessages.slice(-50) // Keep last 50 messages
-    });
+    const latestUserText = latestUserMessage
+      ? this.getMessageText(latestUserMessage)
+      : "";
 
-    // Create GLM provider using OpenAI-compatible interface
-    const glm = createOpenAICompatible({
-      name: "glm",
-      apiKey: this.runtimeEnv.BIGMODEL_API_KEY,
-      baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
-    });
-
-    let streamedText = "";
-
-    // Stream response from GLM
-    const result = streamText({
-      abortSignal: options?.abortSignal,
-      model: glm("GLM-4.7"),
-      system: systemPrompt,
-      messages,
-      temperature: 0.7,
-      onChunk: async ({ chunk }) => {
-        if (chunk.type === "text-delta") {
-          streamedText += chunk.text;
+    if (!latestUserText.trim()) {
+      const emptyId = crypto.randomUUID();
+      const emptyStream = createUIMessageStream({
+        execute: ({ writer }) => {
+          writer.write({ type: "text-start", id: emptyId });
+          writer.write({ type: "text-delta", id: emptyId, delta: "请先输入问题。" });
+          writer.write({ type: "text-end", id: emptyId });
         }
-      },
-      onFinish: async ({ text }) => {
-        const toolResult = await this.tryExecuteToolCall(text || streamedText);
-        if (toolResult.executed) {
-          console.log(`Tool ${toolResult.toolName} executed successfully`);
-        }
+      });
+      return createUIMessageStreamResponse({ stream: emptyStream });
+    }
+
+    const finalResponse = await this.generateAssistantResponse(
+      latestUserText,
+      true,
+      options?.abortSignal
+    );
+    const textId = crypto.randomUUID();
+
+    const stream = createUIMessageStream({
+      execute: ({ writer }) => {
+        writer.write({ type: "text-start", id: textId });
+        writer.write({ type: "text-delta", id: textId, delta: finalResponse });
+        writer.write({ type: "text-end", id: textId });
       }
     });
 
-    return result.toUIMessageStreamResponse();
+    return createUIMessageStreamResponse({ stream });
   }
 
   /**
@@ -385,8 +384,11 @@ IMPORTANT:
 
   // ============ Chat Methods (callable for REST API) ============
 
-  @callable({ description: "Send a chat message and get AI response with tool execution" })
-  async chat(message: string): Promise<string> {
+  private async generateAssistantResponse(
+    message: string,
+    userAlreadyInHistory: boolean,
+    abortSignal?: AbortSignal
+  ): Promise<string> {
     // Build system prompt
     const systemPrompt = await this.buildSystemPrompt();
 
@@ -414,14 +416,17 @@ IMPORTANT:
       role: "user",
       content: [{ type: "text", text: message }]
     };
-    const messages = [...existingMessages, userMessage];
+    const messages = userAlreadyInHistory
+      ? existingMessages
+      : [...existingMessages, userMessage];
 
     // Generate initial response
     const { text } = await generateText({
       model: glm("GLM-4.7"),
       system: systemPrompt,
       messages,
-      temperature: 0.7
+      temperature: 0.7,
+      abortSignal
     });
 
     let finalResponse = text;
@@ -457,7 +462,8 @@ IMPORTANT:
           "A tool result has already been provided. Do not output tool_call JSON again. " +
           "Respond directly to the user with a final answer.",
         messages: followUpMessages,
-        temperature: 0.7
+        temperature: 0.7,
+        abortSignal
       });
 
       finalResponse = followUpText;
@@ -488,7 +494,8 @@ IMPORTANT:
           `${systemPrompt}\n\n` +
           "Do not output tool_call JSON. Answer directly based on your own knowledge and be explicit about uncertainty.",
         messages: fallbackMessages,
-        temperature: 0.7
+        temperature: 0.7,
+        abortSignal
       });
 
       finalResponse = fallbackText;
@@ -514,7 +521,8 @@ IMPORTANT:
               }]
             }
           ],
-          temperature: 0.4
+          temperature: 0.4,
+          abortSignal
         });
         finalResponse = forcedFinalText;
       } else {
@@ -529,14 +537,23 @@ IMPORTANT:
               content: [{ type: "text", text: message }]
             }
           ],
-          temperature: 0.6
+          temperature: 0.6,
+          abortSignal
         });
         finalResponse = forcedFallbackText;
       }
     }
 
+    return finalResponse;
+  }
+
+  @callable({ description: "Send a chat message and get AI response with tool execution" })
+  async chat(message: string): Promise<string> {
+    const finalResponse = await this.generateAssistantResponse(message, false);
+
     // Persist messages to storage using proper ChatMessage format
     const timestamp = Date.now();
+    const currentMessages = Array.isArray(this.messages) ? this.messages : [];
     try {
       await this.persistMessages([
         ...currentMessages,
