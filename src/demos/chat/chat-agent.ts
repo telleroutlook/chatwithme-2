@@ -417,6 +417,41 @@ IMPORTANT:
     }
   }
 
+  @callable({ description: "Delete a single chat message by id" })
+  async deleteMessage(
+    messageId: string
+  ): Promise<{ success: boolean; deleted: boolean; error?: string }> {
+    if (!messageId) {
+      return { success: false, deleted: false, error: "Message ID is required" };
+    }
+
+    try {
+      const existing =
+        this.sql<{ cnt: number }>`
+          select count(*) as cnt
+          from cf_ai_chat_agent_messages
+          where id = ${messageId}
+        ` ?? [];
+
+      const deleted = (existing[0]?.cnt ?? 0) > 0;
+
+      this.sql`
+        delete from cf_ai_chat_agent_messages
+        where id = ${messageId}
+      `;
+
+      this.messages = (Array.isArray(this.messages) ? this.messages : []).filter(
+        (message) => message.id !== messageId
+      );
+
+      return { success: true, deleted };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : "Unknown error";
+      console.error("Error deleting message:", e);
+      return { success: false, deleted: false, error };
+    }
+  }
+
   // ============ MCP Server Management (callable methods) ============
 
   @callable({ description: "Get list of pre-configured MCP servers" })

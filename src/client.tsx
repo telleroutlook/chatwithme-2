@@ -145,6 +145,12 @@ interface ToggleServerResult {
   error?: string;
 }
 
+interface DeleteMessageResult {
+  success: boolean;
+  deleted: boolean;
+  error?: string;
+}
+
 function isToggleServerResult(value: unknown): value is ToggleServerResult {
   if (!value || typeof value !== "object") {
     return false;
@@ -157,6 +163,22 @@ function isToggleServerResult(value: unknown): value is ToggleServerResult {
   return (
     typeof candidate.success === "boolean" &&
     (candidate.active === undefined || typeof candidate.active === "boolean") &&
+    (candidate.error === undefined || typeof candidate.error === "string")
+  );
+}
+
+function isDeleteMessageResult(value: unknown): value is DeleteMessageResult {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as {
+    success?: unknown;
+    deleted?: unknown;
+    error?: unknown;
+  };
+  return (
+    typeof candidate.success === "boolean" &&
+    typeof candidate.deleted === "boolean" &&
     (candidate.error === undefined || typeof candidate.error === "string")
   );
 }
@@ -203,10 +225,6 @@ function App() {
   // Chat input
   const [input, setInput] = useState("");
   const vListRef = useRef<VListHandle>(null);
-  const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<UIMessage["id"]>>(
-    () => new Set()
-  );
-
   // Load sessions on mount
   useEffect(() => {
     setSessions(loadSessions());
@@ -215,10 +233,6 @@ function App() {
   // Save current session ID when changed
   useEffect(() => {
     localStorage.setItem("currentSessionId", currentSessionId);
-  }, [currentSessionId]);
-
-  useEffect(() => {
-    setHiddenMessageIds(new Set());
   }, [currentSessionId]);
 
   // Agent connection
@@ -240,7 +254,8 @@ function App() {
     messages,
     sendMessage,
     status,
-    stop
+    stop,
+    setMessages
   } = useAgentChat({
     agent,
     onToolCall: async ({ toolCall }) => {
@@ -248,11 +263,6 @@ function App() {
       console.log("Tool call:", toolCall);
     }
   });
-
-  const visibleMessages = useMemo(
-    () => messages.filter((msg) => !hiddenMessageIds.has(msg.id)),
-    [messages, hiddenMessageIds]
-  );
 
   const isStreaming = status === "streaming";
   const isConnected = connectionStatus === "connected";
@@ -270,11 +280,11 @@ function App() {
 
   // Auto-scroll on new messages (using VList scrollToIndex)
   useEffect(() => {
-    if (visibleMessages.length > 0 && vListRef.current) {
+    if (messages.length > 0 && vListRef.current) {
       // Scroll to the last message
-      vListRef.current.scrollToIndex(visibleMessages.length - 1, { align: "end" });
+      vListRef.current.scrollToIndex(messages.length - 1, { align: "end" });
     }
-  }, [visibleMessages.length]);
+  }, [messages.length]);
 
   // Update session meta when messages change
   useEffect(() => {
@@ -331,15 +341,45 @@ function App() {
   );
 
   const handleDeleteMessage = useCallback(
-    (messageId: UIMessage["id"]) => {
-      setHiddenMessageIds((prev) => {
-        const next = new Set(prev);
-        next.add(messageId);
-        return next;
-      });
-      addToast("Message removed from view", "info");
+    async (messageId: UIMessage["id"]) => {
+      try {
+        const result = await agent.call("deleteMessage", [messageId]);
+        if (!isDeleteMessageResult(result)) {
+          throw new Error("Invalid deleteMessage response");
+        }
+
+        if (!result.success) {
+          addToast(
+            `Failed to delete message: ${result.error || "Unknown error"}`,
+            "error"
+          );
+          return;
+        }
+
+        const nextMessages = messages.filter((msg) => msg.id !== messageId);
+        setMessages(nextMessages);
+
+        const lastMsg = nextMessages[nextMessages.length - 1];
+        const lastText = lastMsg ? getMessageText(lastMsg) : "";
+        updateSessionMeta(currentSessionId, {
+          lastMessage: lastText.slice(0, 50) + (lastText.length > 50 ? "..." : ""),
+          timestamp: new Date().toISOString(),
+          messageCount: nextMessages.length
+        });
+        setSessions(loadSessions());
+
+        addToast(result.deleted ? "Message deleted" : "Message already deleted", "success");
+      } catch (error) {
+        console.error("Failed to delete message:", error);
+        addToast(
+          `Failed to delete message: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          "error"
+        );
+      }
     },
-    [addToast]
+    [agent, addToast, currentSessionId, messages, setMessages]
   );
 
   const handleToggleServer = useCallback(
@@ -597,7 +637,7 @@ function App() {
             <div className="flex flex-col h-[calc(100vh-280px)]">
               {/* Chat Messages with Virtual Scrolling */}
               <div className="flex-1 overflow-hidden mb-4">
-                {visibleMessages.length === 0 ? (
+                {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <Empty
                       icon={<ChatCircleIcon size={32} />}
@@ -615,7 +655,7 @@ function App() {
                     style={{ height: "100%" }}
                     className="space-y-4 px-1"
                   >
-                    {visibleMessages.map((msg) => {
+                    {messages.map((msg) => {
                       const isUser = msg.role === "user";
                       const text = getMessageText(msg);
                       // Extract tool calls from message parts
@@ -661,7 +701,7 @@ function App() {
                             ) : (
                               <MarkdownRenderer
                                 content={text}
-                                isStreaming={isStreaming && msg === visibleMessages[visibleMessages.length - 1]}
+                                isStreaming={isStreaming && msg === messages[messages.length - 1]}
                               />
                             )}
                           </div>
