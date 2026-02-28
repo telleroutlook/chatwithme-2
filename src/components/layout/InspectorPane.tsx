@@ -21,24 +21,39 @@ export function InspectorPane({ toolsCount, sourcesCount, liveProgress, t }: Ins
     <aside className="hidden w-80 shrink-0 border-l border-kumo-line/80 bg-kumo-base/65 p-3 xl:block">
       <div className="space-y-3">
         <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
-          <Text size="sm" bold>{t("inspector_overview")}</Text>
+          <Text size="sm" bold>
+            {t("inspector_overview")}
+          </Text>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant="primary">{t("tabs_tools_count", { count: String(toolsCount) })}</Badge>
-            <Badge variant="secondary">{t("inspector_sources", { count: String(sourcesCount) })}</Badge>
+            <Badge variant="secondary">
+              {t("inspector_sources", { count: String(sourcesCount) })}
+            </Badge>
           </div>
         </Surface>
 
         <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
-          <Text size="sm" bold>{t("inspector_live")}</Text>
+          <Text size="sm" bold>
+            {t("inspector_live")}
+          </Text>
           <div className="mt-2 space-y-1.5">
             {latest.length === 0 ? (
-              <Text size="xs" variant="secondary">{t("inspector_live_empty")}</Text>
+              <Text size="xs" variant="secondary">
+                {t("inspector_live_empty")}
+              </Text>
             ) : (
               latest.map((entry) => (
-                <div key={entry.id} className="rounded-lg border border-kumo-line bg-kumo-base/70 px-2 py-1.5">
-                  <Text size="xs" bold>{entry.phase}</Text>
+                <div
+                  key={entry.id}
+                  className="rounded-lg border border-kumo-line bg-kumo-base/70 px-2 py-1.5"
+                >
+                  <Text size="xs" bold>
+                    {entry.phase}
+                  </Text>
                   <span className="block">
-                    <Text size="xs" variant="secondary">{entry.message}</Text>
+                    <Text size="xs" variant="secondary">
+                      {entry.message}
+                    </Text>
                   </span>
                 </div>
               ))

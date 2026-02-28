@@ -65,12 +65,14 @@ function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
 
 export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
-    return content
-      // Strip invisible characters that can break markdown code fence parsing.
-      .replace(/[\u200B-\u200D\uFEFF]/g, "")
-      .replace(/\r\n?/g, "\n")
-      // Some model outputs place code fences after punctuation on the same line.
-      .replace(/([^\n])(```[a-zA-Z]+)/g, "$1\n$2");
+    return (
+      content
+        // Strip invisible characters that can break markdown code fence parsing.
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .replace(/\r\n?/g, "\n")
+        // Some model outputs place code fences after punctuation on the same line.
+        .replace(/([^\n])(```[a-zA-Z]+)/g, "$1\n$2")
+    );
   }, [content]);
 
   const looksLikeMermaid = (code: string): boolean => {
@@ -107,7 +109,8 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
               );
             }
 
-            const isMermaidBlock = language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
+            const isMermaidBlock =
+              language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
             if (isMermaidBlock) {
               return <MermaidRenderer code={codeString} />;
             }
@@ -117,9 +120,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
                 const spec = JSON.parse(codeString);
                 return <G2ChartRenderer spec={spec} />;
               } catch {
-                return (
-                  <span className="text-xs app-text-danger">Invalid G2 spec</span>
-                );
+                return <span className="text-xs app-text-danger">Invalid G2 spec</span>;
               }
             }
 
@@ -144,9 +145,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
           },
           p({ children }) {
             return (
-              <p className="mb-3 last:mb-0 leading-relaxed text-sm text-kumo-default">
-                {children}
-              </p>
+              <p className="mb-3 last:mb-0 leading-relaxed text-sm text-kumo-default">{children}</p>
             );
           },
           h1({ children }) {
@@ -177,11 +176,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
             return <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>;
           },
           li({ children }) {
-            return (
-              <li className="text-sm text-kumo-default">
-                {children}
-              </li>
-            );
+            return <li className="text-sm text-kumo-default">{children}</li>;
           },
           a({ href, children }) {
             return (
@@ -208,9 +203,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
           table({ children }) {
             return (
               <div className="overflow-x-auto my-3">
-                <table className="min-w-full border border-kumo-line rounded">
-                  {children}
-                </table>
+                <table className="min-w-full border border-kumo-line rounded">{children}</table>
               </div>
             );
           },
@@ -239,7 +232,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
           },
           del({ children }) {
             return <del className="line-through opacity-70">{children}</del>;
-          },
+          }
         }}
       >
         {processedContent}

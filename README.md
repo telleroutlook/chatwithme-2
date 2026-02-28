@@ -5,6 +5,7 @@ A reference implementation and planning repository for refactoring [ChatWithMe](
 ## Project Purpose
 
 This repository serves as:
+
 - **Planning documentation** for the ChatWithMe architecture refactor
 - **Reference implementation** inspired by Cloudflare Agents examples
 - **Sandbox** for testing optimizations before applying to the main project
@@ -17,13 +18,14 @@ This repository serves as:
 
 A standalone tool for managing MCP server connections, deployed at:
 
-| Resource | URL |
-|----------|-----|
-| **Production** | https://mcp-client-tool.3we.org |
-| **GitHub** | https://github.com/telleroutlook/mcp-client |
-| **Worker** | `mcp-client-tool` |
+| Resource       | URL                                         |
+| -------------- | ------------------------------------------- |
+| **Production** | https://mcp-client-tool.3we.org             |
+| **GitHub**     | https://github.com/telleroutlook/mcp-client |
+| **Worker**     | `mcp-client-tool`                           |
 
 **Features**:
+
 - Connect to remote MCP servers with OAuth support
 - View available tools, prompts, and resources
 - Toast notifications, loading states, form validation
@@ -69,7 +71,7 @@ A standalone tool for managing MCP server connections, deployed at:
 
 ## Original MCP Client Demo
 
-*The following is the original documentation from the Cloudflare Agents example.*
+_The following is the original documentation from the Cloudflare Agents example._
 
 ---
 

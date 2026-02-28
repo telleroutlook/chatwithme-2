@@ -50,7 +50,9 @@
         window.addEventListener("unhandledrejection", (event) => {
           const reason = event.reason;
           const message = String(
-            (reason && typeof reason === "object" && "message" in reason && reason.message) || reason || ""
+            (reason && typeof reason === "object" && "message" in reason && reason.message) ||
+              reason ||
+              ""
           );
           if (shouldHandleAssetError(message)) {
             reloadOnce();

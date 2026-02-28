@@ -26,7 +26,9 @@ function resolveSessionIdFromBody(body: unknown): string {
   return "default";
 }
 
-function resolveSessionIdFromQuery(c: { req: { query: (key: string) => string | undefined } }): string {
+function resolveSessionIdFromQuery(c: {
+  req: { query: (key: string) => string | undefined };
+}): string {
   const sessionId = c.req.query("sessionId");
   const conversationId = c.req.query("conversationId");
   if (sessionId?.trim()) return sessionId.trim();
@@ -64,10 +66,13 @@ app.post("/api/chat", async (c) => {
     });
   } catch (error) {
     console.error("Chat API error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 
@@ -90,10 +95,13 @@ app.get("/api/chat/history", async (c) => {
     });
   } catch (error) {
     console.error("Get history error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 
@@ -115,10 +123,13 @@ app.delete("/api/chat/history", async (c) => {
     });
   } catch (error) {
     console.error("Clear history error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 
@@ -141,10 +152,13 @@ app.get("/api/mcp/servers", async (c) => {
     });
   } catch (error) {
     console.error("Get servers error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 
@@ -174,10 +188,13 @@ app.post("/api/mcp/toggle", async (c) => {
     });
   } catch (error) {
     console.error("Toggle server error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 
@@ -205,10 +222,13 @@ app.post("/api/mcp/activate", async (c) => {
     });
   } catch (error) {
     console.error("Activate server error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 
@@ -236,10 +256,13 @@ app.post("/api/mcp/deactivate", async (c) => {
     });
   } catch (error) {
     console.error("Deactivate server error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 
@@ -263,10 +286,13 @@ app.get("/api/tools", async (c) => {
     });
   } catch (error) {
     console.error("Get tools error:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
   }
 });
 

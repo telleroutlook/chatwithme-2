@@ -17,18 +17,18 @@ export function Toaster() {
     success: {
       "--toast-bg": "var(--color-toast-success-bg, #166534)",
       "--toast-fg": "var(--color-toast-success-fg, #f0fdf4)",
-      "--toast-border": "var(--color-toast-success-border, #22c55e)",
+      "--toast-border": "var(--color-toast-success-border, #22c55e)"
     } as CSSProperties,
     error: {
       "--toast-bg": "var(--color-toast-error-bg, #7f1d1d)",
       "--toast-fg": "var(--color-toast-error-fg, #fef2f2)",
-      "--toast-border": "var(--color-toast-error-border, #ef4444)",
+      "--toast-border": "var(--color-toast-error-border, #ef4444)"
     } as CSSProperties,
     info: {
       "--toast-bg": "var(--color-toast-info-bg, var(--color-kumo-inverse, #111827))",
       "--toast-fg": "var(--color-toast-info-fg, var(--color-kumo-base, #f9fafb))",
-      "--toast-border": "var(--color-toast-info-border, #4b5563)",
-    } as CSSProperties,
+      "--toast-border": "var(--color-toast-info-border, #4b5563)"
+    } as CSSProperties
   };
 
   return (
@@ -64,12 +64,7 @@ export function Toaster() {
             className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-md opacity-80 hover:opacity-100 hover:bg-[color-mix(in_oklab,currentColor_12%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-current transition"
             aria-label={t("toaster_close")}
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

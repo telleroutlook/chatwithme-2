@@ -133,20 +133,16 @@ export function ToolCallCard({
             className={`${config.color} ${isRunning ? "animate-spin" : ""}`}
           />
           <div>
-            <div className="text-sm font-medium text-kumo-default">
-              {formatToolName(toolName)}
-            </div>
+            <div className="text-sm font-medium text-kumo-default">{formatToolName(toolName)}</div>
             {toolNamespace && (
-              <div className="text-xs text-kumo-subtle font-mono mt-0.5">
-                {toolNamespace}
-              </div>
+              <div className="text-xs text-kumo-subtle font-mono mt-0.5">{toolNamespace}</div>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${config.badgeClass}`}>
-              {config.label}
-            </span>
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${config.badgeClass}`}>
+            {config.label}
+          </span>
           {duration !== undefined && (
             <span className="text-xs text-kumo-subtle tabular-nums">{duration}ms</span>
           )}
@@ -166,9 +162,7 @@ export function ToolCallCard({
       {/* Output Section */}
       {state === "output-available" && output !== undefined && (
         <div className="px-4 py-2 app-bg-success-soft">
-          <div className="mb-1 text-xs font-medium app-text-success">
-            Result
-          </div>
+          <div className="mb-1 text-xs font-medium app-text-success">Result</div>
           <pre className="text-xs text-kumo-default font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-kumo-control/20 p-2.5">
             {formatOutput(output)}
           </pre>
@@ -178,9 +172,7 @@ export function ToolCallCard({
       {/* Error Section */}
       {state === "error" && errorText && (
         <div className="px-4 py-2 app-bg-danger-soft">
-          <div className="mb-1 text-xs font-medium app-text-danger">
-            Error
-          </div>
+          <div className="mb-1 text-xs font-medium app-text-danger">Error</div>
           <pre className="text-xs font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg app-bg-danger-soft app-text-danger p-2.5">
             {errorText}
           </pre>
@@ -191,9 +183,7 @@ export function ToolCallCard({
 }
 
 // Helper to extract tool calls from message parts
-export function extractToolCalls(
-  parts: Array<{ type: string; [key: string]: unknown }>
-): Array<{
+export function extractToolCalls(parts: Array<{ type: string; [key: string]: unknown }>): Array<{
   toolName: string;
   state: ToolCallState;
   input?: Record<string, unknown>;
@@ -221,19 +211,14 @@ export function extractToolCalls(
       if (typeof dynamicPart.toolName !== "string") {
         continue;
       }
-      const state = isToolCallState(dynamicPart.state)
-        ? dynamicPart.state
-        : "error";
+      const state = isToolCallState(dynamicPart.state) ? dynamicPart.state : "error";
 
       toolCalls.push({
         toolName: dynamicPart.toolName,
         state,
         input: dynamicPart.input as Record<string, unknown> | undefined,
         output: dynamicPart.output,
-        errorText:
-          typeof dynamicPart.errorText === "string"
-            ? dynamicPart.errorText
-            : undefined
+        errorText: typeof dynamicPart.errorText === "string" ? dynamicPart.errorText : undefined
       });
     }
 

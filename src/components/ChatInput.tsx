@@ -1,18 +1,11 @@
-import {
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-  memo,
-  useMemo,
-} from "react";
+import { useState, useCallback, useRef, useEffect, memo, useMemo } from "react";
 import { Button, Text } from "@cloudflare/kumo";
 import {
   PaperPlaneTiltIcon,
   StopIcon,
   XCircleIcon,
   TextAUnderlineIcon,
-  LightningIcon,
+  LightningIcon
 } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
 import { useCommandInput } from "../hooks/useCommandInput";
@@ -47,7 +40,7 @@ export const ChatInput = memo(function ChatInput({
   multiline = true,
   maxRows = 8,
   minRows = 1,
-  commandSuggestions = [],
+  commandSuggestions = []
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -79,11 +72,11 @@ export const ChatInput = memo(function ChatInput({
     moveSelection,
     getActiveSuggestion,
     applySuggestion,
-    hasOpenMenu,
+    hasOpenMenu
   } = useCommandInput({
     input: value,
     caretIndex,
-    suggestions: commandSuggestions,
+    suggestions: commandSuggestions
   });
 
   useEffect(() => {
@@ -172,7 +165,7 @@ export const ChatInput = memo(function ChatInput({
     const sectionTitles: Record<CommandSuggestionItem["section"], string> = {
       tools: t("chat_input_section_tools"),
       sessions: t("chat_input_section_sessions"),
-      actions: t("chat_input_section_actions"),
+      actions: t("chat_input_section_actions")
     };
 
     const groups: Array<{ section: string; items: CommandSuggestionItem[] }> = [];
@@ -200,7 +193,10 @@ export const ChatInput = memo(function ChatInput({
     >
       <div className="flex items-end gap-2 px-2.5 pt-2.5 pb-2">
         {multiline && (
-          <div className="hidden shrink-0 p-2 text-kumo-subtle sm:block" title={t("chat_input_multiline_indicator")}>
+          <div
+            className="hidden shrink-0 p-2 text-kumo-subtle sm:block"
+            title={t("chat_input_multiline_indicator")}
+          >
             <TextAUnderlineIcon size={16} />
           </div>
         )}
@@ -233,7 +229,7 @@ export const ChatInput = memo(function ChatInput({
           `}
           style={{
             minHeight: multiline ? `${minRows * 20}px` : undefined,
-            maxHeight: multiline ? `${maxRows * 20}px` : undefined,
+            maxHeight: multiline ? `${maxRows * 20}px` : undefined
           }}
         />
 
@@ -297,14 +293,23 @@ export const ChatInput = memo(function ChatInput({
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleSuggestionSelect(item)}
                       className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left ${
-                        isActive ? "bg-[var(--app-surface-secondary)]" : "hover:bg-[var(--app-surface-secondary)]/70"
+                        isActive
+                          ? "bg-[var(--app-surface-secondary)]"
+                          : "hover:bg-[var(--app-surface-secondary)]/70"
                       }`}
                     >
-                      <span className="font-mono text-xs text-[var(--app-accent)]">{item.trigger}{item.value}</span>
+                      <span className="font-mono text-xs text-[var(--app-accent)]">
+                        {item.trigger}
+                        {item.value}
+                      </span>
                       <span className="min-w-0">
-                        <span className="block text-xs font-medium text-[var(--app-text-primary)]">{item.label}</span>
+                        <span className="block text-xs font-medium text-[var(--app-text-primary)]">
+                          {item.label}
+                        </span>
                         {item.description && (
-                          <span className="block truncate text-[11px] text-[var(--app-text-muted)]">{item.description}</span>
+                          <span className="block truncate text-[11px] text-[var(--app-text-muted)]">
+                            {item.description}
+                          </span>
                         )}
                       </span>
                     </button>
@@ -351,7 +356,7 @@ export function SimpleChatInput({
   onStop,
   isStreaming = false,
   isConnected = true,
-  placeholder = "Type a message...",
+  placeholder = "Type a message..."
 }: SimpleChatInputProps) {
   const { t } = useI18n();
 

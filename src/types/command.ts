@@ -26,10 +26,7 @@ export interface CommandExecutionIntent {
   }>;
 }
 
-export function parseCommandToken(
-  input: string,
-  caretIndex: number
-): ParsedCommandToken | null {
+export function parseCommandToken(input: string, caretIndex: number): ParsedCommandToken | null {
   const safeCaret = Math.min(Math.max(caretIndex, 0), input.length);
   const textBeforeCaret = input.slice(0, safeCaret);
   const match = textBeforeCaret.match(/(?:^|\s)([@#!])([^\s@#!]*)$/);
@@ -46,7 +43,7 @@ export function parseCommandToken(
     trigger,
     query,
     start,
-    end: safeCaret,
+    end: safeCaret
   };
 }
 
@@ -72,7 +69,7 @@ export function normalizeCommandInput(
     selectedCommands: selected.map((item) => ({
       trigger: item.trigger,
       value: item.value,
-      label: item.label,
-    })),
+      label: item.label
+    }))
   };
 }

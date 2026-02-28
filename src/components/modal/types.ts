@@ -81,14 +81,14 @@ export function createModalStore(initialState: ModalStackState): ModalStore {
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
-    },
+    }
   };
 }
 
 // ============ Global Modal Store ============
 
 export const globalModalStore = createModalStore({
-  modals: [],
+  modals: []
 });
 
 // = Modal ID Generator ============

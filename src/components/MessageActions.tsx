@@ -5,7 +5,7 @@ import {
   CheckIcon,
   ArrowClockwiseIcon,
   TrashIcon,
-  PencilSimpleIcon,
+  PencilSimpleIcon
 } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
 
@@ -51,7 +51,7 @@ export const MessageActions = memo(function MessageActions({
   showEdit = false,
   showDelete = false,
   disabled = false,
-  compact = true,
+  compact = true
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
   const [copyAnnouncement, setCopyAnnouncement] = useState("");
@@ -190,7 +190,7 @@ export function ActionIcon({
   onClick,
   title,
   disabled = false,
-  danger = false,
+  danger = false
 }: ActionIconProps) {
   return (
     <button
@@ -200,11 +200,12 @@ export function ActionIcon({
       title={title}
       className={`
         p-1.5 rounded-md transition-colors
-        ${disabled
-          ? "opacity-50 cursor-not-allowed"
-          : danger
-            ? "hover:bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:text-[var(--app-color-danger)]"
-            : "hover:bg-kumo-control"
+        ${
+          disabled
+            ? "opacity-50 cursor-not-allowed"
+            : danger
+              ? "hover:bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:text-[var(--app-color-danger)]"
+              : "hover:bg-kumo-control"
         }
         text-kumo-subtle
       `}

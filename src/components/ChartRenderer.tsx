@@ -18,6 +18,7 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
 
   useEffect(() => {
     let mounted = true;
+    const container = containerRef.current;
 
     const renderMermaid = async () => {
       if (mounted) {
@@ -31,16 +32,16 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
           theme: isDark ? "dark" : "default",
           securityLevel: "strict",
           flowchart: {
-            htmlLabels: true,
-          },
+            htmlLabels: true
+          }
         });
 
         const renderId = `mermaid-${Math.random().toString(36).slice(2)}`;
         const { svg } = await mermaid.render(renderId, code.trim());
 
-        if (mounted && containerRef.current) {
-          containerRef.current.innerHTML = "";
-          containerRef.current.innerHTML = svg;
+        if (mounted && container) {
+          container.innerHTML = "";
+          container.innerHTML = svg;
         }
       } catch (err) {
         if (mounted) {
@@ -57,8 +58,8 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
 
     return () => {
       mounted = false;
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
+      if (container) {
+        container.innerHTML = "";
       }
     };
   }, [code, isDark]);
@@ -156,7 +157,7 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         chart = new Chart({
           container: containerRef.current,
           autoFit: true,
-          height: 300,
+          height: 300
         }) as unknown as G2ChartInstance;
 
         if (spec.type) {
@@ -242,7 +243,7 @@ export function parseChartFromText(text: string): ChartContent | null {
   if (mermaidMatch) {
     return {
       type: "mermaid",
-      content: mermaidMatch[1].trim(),
+      content: mermaidMatch[1].trim()
     };
   }
 
@@ -252,7 +253,7 @@ export function parseChartFromText(text: string): ChartContent | null {
       const spec = JSON.parse(g2Match[1].trim());
       return {
         type: "g2",
-        content: spec,
+        content: spec
       };
     } catch {
       // Invalid JSON, ignore
@@ -266,7 +267,7 @@ export function parseChartFromText(text: string): ChartContent | null {
       if (parsed.chartType === "g2" || (parsed.type && parsed.data)) {
         return {
           type: "g2",
-          content: parsed,
+          content: parsed
         };
       }
     } catch {
@@ -311,7 +312,7 @@ function extractAllCharts(text: string): ChartContent[] {
   while ((match = mermaidRegex.exec(text)) !== null) {
     charts.push({
       type: "mermaid",
-      content: match[1].trim(),
+      content: match[1].trim()
     });
   }
 
@@ -321,7 +322,7 @@ function extractAllCharts(text: string): ChartContent[] {
       const spec = JSON.parse(match[1].trim());
       charts.push({
         type: "g2",
-        content: spec,
+        content: spec
       });
     } catch {
       // Invalid JSON, skip

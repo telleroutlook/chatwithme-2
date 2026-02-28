@@ -25,18 +25,19 @@ interface CandidateSource {
 }
 
 function toChunk(sourceId: string, index: number, candidate: CandidateChunk): MessageSourceChunk {
-  const rawPreview = typeof candidate.preview === "string"
-    ? candidate.preview
-    : typeof candidate.text === "string"
-      ? candidate.text
-      : "";
+  const rawPreview =
+    typeof candidate.preview === "string"
+      ? candidate.preview
+      : typeof candidate.text === "string"
+        ? candidate.text
+        : "";
 
   const preview = rawPreview.trim().slice(0, 220);
 
   return {
     id: typeof candidate.id === "string" ? candidate.id : `${sourceId}-${index}`,
     preview,
-    score: typeof candidate.score === "number" ? candidate.score : undefined,
+    score: typeof candidate.score === "number" ? candidate.score : undefined
   };
 }
 
@@ -88,7 +89,7 @@ export function extractMessageSources(parts: unknown): MessageSourceGroup[] {
       groups.push({
         id: sourceId,
         title,
-        chunks,
+        chunks
       });
     }
   }

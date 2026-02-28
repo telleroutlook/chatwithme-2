@@ -107,8 +107,16 @@ body,
 
 body {
   background:
-    radial-gradient(1200px 500px at 0% -10%, color-mix(in oklab, var(--app-accent) 10%, transparent), transparent 62%),
-    radial-gradient(1200px 600px at 100% -25%, color-mix(in oklab, var(--app-color-success) 9%, transparent), transparent 68%),
+    radial-gradient(
+      1200px 500px at 0% -10%,
+      color-mix(in oklab, var(--app-accent) 10%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      1200px 600px at 100% -25%,
+      color-mix(in oklab, var(--app-color-success) 9%, transparent),
+      transparent 68%
+    ),
     var(--app-surface-primary);
   color: var(--app-text-primary);
   font-family: "IBM Plex Sans", "Noto Sans SC", "Segoe UI", sans-serif;
@@ -121,8 +129,7 @@ pre {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--app-border-strong) 60%, transparent)
-    transparent;
+  scrollbar-color: color-mix(in oklab, var(--app-border-strong) 60%, transparent) transparent;
 }
 
 *::-webkit-scrollbar {

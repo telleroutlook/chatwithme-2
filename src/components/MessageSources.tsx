@@ -33,7 +33,10 @@ export function MessageSources({ parts, title, emptyLabel }: MessageSourcesProps
         {groups.map((group) => {
           const open = !!openIds[group.id];
           return (
-            <div key={group.id} className="rounded-lg border border-[var(--app-border-default)] bg-[var(--app-surface-primary)]/60">
+            <div
+              key={group.id}
+              className="rounded-lg border border-[var(--app-border-default)] bg-[var(--app-surface-primary)]/60"
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -44,7 +47,9 @@ export function MessageSources({ parts, title, emptyLabel }: MessageSourcesProps
               >
                 {open ? <CaretDownIcon size={12} /> : <CaretRightIcon size={12} />}
                 <span className="truncate text-xs font-medium">{group.title}</span>
-                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{group.chunks.length}</span>
+                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
+                  {group.chunks.length}
+                </span>
               </button>
 
               {open && (
@@ -55,7 +60,10 @@ export function MessageSources({ parts, title, emptyLabel }: MessageSourcesProps
                     </Text>
                   ) : (
                     group.chunks.map((chunk) => (
-                      <div key={chunk.id} className="rounded-md bg-[var(--app-surface-secondary)] px-2 py-1.5">
+                      <div
+                        key={chunk.id}
+                        className="rounded-md bg-[var(--app-surface-secondary)] px-2 py-1.5"
+                      >
                         <Text size="xs" variant="secondary">
                           {chunk.preview}
                         </Text>

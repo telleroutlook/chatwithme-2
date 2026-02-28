@@ -14,7 +14,7 @@ import {
   isUiLang,
   uiMessages,
   type UiLang,
-  type UiMessageKey,
+  type UiMessageKey
 } from "../i18n/ui";
 
 interface TranslateParams {
@@ -68,16 +68,19 @@ function useI18nState(): UseI18nResult {
 
   const messages = useMemo(() => uiMessages[lang], [lang]);
 
-  const t = useCallback((key: UiMessageKey, params?: TranslateParams) => {
-    const template = messages[key] ?? uiMessages.en[key] ?? key;
-    if (!params) {
-      return template;
-    }
+  const t = useCallback(
+    (key: UiMessageKey, params?: TranslateParams) => {
+      const template = messages[key] ?? uiMessages.en[key] ?? key;
+      if (!params) {
+        return template;
+      }
 
-    return template.replace(/\{(\w+)\}/g, (_, paramKey: string) => {
-      return params[paramKey] ?? `{${paramKey}}`;
-    });
-  }, [messages]);
+      return template.replace(/\{(\w+)\}/g, (_, paramKey: string) => {
+        return params[paramKey] ?? `{${paramKey}}`;
+      });
+    },
+    [messages]
+  );
 
   return { lang, setLang, t };
 }

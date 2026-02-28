@@ -18,10 +18,7 @@ export function McpItemCard({
   payloadLabel = "Raw payload"
 }: McpItemCardProps) {
   // Memoize JSON serialization to avoid recalculation on every render
-  const jsonContent = useMemo(
-    () => JSON.stringify(data, null, 2),
-    [data]
-  );
+  const jsonContent = useMemo(() => JSON.stringify(data, null, 2), [data]);
 
   return (
     <Surface className="app-panel rounded-2xl ring ring-kumo-line overflow-hidden">

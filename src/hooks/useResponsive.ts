@@ -30,7 +30,7 @@ export const BREAKPOINTS = {
   md: 768,
   lg: 1024,
   xl: 1280,
-  "2xl": 1536,
+  "2xl": 1536
 } as const;
 
 type BreakpointName = keyof typeof BREAKPOINTS;
@@ -63,15 +63,12 @@ export function useResponsive(): ResponsiveInfo {
     height: number;
   }>({
     width: typeof window !== "undefined" ? window.innerWidth : 1024,
-    height: typeof window !== "undefined" ? window.innerHeight : 768,
+    height: typeof window !== "undefined" ? window.innerHeight : 768
   });
 
   const [touch, setTouch] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    return (
-      "ontouchstart" in window ||
-      navigator.maxTouchPoints > 0
-    );
+    return "ontouchstart" in window || navigator.maxTouchPoints > 0;
   });
 
   useEffect(() => {
@@ -80,7 +77,7 @@ export function useResponsive(): ResponsiveInfo {
     const handleResize = () => {
       setDimensions({
         width: window.innerWidth,
-        height: window.innerHeight,
+        height: window.innerHeight
       });
     };
 
@@ -128,7 +125,7 @@ export function useResponsive(): ResponsiveInfo {
       height,
       touch,
       landscape: width > height,
-      portrait: width <= height,
+      portrait: width <= height
     };
   }, [width, height, touch]);
 
@@ -216,7 +213,7 @@ export function useContainerQuery(options: UseContainerQueryOptions): {
 
   const [size, setSize] = useState<{ width: number; height: number }>({
     width: 0,
-    height: 0,
+    height: 0
   });
 
   useEffect(() => {
@@ -228,7 +225,7 @@ export function useContainerQuery(options: UseContainerQueryOptions): {
       if (entry) {
         const { inlineSize: width, blockSize: height } = entry.contentBoxSize[0] || {
           inlineSize: entry.contentRect.width,
-          blockSize: entry.contentRect.height,
+          blockSize: entry.contentRect.height
         };
         setSize({ width, height });
       }

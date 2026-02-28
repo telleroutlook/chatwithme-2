@@ -14,13 +14,7 @@ import {
   WorkspaceSidebar,
   type WorkspaceSection
 } from "./components/layout";
-import {
-  ConnectionIndicator,
-  ModeToggle,
-  PoweredByAgents,
-  ThemeProvider,
-  type ConnectionStatus
-} from "./components/AgentsUiCompat";
+import { PoweredByAgents, ThemeProvider, type ConnectionStatus } from "./components/AgentsUiCompat";
 import { ToastProvider, useToast } from "./hooks/useToast";
 import { I18nProvider, useI18n } from "./hooks/useI18n";
 import { useResponsive } from "./hooks/useResponsive";
@@ -80,10 +74,7 @@ function saveSessions(sessions: SessionMeta[]): void {
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
 }
 
-function updateSessionMeta(
-  sessionId: string,
-  updates: Partial<SessionMeta>
-): void {
+function updateSessionMeta(sessionId: string, updates: Partial<SessionMeta>): void {
   const sessions = loadSessions();
   const index = sessions.findIndex((s) => s.id === sessionId);
 
@@ -164,14 +155,7 @@ interface DeleteMessageResult {
   error?: string;
 }
 
-type ProgressPhase =
-  | "context"
-  | "model"
-  | "thinking"
-  | "tool"
-  | "heartbeat"
-  | "result"
-  | "error";
+type ProgressPhase = "context" | "model" | "thinking" | "tool" | "heartbeat" | "result" | "error";
 
 type ProgressStatus = "start" | "success" | "error" | "info";
 
@@ -186,12 +170,7 @@ interface LiveProgressEntry {
 }
 
 function isProgressStatus(value: unknown): value is ProgressStatus {
-  return (
-    value === "start" ||
-    value === "success" ||
-    value === "error" ||
-    value === "info"
-  );
+  return value === "start" || value === "success" || value === "error" || value === "info";
 }
 
 function isProgressPhase(value: unknown): value is ProgressPhase {
@@ -234,10 +213,7 @@ function parseLiveProgressPart(part: unknown): LiveProgressEntry | null {
 
   return {
     id: typeof data.id === "string" ? data.id : nanoid(10),
-    timestamp:
-      typeof data.timestamp === "string"
-        ? data.timestamp
-        : new Date().toISOString(),
+    timestamp: typeof data.timestamp === "string" ? data.timestamp : new Date().toISOString(),
     phase: data.phase,
     message: data.message,
     status: isProgressStatus(data.status) ? data.status : "info",
@@ -293,10 +269,8 @@ function App() {
   });
 
   const [activeTab, setActiveTab] = useState<Tab>("chat");
-  const [workspaceSection, setWorkspaceSection] =
-    useState<WorkspaceSection>("chats");
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>("connecting");
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>("chats");
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [mcpState, setMcpState] = useState<MCPServersState>({
     prompts: [],
     resources: [],
@@ -349,13 +323,7 @@ function App() {
   });
 
   // useAgentChat hook for AIChatAgent integration
-  const {
-    messages,
-    sendMessage,
-    status,
-    stop,
-    setMessages
-  } = useAgentChat({
+  const { messages, sendMessage, status, stop, setMessages } = useAgentChat({
     agent,
     onToolCall: async ({ toolCall }) => {
       // Handle client-side tools if needed
@@ -371,25 +339,28 @@ function App() {
   const isStreaming = status === "streaming";
   const isConnected = connectionStatus === "connected";
 
-  const loadPreconfiguredServers = useCallback(async (attempt = 0) => {
-    try {
-      const servers = await agent.call("getPreconfiguredServers", []);
-      setPreconfiguredServers(servers as Record<string, PreconfiguredServer>);
-      setIsLoading(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const isConnectionIssue = /connection closed/i.test(message);
-      if (isConnectionIssue && attempt < 3) {
-        const delay = 300 * (attempt + 1);
-        setTimeout(() => {
-          void loadPreconfiguredServers(attempt + 1);
-        }, delay);
-        return;
+  const loadPreconfiguredServers = useCallback(
+    async (attempt = 0) => {
+      try {
+        const servers = await agent.call("getPreconfiguredServers", []);
+        setPreconfiguredServers(servers as Record<string, PreconfiguredServer>);
+        setIsLoading(false);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const isConnectionIssue = /connection closed/i.test(message);
+        if (isConnectionIssue && attempt < 3) {
+          const delay = 300 * (attempt + 1);
+          setTimeout(() => {
+            void loadPreconfiguredServers(attempt + 1);
+          }, delay);
+          return;
+        }
+        console.error("Failed to load pre-configured servers:", error);
+        setIsLoading(false);
       }
-      console.error("Failed to load pre-configured servers:", error);
-      setIsLoading(false);
-    }
-  }, [agent]);
+    },
+    [agent]
+  );
 
   // Load preconfigured servers only after confirmed connected state.
   useEffect(() => {
@@ -458,13 +429,16 @@ function App() {
   }, []);
 
   // Switch session
-  const handleSelectSession = useCallback((sessionId: string) => {
-    if (sessionId === currentSessionId) return;
-    setCurrentSessionId(sessionId);
-    setConnectionStatus("connecting");
-    setAwaitingFirstAssistant(false);
-    setLiveProgress([]);
-  }, [currentSessionId]);
+  const handleSelectSession = useCallback(
+    (sessionId: string) => {
+      if (sessionId === currentSessionId) return;
+      setCurrentSessionId(sessionId);
+      setConnectionStatus("connecting");
+      setAwaitingFirstAssistant(false);
+      setLiveProgress([]);
+    },
+    [currentSessionId]
+  );
 
   // Delete session
   const handleDeleteSession = useCallback(
@@ -540,9 +514,7 @@ function App() {
           addToast(
             t("server_toggle_success", {
               name,
-              state: result.active
-                ? t("server_toggle_active")
-                : t("server_toggle_inactive")
+              state: result.active ? t("server_toggle_active") : t("server_toggle_inactive")
             }),
             "success"
           );
@@ -611,17 +583,24 @@ function App() {
       }
     ]);
     sendMessage({ role: "user", parts: [{ type: "text", text }] });
-  }, [addToast, handleNewSession, handleSelectSession, input, isStreaming, sendMessage, sessions, stop, t]);
+  }, [
+    addToast,
+    handleNewSession,
+    handleSelectSession,
+    input,
+    isStreaming,
+    sendMessage,
+    sessions,
+    stop,
+    t
+  ]);
 
   const handleStop = useCallback(() => {
     stop();
     setAwaitingFirstAssistant(false);
   }, [stop]);
 
-  const serverEntries = useMemo(
-    () => Object.entries(mcpState.servers),
-    [mcpState.servers]
-  );
+  const serverEntries = useMemo(() => Object.entries(mcpState.servers), [mcpState.servers]);
 
   const preconfiguredServerList = useMemo(
     () => Object.entries(preconfiguredServers),
@@ -738,6 +717,8 @@ function App() {
         formatTime={formatTime}
         toolsCount={mcpState.tools.length}
         resourcesCount={mcpState.resources.length}
+        lang={lang}
+        setLang={setLang}
         t={t}
       />
 
@@ -746,8 +727,6 @@ function App() {
           mobile={mobile}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           connectionStatus={connectionStatus}
-          lang={lang}
-          setLang={setLang}
           t={t}
         />
 
@@ -761,19 +740,21 @@ function App() {
                 value: "chat",
                 icon: <ChatCircleIcon size={18} weight="bold" />,
                 label: t("tabs_chat"),
-                badge: activeToolsCount > 0 ? (
-                  <Badge variant="primary">
-                    {t("tabs_tools_count", { count: String(activeToolsCount) })}
-                  </Badge>
-                ) : undefined
+                badge:
+                  activeToolsCount > 0 ? (
+                    <Badge variant="primary">
+                      {t("tabs_tools_count", { count: String(activeToolsCount) })}
+                    </Badge>
+                  ) : undefined
               },
               {
                 value: "mcp",
                 icon: <PlugIcon size={18} weight="bold" />,
                 label: t("tabs_mcp"),
-                badge: serverEntries.length > 0 ? (
-                  <Badge variant="secondary">{serverEntries.length}</Badge>
-                ) : undefined
+                badge:
+                  serverEntries.length > 0 ? (
+                    <Badge variant="secondary">{serverEntries.length}</Badge>
+                  ) : undefined
               }
             ]}
           />

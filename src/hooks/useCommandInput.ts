@@ -3,7 +3,7 @@ import {
   applyCommandSuggestion,
   parseCommandToken,
   type CommandSuggestionItem,
-  type ParsedCommandToken,
+  type ParsedCommandToken
 } from "../types/command";
 
 interface UseCommandInputOptions {
@@ -12,11 +12,7 @@ interface UseCommandInputOptions {
   suggestions: CommandSuggestionItem[];
 }
 
-export function useCommandInput({
-  input,
-  caretIndex,
-  suggestions,
-}: UseCommandInputOptions) {
+export function useCommandInput({ input, caretIndex, suggestions }: UseCommandInputOptions) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const token: ParsedCommandToken | null = useMemo(
@@ -78,6 +74,6 @@ export function useCommandInput({
     moveSelection,
     getActiveSuggestion,
     applySuggestion,
-    hasOpenMenu: !!token && filteredSuggestions.length > 0,
+    hasOpenMenu: !!token && filteredSuggestions.length > 0
   };
 }

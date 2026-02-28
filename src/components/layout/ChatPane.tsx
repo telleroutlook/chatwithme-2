@@ -56,7 +56,7 @@ export function ChatPane({
   onStop,
   onDeleteMessage,
   t,
-  getMessageText,
+  getMessageText
 }: ChatPaneProps) {
   return (
     <section className="flex h-full min-h-0 flex-col">
@@ -64,7 +64,9 @@ export function ChatPane({
         <div className="px-3 pt-3 sm:px-5">
           <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <Text size="sm" bold>{t("live_feed_title")}</Text>
+              <Text size="sm" bold>
+                {t("live_feed_title")}
+              </Text>
               <Badge variant="secondary">{liveProgress.length}</Badge>
             </div>
             <div className="max-h-40 space-y-1.5 overflow-y-auto">
@@ -128,7 +130,10 @@ export function ChatPane({
                   : "w-fit max-w-[95%] sm:max-w-[85%]";
 
               return (
-                <div key={msg.id} className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+                <div
+                  key={msg.id}
+                  className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}
+                >
                   {!isUser && toolCalls.length > 0 && (
                     <div className="mb-2 w-full max-w-[95%] space-y-2 sm:max-w-[85%]">
                       {toolCalls.map((toolCall, index) => (
@@ -152,7 +157,9 @@ export function ChatPane({
                     }`}
                   >
                     {isUser ? (
-                      <span className="block whitespace-pre-wrap"><Text size="sm">{text}</Text></span>
+                      <span className="block whitespace-pre-wrap">
+                        <Text size="sm">{text}</Text>
+                      </span>
                     ) : (
                       <MarkdownRenderer
                         content={text}
@@ -162,7 +169,9 @@ export function ChatPane({
                   </div>
 
                   {!isUser && (
-                    <div className={`${hasRenderableBlock ? "w-full max-w-full" : "w-full max-w-[95%] sm:max-w-[85%]"}`}>
+                    <div
+                      className={`${hasRenderableBlock ? "w-full max-w-full" : "w-full max-w-[95%] sm:max-w-[85%]"}`}
+                    >
                       <MessageSources
                         parts={msg.parts}
                         title={t("chat_sources_title")}
@@ -199,9 +208,7 @@ export function ChatPane({
           isStreaming={isStreaming}
           isConnected={isConnected}
           placeholder={
-            activeToolsCount > 0
-              ? t("chat_placeholder_tools")
-              : t("chat_placeholder_default")
+            activeToolsCount > 0 ? t("chat_placeholder_tools") : t("chat_placeholder_default")
           }
           multiline={true}
           maxRows={6}

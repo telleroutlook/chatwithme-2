@@ -36,7 +36,7 @@ function useIsDarkMode(): boolean {
 
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-mode"],
+      attributeFilter: ["data-mode"]
     });
 
     const onChange = () => setIsDark(checkDark());
@@ -69,7 +69,7 @@ export function CodeBlock({
   const { html, isLoading, error } = useHighlight(code, {
     language,
     theme,
-    enabled: !!code,
+    enabled: !!code
   });
 
   const handleCopy = useCallback(async () => {
@@ -97,9 +97,7 @@ export function CodeBlock({
       <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/50 border-b border-kumo-line">
         <div className="flex items-center gap-2">
           <CodeIcon size={14} className="text-kumo-subtle" />
-          <span className="text-xs text-kumo-subtle font-mono">
-            {displayLanguage}
-          </span>
+          <span className="text-xs text-kumo-subtle font-mono">{displayLanguage}</span>
         </div>
         {showCopy && (
           <Button
@@ -114,15 +112,9 @@ export function CodeBlock({
       </div>
       <div className="overflow-x-auto bg-[var(--surface-2)]">
         {isLoading && (
-          <div className="p-4 text-sm text-kumo-subtle">
-            Loading syntax highlight...
-          </div>
+          <div className="p-4 text-sm text-kumo-subtle">Loading syntax highlight...</div>
         )}
-        {error && (
-          <pre className="!mt-0 !mb-0 p-4 text-sm app-text-danger">
-            {code}
-          </pre>
-        )}
+        {error && <pre className="!mt-0 !mb-0 p-4 text-sm app-text-danger">{code}</pre>}
         {html && !isLoading && !error && (
           <div
             className="shiki-container p-4 [&_pre]:!m-0 [&_pre]:!p-0 [&_pre]:!bg-transparent [&_code]:!bg-transparent"

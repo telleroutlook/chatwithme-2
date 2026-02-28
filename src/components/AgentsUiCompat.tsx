@@ -7,13 +7,7 @@ import {
   useState,
   type ReactNode
 } from "react";
-import {
-  CheckCircleIcon,
-  MoonIcon,
-  PlugIcon,
-  SunIcon,
-  MonitorIcon
-} from "@phosphor-icons/react";
+import { CheckCircleIcon, MoonIcon, PlugIcon, SunIcon, MonitorIcon } from "@phosphor-icons/react";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 export type ThemeMode = "light" | "dark" | "system";
@@ -140,11 +134,7 @@ const DEFAULT_MODE_LABELS: ModeToggleLabels = {
   group: "Theme mode"
 };
 
-export function ModeToggle({
-  labels = DEFAULT_MODE_LABELS
-}: {
-  labels?: ModeToggleLabels;
-}) {
+export function ModeToggle({ labels = DEFAULT_MODE_LABELS }: { labels?: ModeToggleLabels }) {
   const theme = useContext(ThemeContext);
   const mode = theme?.mode ?? "system";
   const setMode = theme?.setMode;

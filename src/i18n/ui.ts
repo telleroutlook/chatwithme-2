@@ -75,7 +75,7 @@ export const uiMessages = {
     message_delete_success: "Message deleted",
     message_already_deleted: "Message already deleted",
     message_delete_failed: "Failed to delete message: {reason}",
-    server_toggle_success: "Server \"{name}\" {state}",
+    server_toggle_success: 'Server "{name}" {state}',
     server_toggle_active: "activated",
     server_toggle_inactive: "deactivated",
     server_toggle_failed: "Failed to toggle server: {reason}",
@@ -111,7 +111,7 @@ export const uiMessages = {
     inspector_overview: "Workspace Overview",
     inspector_sources: "{count} source groups",
     inspector_live: "Latest Pipeline Events",
-    inspector_live_empty: "No live events yet.",
+    inspector_live_empty: "No live events yet."
   },
   zh: {
     app_title: "ChatWithMe MCP",
@@ -170,8 +170,7 @@ export const uiMessages = {
     live_feed_phase_error: "错误",
 
     mcp_info_title: "预配置 MCP 服务",
-    mcp_info_desc:
-      "可切换服务启用/停用。启用后，AI 会在聊天中自动使用这些服务提供的工具。",
+    mcp_info_desc: "可切换服务启用/停用。启用后，AI 会在聊天中自动使用这些服务提供的工具。",
     mcp_loading: "正在加载服务...",
     mcp_available_servers: "可用服务",
     mcp_available_tools: "可用工具",
@@ -220,8 +219,8 @@ export const uiMessages = {
     inspector_overview: "工作台概览",
     inspector_sources: "{count} 组来源",
     inspector_live: "最新执行事件",
-    inspector_live_empty: "暂无实时事件。",
-  },
+    inspector_live_empty: "暂无实时事件。"
+  }
 } as const;
 
 export type UiMessageKey = keyof typeof uiMessages.en;

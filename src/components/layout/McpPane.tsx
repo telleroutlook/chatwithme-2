@@ -1,5 +1,12 @@
 import { Badge, Surface, Switch, Text } from "@cloudflare/kumo";
-import { CheckCircleIcon, InfoIcon, PlugIcon, SpinnerIcon, WarningIcon, WrenchIcon } from "@phosphor-icons/react";
+import {
+  CheckCircleIcon,
+  InfoIcon,
+  PlugIcon,
+  SpinnerIcon,
+  WarningIcon,
+  WrenchIcon
+} from "@phosphor-icons/react";
 import { McpItemCard } from "../McpItemCard";
 
 interface PreconfiguredServer {
@@ -27,7 +34,7 @@ export function McpPane({
   togglingServer,
   onToggleServer,
   mcpTools,
-  t,
+  t
 }: McpPaneProps) {
   return (
     <section className="h-full overflow-y-auto px-3 py-5 sm:px-5">
@@ -36,9 +43,13 @@ export function McpPane({
           <div className="flex gap-3">
             <InfoIcon size={20} weight="bold" className="mt-0.5 shrink-0 text-kumo-accent" />
             <div>
-              <Text size="sm" bold>{t("mcp_info_title")}</Text>
+              <Text size="sm" bold>
+                {t("mcp_info_title")}
+              </Text>
               <span className="mt-1 block">
-                <Text size="xs" variant="secondary">{t("mcp_info_desc")}</Text>
+                <Text size="xs" variant="secondary">
+                  {t("mcp_info_desc")}
+                </Text>
               </span>
             </div>
           </div>
@@ -47,7 +58,9 @@ export function McpPane({
         {isLoading && (
           <div className="flex items-center justify-center py-8">
             <SpinnerIcon size={24} className="animate-spin text-kumo-accent" />
-            <span className="ml-2"><Text size="sm">{t("mcp_loading")}</Text></span>
+            <span className="ml-2">
+              <Text size="sm">{t("mcp_loading")}</Text>
+            </span>
           </div>
         )}
 
@@ -55,7 +68,9 @@ export function McpPane({
           <section>
             <div className="mb-3 flex items-center gap-2">
               <PlugIcon size={18} weight="bold" className="text-kumo-subtle" />
-              <Text size="base" bold>{t("mcp_available_servers")}</Text>
+              <Text size="base" bold>
+                {t("mcp_available_servers")}
+              </Text>
             </div>
             <div className="space-y-2">
               {preconfiguredServerList.map(([name, server]) => (
@@ -63,7 +78,9 @@ export function McpPane({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <Text size="sm" bold>{server.config.name}</Text>
+                        <Text size="sm" bold>
+                          {server.config.name}
+                        </Text>
                         {server.connected ? (
                           <Badge variant="primary">
                             <CheckCircleIcon size={12} weight="fill" className="mr-1" />
@@ -73,8 +90,16 @@ export function McpPane({
                           <Badge variant="secondary">{t("mcp_status_inactive")}</Badge>
                         )}
                       </div>
-                      <span className="mt-1 block"><Text size="xs" variant="secondary">{server.config.description}</Text></span>
-                      <span className="mt-0.5 block font-mono"><Text size="xs" variant="secondary">{server.config.url}</Text></span>
+                      <span className="mt-1 block">
+                        <Text size="xs" variant="secondary">
+                          {server.config.description}
+                        </Text>
+                      </span>
+                      <span className="mt-0.5 block font-mono">
+                        <Text size="xs" variant="secondary">
+                          {server.config.url}
+                        </Text>
+                      </span>
                       {server.error && (
                         <div className="mt-2 flex items-center gap-1 app-text-danger">
                           <WarningIcon size={14} weight="fill" />
@@ -104,7 +129,9 @@ export function McpPane({
           <section>
             <div className="mb-3 flex items-center gap-2">
               <WrenchIcon size={18} weight="bold" className="text-kumo-subtle" />
-              <Text size="base" bold>{t("mcp_available_tools")}</Text>
+              <Text size="base" bold>
+                {t("mcp_available_tools")}
+              </Text>
               <Badge variant="secondary">{mcpTools.length}</Badge>
             </div>
             <div className="space-y-2">

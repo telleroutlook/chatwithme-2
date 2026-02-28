@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from "react";
 
 // ============ Types ============
 
 type BundledLanguage = string;
 type BundledTheme = string;
-type Highlighter = Awaited<ReturnType<typeof import('shiki').createHighlighter>>;
+type Highlighter = Awaited<ReturnType<typeof import("shiki").createHighlighter>>;
 
 // ============ Cache Management ============
 
@@ -23,7 +23,7 @@ function getCacheKey(code: string, lang: string, theme: string): string {
   const str = `${lang}:${theme}:${code}`;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
   return hash.toString(36);
@@ -39,8 +39,9 @@ function cleanupCache(): void {
 
   // If still over limit, remove oldest entries
   if (highlightCache.size > MAX_CACHE_SIZE) {
-    const entries = Array.from(highlightCache.entries())
-      .sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const entries = Array.from(highlightCache.entries()).sort(
+      (a, b) => a[1].timestamp - b[1].timestamp
+    );
 
     const toRemove = entries.slice(0, highlightCache.size - MAX_CACHE_SIZE);
     for (const [key] of toRemove) {
@@ -56,8 +57,8 @@ let highlighterPromise: Promise<Highlighter> | null = null;
 
 async function getHighlighter(): Promise<Highlighter> {
   // Only run in browser environment
-  if (typeof window === 'undefined') {
-    throw new Error('Shiki can only be used in browser environment');
+  if (typeof window === "undefined") {
+    throw new Error("Shiki can only be used in browser environment");
   }
 
   if (highlighterInstance) {
@@ -69,46 +70,48 @@ async function getHighlighter(): Promise<Highlighter> {
   }
 
   // Dynamic import to avoid bundling shiki in SSR/Worker
-  highlighterPromise = import('shiki').then(({ createHighlighter }) =>
-    createHighlighter({
-      themes: ['github-dark', 'github-light'],
-      langs: [
-        'javascript',
-        'typescript',
-        'jsx',
-        'tsx',
-        'python',
-        'rust',
-        'go',
-        'java',
-        'c',
-        'cpp',
-        'csharp',
-        'ruby',
-        'php',
-        'swift',
-        'kotlin',
-        'scala',
-        'html',
-        'css',
-        'scss',
-        'json',
-        'yaml',
-        'markdown',
-        'bash',
-        'shell',
-        'sql',
-        'graphql',
-        'docker',
-        'toml',
-        'ini',
-        'diff',
-      ],
-    })
-  ).then((highlighter) => {
-    highlighterInstance = highlighter;
-    return highlighter;
-  });
+  highlighterPromise = import("shiki")
+    .then(({ createHighlighter }) =>
+      createHighlighter({
+        themes: ["github-dark", "github-light"],
+        langs: [
+          "javascript",
+          "typescript",
+          "jsx",
+          "tsx",
+          "python",
+          "rust",
+          "go",
+          "java",
+          "c",
+          "cpp",
+          "csharp",
+          "ruby",
+          "php",
+          "swift",
+          "kotlin",
+          "scala",
+          "html",
+          "css",
+          "scss",
+          "json",
+          "yaml",
+          "markdown",
+          "bash",
+          "shell",
+          "sql",
+          "graphql",
+          "docker",
+          "toml",
+          "ini",
+          "diff"
+        ]
+      })
+    )
+    .then((highlighter) => {
+      highlighterInstance = highlighter;
+      return highlighter;
+    });
 
   return highlighterPromise;
 }
@@ -136,15 +139,8 @@ interface UseHighlightResult {
  * - Automatic language detection fallback
  * - Theme support (dark/light)
  */
-export function useHighlight(
-  code: string,
-  options: UseHighlightOptions = {}
-): UseHighlightResult {
-  const {
-    language = 'text',
-    theme = 'github-dark',
-    enabled = true,
-  } = options;
+export function useHighlight(code: string, options: UseHighlightOptions = {}): UseHighlightResult {
+  const { language = "text", theme = "github-dark", enabled = true } = options;
 
   const [html, setHtml] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -154,17 +150,17 @@ export function useHighlight(
   // Normalize language name
   const normalizedLang = useMemo(() => {
     const langMap: Record<string, BundledLanguage> = {
-      'js': 'javascript',
-      'ts': 'typescript',
-      'py': 'python',
-      'rb': 'ruby',
-      'sh': 'shell',
-      'yml': 'yaml',
-      'md': 'markdown',
-      'csharp': 'c#',
-      'cs': 'c#',
+      js: "javascript",
+      ts: "typescript",
+      py: "python",
+      rb: "ruby",
+      sh: "shell",
+      yml: "yaml",
+      md: "markdown",
+      csharp: "c#",
+      cs: "c#"
     };
-    return langMap[language.toLowerCase()] || language.toLowerCase() as BundledLanguage;
+    return langMap[language.toLowerCase()] || (language.toLowerCase() as BundledLanguage);
   }, [language]);
 
   useEffect(() => {
@@ -200,14 +196,14 @@ export function useHighlight(
           // Try with the specified language
           result = highlighter.codeToHtml(code, {
             lang: normalizedLang as BundledLanguage,
-            theme,
+            theme
           });
         } catch {
           // Fallback to text if language not supported
           try {
             result = highlighter.codeToHtml(code, {
-              lang: 'text',
-              theme,
+              lang: "text",
+              theme
             });
           } catch (e) {
             throw new Error(`Failed to highlight code: ${e}`);
@@ -217,7 +213,7 @@ export function useHighlight(
         // Cache the result
         highlightCache.set(cacheKey, {
           html: result,
-          timestamp: Date.now(),
+          timestamp: Date.now()
         });
 
         // Periodic cleanup
@@ -264,6 +260,6 @@ export function clearHighlightCache(): void {
 export function getHighlightCacheStats(): { size: number; maxSize: number } {
   return {
     size: highlightCache.size,
-    maxSize: MAX_CACHE_SIZE,
+    maxSize: MAX_CACHE_SIZE
   };
 }

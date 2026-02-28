@@ -34,10 +34,7 @@ function resolveZIndex(id: string | number, zIndex?: number): number {
     return zIndex;
   }
 
-  const numericId =
-    typeof id === "number"
-      ? id
-      : Number.parseInt(id.replace(/\D/g, ""), 10);
+  const numericId = typeof id === "number" ? id : Number.parseInt(id.replace(/\D/g, ""), 10);
 
   const safeOffset = Number.isFinite(numericId) ? numericId : 0;
   return 1000 + safeOffset;
@@ -78,7 +75,7 @@ const Modal = memo(function Modal({
   zIndex,
   centered = true,
   onClose,
-  animationDuration = 200,
+  animationDuration = 200
 }: ModalProps) {
   const titleId = `modal-title-${String(id)}`;
 
@@ -100,9 +97,7 @@ const Modal = memo(function Modal({
         return;
       }
 
-      const dialog = document.querySelector<HTMLElement>(
-        `[data-modal-id=\"${String(id)}\"]`
-      );
+      const dialog = document.querySelector<HTMLElement>(`[data-modal-id=\"${String(id)}\"]`);
       if (!dialog) {
         return;
       }
@@ -131,9 +126,7 @@ const Modal = memo(function Modal({
       // Prevent body scroll
       document.body.style.overflow = "hidden";
       queueMicrotask(() => {
-        const dialog = document.querySelector<HTMLElement>(
-          `[data-modal-id=\"${String(id)}\"]`
-        );
+        const dialog = document.querySelector<HTMLElement>(`[data-modal-id=\"${String(id)}\"]`);
         dialog?.focus();
       });
     }
@@ -142,7 +135,7 @@ const Modal = memo(function Modal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [visible, closable, onClose]);
+  }, [visible, closable, onClose, id]);
 
   if (!visible && !content) return null;
 
@@ -150,7 +143,7 @@ const Modal = memo(function Modal({
     <div
       className="fixed inset-0 flex items-center justify-center"
       style={{
-        zIndex: resolveZIndex(id, zIndex),
+        zIndex: resolveZIndex(id, zIndex)
       }}
     >
       {/* Mask */}
@@ -161,7 +154,7 @@ const Modal = memo(function Modal({
             ${visible ? "opacity-100" : "opacity-0"}
           `}
           style={{
-            transitionDuration: `${animationDuration}ms`,
+            transitionDuration: `${animationDuration}ms`
           }}
           onClick={handleMaskClick}
         />
@@ -179,7 +172,7 @@ const Modal = memo(function Modal({
         style={{
           width: typeof width === "number" ? `${width}px` : width,
           maxWidth: typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth,
-          transitionDuration: `${animationDuration}ms`,
+          transitionDuration: `${animationDuration}ms`
         }}
         role="dialog"
         aria-modal="true"
@@ -210,9 +203,7 @@ const Modal = memo(function Modal({
         )}
 
         {/* Body */}
-        <div className="px-5 py-4 max-h-[70vh] overflow-y-auto">
-          {content}
-        </div>
+        <div className="px-5 py-4 max-h-[70vh] overflow-y-auto">{content}</div>
 
         {/* Footer */}
         {footer !== null && (
@@ -247,9 +238,7 @@ export function ModalHost() {
   }, []);
 
   // Portal target
-  const target = typeof document !== "undefined"
-    ? document.body
-    : null;
+  const target = typeof document !== "undefined" ? document.body : null;
 
   if (!target || modals.length === 0) {
     return null;

@@ -70,7 +70,7 @@ export function createModal(config: ModalConfig): ModalInstance {
       setTimeout(() => {
         const currentState = globalModalStore.getState();
         globalModalStore.setState({
-          modals: currentState.modals.filter((m) => m.id !== id),
+          modals: currentState.modals.filter((m) => m.id !== id)
         });
         modal.afterClose?.();
       }, animationDuration);
@@ -80,17 +80,17 @@ export function createModal(config: ModalConfig): ModalInstance {
       const modal = state.modals.find((m) => m.id === id);
 
       globalModalStore.setState({
-        modals: state.modals.filter((m) => m.id !== id),
+        modals: state.modals.filter((m) => m.id !== id)
       });
 
       modal?.afterClose?.();
-    },
+    }
   };
 
   // Add to store
   const state = globalModalStore.getState();
   globalModalStore.setState({
-    modals: [...state.modals, instance],
+    modals: [...state.modals, instance]
   });
 
   // Call onOpen callback
@@ -149,16 +149,13 @@ export function confirm(config: ConfirmConfig): Promise<boolean> {
           <Button variant="secondary" onClick={handleCancel}>
             {config.cancelText || "Cancel"}
           </Button>
-          <Button
-            variant={config.danger ? "destructive" : "primary"}
-            onClick={handleOk}
-          >
+          <Button variant={config.danger ? "destructive" : "primary"} onClick={handleOk}>
             {config.okText || "OK"}
           </Button>
         </div>
       ),
       closable: true,
-      maskClosable: false,
+      maskClosable: false
     });
   });
 }
@@ -203,7 +200,7 @@ export function alert(config: AlertConfig): Promise<void> {
         </Button>
       ),
       closable: true,
-      maskClosable: false,
+      maskClosable: false
     });
   });
 }

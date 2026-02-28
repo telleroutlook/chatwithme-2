@@ -4,12 +4,15 @@ import { MCP_SERVERS, getApiKey, type McpServerConfig } from "../../mcp-config";
 
 export interface McpClientState {
   // Pre-configured servers with their activation status
-  preconfiguredServers: Record<string, {
-    config: McpServerConfig;
-    serverId?: string;
-    connected: boolean;
-    error?: string;
-  }>;
+  preconfiguredServers: Record<
+    string,
+    {
+      config: McpServerConfig;
+      serverId?: string;
+      connected: boolean;
+      error?: string;
+    }
+  >;
   // Custom servers added by user
   customServers: Record<string, { name: string; url: string }>;
 }
@@ -94,11 +97,7 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
     const apiKey = getApiKey(config, this.runtimeEnv);
 
     try {
-      const result = await this.addMcpServer(
-        name,
-        config.url,
-        this.buildMcpServerOptions(apiKey)
-      );
+      const result = await this.addMcpServer(name, config.url, this.buildMcpServerOptions(apiKey));
 
       // Update state
       const preconfiguredServers = { ...this.state.preconfiguredServers };
@@ -163,7 +162,9 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
   }
 
   @callable({ description: "Toggle a pre-configured MCP server on/off" })
-  async toggleServer(name: string): Promise<{ success: boolean; active?: boolean; error?: string }> {
+  async toggleServer(
+    name: string
+  ): Promise<{ success: boolean; active?: boolean; error?: string }> {
     const serverEntry = this.state.preconfiguredServers[name];
     if (!serverEntry) {
       return { success: false, error: `Server "${name}" not found` };
@@ -185,11 +186,7 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
     apiKey?: string
   ): Promise<{ success: boolean; serverId?: string; error?: string }> {
     try {
-      const result = await this.addMcpServer(
-        name,
-        url,
-        this.buildMcpServerOptions(apiKey)
-      );
+      const result = await this.addMcpServer(name, url, this.buildMcpServerOptions(apiKey));
 
       // Track custom server
       const customServers = { ...this.state.customServers };
@@ -237,11 +234,7 @@ export class McpClientAgent extends BaseAgent<McpClientState> {
   }
 
   @callable({ description: "Call a tool on a connected MCP server" })
-  async callTool(
-    name: string,
-    serverId: string,
-    args: Record<string, unknown>
-  ): Promise<unknown> {
+  async callTool(name: string, serverId: string, args: Record<string, unknown>): Promise<unknown> {
     return await this.mcp.callTool({
       name,
       serverId,

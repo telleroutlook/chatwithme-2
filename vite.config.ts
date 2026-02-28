@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     cloudflare({
-      inspectorPort: 9230,
+      inspectorPort: 9230
     }),
     tailwindcss()
   ]

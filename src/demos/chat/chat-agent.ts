@@ -15,12 +15,15 @@ import { MCP_SERVERS, getApiKey, type McpServerConfig } from "../../mcp-config";
 
 // MCP Server state (separate from chat messages)
 export interface McpServerState {
-  preconfiguredServers: Record<string, {
-    config: McpServerConfig;
-    serverId?: string;
-    connected: boolean;
-    error?: string;
-  }>;
+  preconfiguredServers: Record<
+    string,
+    {
+      config: McpServerConfig;
+      serverId?: string;
+      connected: boolean;
+      error?: string;
+    }
+  >;
 }
 
 interface ToolExecutionResult {
@@ -31,14 +34,7 @@ interface ToolExecutionResult {
   error?: string;
 }
 
-type ProgressPhase =
-  | "context"
-  | "model"
-  | "thinking"
-  | "tool"
-  | "heartbeat"
-  | "result"
-  | "error";
+type ProgressPhase = "context" | "model" | "thinking" | "tool" | "heartbeat" | "result" | "error";
 
 interface LiveProgressEvent {
   phase: ProgressPhase;
@@ -144,10 +140,7 @@ export class ChatAgent extends AIChatAgent<Env> {
     return this.parseBooleanEnv(this.runtimeEnv.CHAT_ENABLE_THINKING, false);
   }
 
-  private emitProgress(
-    writer: UIMessageStreamWriter,
-    event: LiveProgressEvent
-  ): void {
+  private emitProgress(writer: UIMessageStreamWriter, event: LiveProgressEvent): void {
     if (event.phase === "thinking" && !this.isThinkingEnabled()) {
       return;
     }
@@ -260,13 +253,9 @@ export class ChatAgent extends AIChatAgent<Env> {
    * AIChatAgent automatically handles message persistence
    */
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
-    const latestUserMessage = [...this.messages]
-      .reverse()
-      .find((msg) => msg.role === "user");
+    const latestUserMessage = [...this.messages].reverse().find((msg) => msg.role === "user");
 
-    const latestUserText = latestUserMessage
-      ? this.getMessageText(latestUserMessage)
-      : "";
+    const latestUserText = latestUserMessage ? this.getMessageText(latestUserMessage) : "";
 
     if (!latestUserText.trim()) {
       const emptyId = crypto.randomUUID();
@@ -284,8 +273,7 @@ export class ChatAgent extends AIChatAgent<Env> {
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        const emitProgress: ProgressEmitter = (event) =>
-          this.emitProgress(writer, event);
+        const emitProgress: ProgressEmitter = (event) => this.emitProgress(writer, event);
 
         emitProgress({
           phase: "context",
@@ -318,8 +306,7 @@ export class ChatAgent extends AIChatAgent<Env> {
           writer.write({ type: "text-delta", id: textId, delta: finalResponse });
           writer.write({ type: "text-end", id: textId });
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Unknown generation error";
+          const message = error instanceof Error ? error.message : "Unknown generation error";
           emitProgress({
             phase: "error",
             status: "error",
@@ -350,9 +337,7 @@ export class ChatAgent extends AIChatAgent<Env> {
       await this.ensureMcpConnections();
       if (this.mcp) {
         const tools = this.mcp.listTools();
-        toolList = tools
-          .map((t) => `- ${t.name}: ${t.description || "No description"}`)
-          .join("\n");
+        toolList = tools.map((t) => `- ${t.name}: ${t.description || "No description"}`).join("\n");
       }
     } catch (error) {
       console.error("Failed to get MCP tools:", error);
@@ -513,7 +498,10 @@ IMPORTANT:
 
       // Get available tools using listTools()
       const tools = this.mcp.listTools();
-      console.log("Available MCP tools:", tools?.map(t => t.name));
+      console.log(
+        "Available MCP tools:",
+        tools?.map((t) => t.name)
+      );
 
       // Find the tool - tools are namespaced as "serverId.toolName"
       let toolInfo = tools?.find((t) => t.name === name || t.name.endsWith(`.${name}`));
@@ -540,7 +528,9 @@ IMPORTANT:
       }
 
       // Extract serverId from the namespaced tool name
-      const serverId = toolInfo.name.includes('.') ? toolInfo.name.split('.')[0] : toolInfo.serverId;
+      const serverId = toolInfo.name.includes(".")
+        ? toolInfo.name.split(".")[0]
+        : toolInfo.serverId;
 
       console.log(`Executing tool: ${name} on server: ${serverId} with args:`, normalizedArgs);
       const toolResult = await this.mcp.callTool({
@@ -550,9 +540,7 @@ IMPORTANT:
       });
 
       const resultText =
-        typeof toolResult === "string"
-          ? toolResult
-          : JSON.stringify(toolResult, null, 2);
+        typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult, null, 2);
 
       console.log(`Tool ${name} result:`, resultText.substring(0, 200));
       emitProgress?.({
@@ -621,9 +609,7 @@ IMPORTANT:
       role: "user",
       content: [{ type: "text", text: message }]
     };
-    const messages = userAlreadyInHistory
-      ? existingMessages
-      : [...existingMessages, userMessage];
+    const messages = userAlreadyInHistory ? existingMessages : [...existingMessages, userMessage];
 
     // Generate initial response
     emitProgress?.({
@@ -656,10 +642,12 @@ IMPORTANT:
       // Tool was executed, now generate a follow-up response with the tool result
       const toolContextMessage = {
         role: "user" as const,
-        content: [{
-          type: "text" as const,
-          text: `Tool "${toolResult.toolName}" returned the following result:\n\n${toolResult.result}\n\nPlease use this information to provide a helpful response to the user's original question.`
-        }]
+        content: [
+          {
+            type: "text" as const,
+            text: `Tool "${toolResult.toolName}" returned the following result:\n\n${toolResult.result}\n\nPlease use this information to provide a helpful response to the user's original question.`
+          }
+        ]
       };
 
       const followUpMessages: ModelMessage[] = [
@@ -698,12 +686,14 @@ IMPORTANT:
       // Avoid returning raw tool_call JSON to user when tool execution fails.
       const fallbackContextMessage: ModelMessage = {
         role: "user",
-        content: [{
-          type: "text",
-          text:
-            `Tool call failed${toolResult.toolName ? ` (${toolResult.toolName})` : ""}: ${toolResult.error || "unknown error"}.\n` +
-            "Please answer the user's question directly without outputting tool_call JSON."
-        }]
+        content: [
+          {
+            type: "text",
+            text:
+              `Tool call failed${toolResult.toolName ? ` (${toolResult.toolName})` : ""}: ${toolResult.error || "unknown error"}.\n` +
+              "Please answer the user's question directly without outputting tool_call JSON."
+          }
+        ]
       };
 
       const fallbackMessages: ModelMessage[] = [
@@ -755,13 +745,15 @@ IMPORTANT:
           messages: [
             {
               role: "user",
-              content: [{
-                type: "text",
-                text:
-                  `User question:\n${message}\n\n` +
-                  `Tool result:\n${toolResult.result}\n\n` +
-                  "Please provide the final answer directly."
-              }]
+              content: [
+                {
+                  type: "text",
+                  text:
+                    `User question:\n${message}\n\n` +
+                    `Tool result:\n${toolResult.result}\n\n` +
+                    "Please provide the final answer directly."
+                }
+              ]
             }
           ],
           temperature: 0.4,
@@ -772,8 +764,7 @@ IMPORTANT:
         const forcedFallbackText = await this.requestModelText({
           model: glm(this.getModelId()),
           system:
-            "Answer the user directly without using tools. " +
-            "Never output JSON tool calls.",
+            "Answer the user directly without using tools. " + "Never output JSON tool calls.",
           messages: [
             {
               role: "user",
@@ -972,7 +963,9 @@ IMPORTANT:
   }
 
   @callable({ description: "Toggle a pre-configured MCP server on/off" })
-  async toggleServer(name: string): Promise<{ success: boolean; active?: boolean; error?: string }> {
+  async toggleServer(
+    name: string
+  ): Promise<{ success: boolean; active?: boolean; error?: string }> {
     const serverEntry = this.mcpServerState.preconfiguredServers[name];
     if (!serverEntry) {
       return { success: false, error: `Server "${name}" not found` };

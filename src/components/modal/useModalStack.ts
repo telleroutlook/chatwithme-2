@@ -1,10 +1,5 @@
 import { useSyncExternalStore, useCallback, useMemo } from "react";
-import {
-  globalModalStore,
-  generateModalId,
-  type ModalConfig,
-  type ModalInstance,
-} from "./types";
+import { globalModalStore, generateModalId, type ModalConfig, type ModalInstance } from "./types";
 
 // ============ Hook ============
 
@@ -19,34 +14,6 @@ export function useModalStack() {
     (callback) => globalModalStore.subscribe(callback),
     () => globalModalStore.getState().modals
   );
-
-  // Create a new modal
-  const create = useCallback((config: ModalConfig): ModalInstance => {
-    const id = config.id || generateModalId();
-    const instance: ModalInstance = {
-      ...config,
-      id,
-      visible: true,
-      closable: config.closable ?? true,
-      maskClosable: config.maskClosable ?? true,
-      mask: config.mask ?? true,
-      centered: config.centered ?? true,
-      destroyOnClose: config.destroyOnClose ?? false,
-      animationDuration: config.animationDuration ?? 200,
-      update: (newConfig) => updateModal(id, newConfig),
-      close: () => closeModal(id),
-      destroy: () => destroyModal(id),
-    };
-
-    const state = globalModalStore.getState();
-    globalModalStore.setState({
-      modals: [...state.modals, instance],
-    });
-
-    config.onOpen?.();
-
-    return instance;
-  }, []);
 
   // Update existing modal
   const updateModal = useCallback((id: ModalInstance["id"], config: Partial<ModalConfig>) => {
@@ -84,7 +51,7 @@ export function useModalStack() {
     setTimeout(() => {
       const currentState = globalModalStore.getState();
       globalModalStore.setState({
-        modals: currentState.modals.filter((m) => m.id !== id),
+        modals: currentState.modals.filter((m) => m.id !== id)
       });
       modal.afterClose?.();
     }, duration);
@@ -96,11 +63,42 @@ export function useModalStack() {
     const modal = state.modals.find((m) => m.id === id);
 
     globalModalStore.setState({
-      modals: state.modals.filter((m) => m.id !== id),
+      modals: state.modals.filter((m) => m.id !== id)
     });
 
     modal?.afterClose?.();
   }, []);
+
+  // Create a new modal
+  const create = useCallback(
+    (config: ModalConfig): ModalInstance => {
+      const id = config.id || generateModalId();
+      const instance: ModalInstance = {
+        ...config,
+        id,
+        visible: true,
+        closable: config.closable ?? true,
+        maskClosable: config.maskClosable ?? true,
+        mask: config.mask ?? true,
+        centered: config.centered ?? true,
+        destroyOnClose: config.destroyOnClose ?? false,
+        animationDuration: config.animationDuration ?? 200,
+        update: (newConfig) => updateModal(id, newConfig),
+        close: () => closeModal(id),
+        destroy: () => destroyModal(id)
+      };
+
+      const state = globalModalStore.getState();
+      globalModalStore.setState({
+        modals: [...state.modals, instance]
+      });
+
+      config.onOpen?.();
+
+      return instance;
+    },
+    [closeModal, destroyModal, updateModal]
+  );
 
   // Close all modals
   const closeAll = useCallback(async () => {
@@ -108,13 +106,11 @@ export function useModalStack() {
 
     // Close all with animation
     globalModalStore.setState({
-      modals: state.modals.map((m) => ({ ...m, visible: false })),
+      modals: state.modals.map((m) => ({ ...m, visible: false }))
     });
 
     // Wait for animations
-    const maxDuration = Math.max(
-      ...state.modals.map((m) => m.animationDuration || 200)
-    );
+    const maxDuration = Math.max(...state.modals.map((m) => m.animationDuration || 200));
 
     setTimeout(() => {
       globalModalStore.setState({ modals: [] });
@@ -137,7 +133,7 @@ export function useModalStack() {
     destroy: destroyModal,
     closeAll,
     topModal,
-    hasModals,
+    hasModals
   };
 }
 
