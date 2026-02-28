@@ -4,6 +4,7 @@ import {
   useRef,
   useEffect,
   memo,
+  useMemo,
 } from "react";
 import { Button, Text } from "@cloudflare/kumo";
 import {
@@ -11,47 +12,28 @@ import {
   StopIcon,
   XCircleIcon,
   TextAUnderlineIcon,
+  LightningIcon,
 } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
+import { useCommandInput } from "../hooks/useCommandInput";
+import type { CommandSuggestionItem } from "../types/command";
 
 interface ChatInputProps {
-  /** Current input value */
   value: string;
-  /** Called when input value changes */
   onChange: (value: string) => void;
-  /** Called when user submits the message */
   onSubmit: () => void;
-  /** Called when user wants to stop generation */
   onStop?: () => void;
-  /** Whether the AI is currently streaming */
   isStreaming?: boolean;
-  /** Whether the connection is ready */
   isConnected?: boolean;
-  /** Placeholder text */
   placeholder?: string;
-  /** Maximum character limit */
   maxLength?: number;
-  /** Show character count */
   showCharCount?: boolean;
-  /** Enable multiline input */
   multiline?: boolean;
-  /** Maximum rows for multiline */
   maxRows?: number;
-  /** Minimum rows for multiline */
   minRows?: number;
+  commandSuggestions?: CommandSuggestionItem[];
 }
 
-/**
- * Enhanced chat input component with multiline support
- *
- * Features:
- * - Multiline input with Shift+Enter for newlines
- * - Character count display
- * - Clear button
- * - Auto-resize textarea
- * - Stop generation button
- * - Keyboard shortcuts
- */
 export const ChatInput = memo(function ChatInput({
   value,
   onChange,
@@ -65,50 +47,104 @@ export const ChatInput = memo(function ChatInput({
   multiline = true,
   maxRows = 8,
   minRows = 1,
+  commandSuggestions = [],
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [caretIndex, setCaretIndex] = useState(0);
   const { t } = useI18n();
 
-  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea || !multiline) return;
 
-    // Reset height to calculate scrollHeight correctly
     textarea.style.height = "auto";
 
-    // Calculate line height
     const computedStyle = window.getComputedStyle(textarea);
     const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
     const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
 
-    // Calculate min and max heights
     const minHeight = lineHeight * minRows + paddingTop + paddingBottom;
     const maxHeight = lineHeight * maxRows + paddingTop + paddingBottom;
 
-    // Set height based on content
     const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     textarea.style.height = `${newHeight}px`;
   }, [value, multiline, minRows, maxRows]);
+
+  const {
+    filteredSuggestions,
+    activeIndex,
+    setActiveIndex,
+    moveSelection,
+    getActiveSuggestion,
+    applySuggestion,
+    hasOpenMenu,
+  } = useCommandInput({
+    input: value,
+    caretIndex,
+    suggestions: commandSuggestions,
+  });
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [setActiveIndex, filteredSuggestions.length]);
 
   const handleSubmit = useCallback(() => {
     if (!value.trim() || isStreaming || !isConnected) return;
     onSubmit();
   }, [value, isStreaming, isConnected, onSubmit]);
 
+  const handleSuggestionSelect = useCallback(
+    (suggestion: CommandSuggestionItem) => {
+      const result = applySuggestion(suggestion);
+      if (!result) {
+        return;
+      }
+
+      onChange(result.nextInput);
+      queueMicrotask(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(result.nextCaret, result.nextCaret);
+          setCaretIndex(result.nextCaret);
+        }
+      });
+    },
+    [applySuggestion, onChange]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (hasOpenMenu) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          moveSelection(1);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          moveSelection(-1);
+          return;
+        }
+        if (e.key === "Enter" && !e.shiftKey) {
+          const active = getActiveSuggestion();
+          if (active) {
+            e.preventDefault();
+            handleSuggestionSelect(active);
+            return;
+          }
+        }
+      }
+
       if (e.key !== "Enter") return;
       if (e.shiftKey) return;
-      // Keep Enter send behavior and explicitly support Ctrl/Cmd+Enter.
       if (e.metaKey || e.ctrlKey || !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
       }
     },
-    [handleSubmit]
+    [getActiveSuggestion, handleSubmit, handleSuggestionSelect, hasOpenMenu, moveSelection]
   );
 
   const handleClear = useCallback(() => {
@@ -126,55 +162,72 @@ export const ChatInput = memo(function ChatInput({
   const canSubmit = !isEmpty && !isStreaming && isConnected && !isOverLimit;
   const helperTextId = "chat-input-helper-text";
 
-  // Dynamic placeholder based on state
   const getPlaceholder = () => {
     if (!isConnected) return t("chat_input_placeholder_connecting");
     if (isStreaming) return t("chat_input_placeholder_streaming");
     return placeholder;
   };
 
+  const groupedSuggestions = useMemo(() => {
+    const sectionTitles: Record<CommandSuggestionItem["section"], string> = {
+      tools: t("chat_input_section_tools"),
+      sessions: t("chat_input_section_sessions"),
+      actions: t("chat_input_section_actions"),
+    };
+
+    const groups: Array<{ section: string; items: CommandSuggestionItem[] }> = [];
+    for (const section of ["tools", "sessions", "actions"] as const) {
+      const items = filteredSuggestions.filter((item) => item.section === section);
+      if (items.length > 0) {
+        groups.push({ section: sectionTitles[section], items });
+      }
+    }
+
+    return groups;
+  }, [filteredSuggestions, t]);
+
+  let globalIndex = -1;
+
   return (
     <div
       className={`
         app-panel relative flex flex-col rounded-2xl border bg-kumo-base/95 app-glass
         transition-all duration-200
-        ${isFocused
-          ? "ring-2 ring-kumo-accent/70 border-kumo-accent"
-          : "border-kumo-line"
-        }
+        ${isFocused ? "ring-2 ring-kumo-accent/70 border-kumo-accent" : "border-kumo-line"}
         ${!isConnected ? "opacity-75" : ""}
       `}
       aria-busy={isStreaming}
     >
-      {/* Input area */}
       <div className="flex items-end gap-2 px-2.5 pt-2.5 pb-2">
-        {/* Multiline indicator */}
         {multiline && (
-          <div
-            className="shrink-0 p-2 text-kumo-subtle hidden sm:block"
-            title={t("chat_input_multiline_indicator")}
-          >
+          <div className="hidden shrink-0 p-2 text-kumo-subtle sm:block" title={t("chat_input_multiline_indicator")}>
             <TextAUnderlineIcon size={16} />
           </div>
         )}
 
-        {/* Textarea */}
         <textarea
           ref={textareaRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setCaretIndex(e.target.selectionStart ?? 0);
+          }}
+          onClick={(e) => setCaretIndex((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
+          onFocus={(e) => {
+            setIsFocused(true);
+            setCaretIndex(e.target.selectionStart ?? 0);
+          }}
           onBlur={() => setIsFocused(false)}
+          onSelect={(e) => setCaretIndex((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
           placeholder={getPlaceholder()}
           disabled={!isConnected}
           maxLength={maxLength}
           rows={minRows}
           aria-describedby={helperTextId}
-            className={`
+          className={`
             flex-1 resize-none bg-transparent text-sm text-kumo-default
-            placeholder:text-kumo-inactive
-            focus:outline-none
+            placeholder:text-kumo-inactive focus:outline-none
             disabled:cursor-not-allowed disabled:opacity-50
             ${multiline ? "py-2.5" : "py-2"}
           `}
@@ -184,12 +237,11 @@ export const ChatInput = memo(function ChatInput({
           }}
         />
 
-        {/* Clear button (only show when there's content) */}
         {value && (
           <button
             type="button"
             onClick={handleClear}
-            className="shrink-0 p-2.5 rounded-lg text-kumo-subtle hover:text-kumo-default hover:bg-kumo-control transition-colors"
+            className="shrink-0 rounded-lg p-2.5 text-kumo-subtle transition-colors hover:bg-kumo-control hover:text-kumo-default"
             title={t("chat_input_action_clear")}
             aria-label={t("chat_input_action_clear")}
           >
@@ -197,7 +249,6 @@ export const ChatInput = memo(function ChatInput({
           </button>
         )}
 
-        {/* Action buttons */}
         {isStreaming ? (
           <Button
             type="button"
@@ -224,7 +275,47 @@ export const ChatInput = memo(function ChatInput({
         )}
       </div>
 
-      {/* Footer: Character count & hints */}
+      {hasOpenMenu && (
+        <div className="mx-2.5 mb-2 rounded-xl border border-[var(--app-border-default)] bg-[var(--app-surface-primary)]/95 p-2 shadow-[var(--app-shadow-soft)]">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[var(--app-text-muted)]">
+            <LightningIcon size={12} />
+            {t("chat_input_command_hint")}
+          </div>
+          <div className="space-y-1">
+            {groupedSuggestions.map((group) => (
+              <div key={group.section}>
+                <div className="px-2 pb-1 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">
+                  {group.section}
+                </div>
+                {group.items.map((item) => {
+                  globalIndex += 1;
+                  const isActive = globalIndex === activeIndex;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSuggestionSelect(item)}
+                      className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left ${
+                        isActive ? "bg-[var(--app-surface-secondary)]" : "hover:bg-[var(--app-surface-secondary)]/70"
+                      }`}
+                    >
+                      <span className="font-mono text-xs text-[var(--app-accent)]">{item.trigger}{item.value}</span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-medium text-[var(--app-text-primary)]">{item.label}</span>
+                        {item.description && (
+                          <span className="block truncate text-[11px] text-[var(--app-text-muted)]">{item.description}</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {(showCharCount || multiline) && (value || isFocused || isStreaming || !isConnected) && (
         <div className="flex items-center justify-between px-3.5 pb-2.5">
           <span id={helperTextId} className="pr-2">
@@ -233,10 +324,7 @@ export const ChatInput = memo(function ChatInput({
             </Text>
           </span>
           {showCharCount ? (
-            <Text
-              size="xs"
-              variant={isOverLimit ? "error" : "secondary"}
-            >
+            <Text size="xs" variant={isOverLimit ? "error" : "secondary"}>
               {charCount}/{maxLength}
             </Text>
           ) : null}
@@ -245,8 +333,6 @@ export const ChatInput = memo(function ChatInput({
     </div>
   );
 });
-
-// ============ Simple Input Variant ============
 
 interface SimpleChatInputProps {
   value: string;
@@ -258,9 +344,6 @@ interface SimpleChatInputProps {
   placeholder?: string;
 }
 
-/**
- * Simple single-line input for compact layouts
- */
 export function SimpleChatInput({
   value,
   onChange,
@@ -297,7 +380,7 @@ export function SimpleChatInput({
         onKeyDown={handleKeyDown}
         placeholder={isConnected ? placeholder : t("chat_input_placeholder_connecting")}
         disabled={!isConnected}
-        className="flex-1 px-4 py-2 text-sm rounded-xl border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:opacity-50"
+        className="flex-1 rounded-xl border border-kumo-line bg-kumo-base px-4 py-2 text-sm text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:opacity-50"
       />
       {isStreaming ? (
         <Button

@@ -1,13 +1,14 @@
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import { callable } from "agents";
 import {
-  streamText,
   generateText,
+  streamText,
   convertToModelMessages,
-  pruneMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  type ModelMessage
+  type LanguageModel,
+  type ModelMessage,
+  type UIMessageStreamWriter
 } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { MCP_SERVERS, getApiKey, type McpServerConfig } from "../../mcp-config";
@@ -29,6 +30,25 @@ interface ToolExecutionResult {
   result?: string;
   error?: string;
 }
+
+type ProgressPhase =
+  | "context"
+  | "model"
+  | "thinking"
+  | "tool"
+  | "heartbeat"
+  | "result"
+  | "error";
+
+interface LiveProgressEvent {
+  phase: ProgressPhase;
+  message: string;
+  status?: "start" | "success" | "error" | "info";
+  toolName?: string;
+  snippet?: string;
+}
+
+type ProgressEmitter = (event: LiveProgressEvent) => void;
 
 /**
  * Unified Chat + MCP Agent
@@ -52,8 +72,94 @@ export class ChatAgent extends AIChatAgent<Env> {
   };
   private mcpInitPromise: Promise<void> | null = null;
 
+  private parseBooleanEnv(raw: string | undefined, defaultValue: boolean): boolean {
+    if (!raw) return defaultValue;
+    const normalized = raw.toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "off"].includes(normalized)) return false;
+    return defaultValue;
+  }
+
+  private isModelStreamEnabled(): boolean {
+    return this.parseBooleanEnv(this.runtimeEnv.CHAT_MODEL_STREAM, true);
+  }
+
+  private getThinkingType(): "enabled" | "disabled" {
+    const explicit = this.runtimeEnv.CHAT_MODEL_THINKING?.toLowerCase();
+    if (explicit === "enabled" || explicit === "disabled") {
+      return explicit;
+    }
+    return this.isThinkingEnabled() ? "enabled" : "disabled";
+  }
+
+  private getModelId(): string {
+    return this.runtimeEnv.CHAT_MODEL_ID || "GLM-4.7";
+  }
+
+  private getMaxOutputTokens(): number | undefined {
+    const raw = this.runtimeEnv.CHAT_MODEL_MAX_TOKENS;
+    if (!raw) return undefined;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+
+  private async requestModelText(params: {
+    model: LanguageModel;
+    system: string;
+    messages: ModelMessage[];
+    temperature: number;
+    abortSignal?: AbortSignal;
+  }): Promise<string> {
+    const maxOutputTokens = this.getMaxOutputTokens();
+    const callOptions = {
+      model: params.model,
+      system: params.system,
+      messages: params.messages,
+      temperature: params.temperature,
+      abortSignal: params.abortSignal,
+      ...(maxOutputTokens ? { maxOutputTokens } : {}),
+      providerOptions: {
+        glm: {
+          thinking: {
+            type: this.getThinkingType()
+          }
+        }
+      }
+    };
+
+    if (this.isModelStreamEnabled()) {
+      const result = streamText(callOptions);
+      return await result.text;
+    }
+
+    const { text } = await generateText(callOptions);
+    return text;
+  }
+
   private get runtimeEnv(): Env {
     return (this as unknown as { env: Env }).env;
+  }
+
+  private isThinkingEnabled(): boolean {
+    return this.parseBooleanEnv(this.runtimeEnv.CHAT_ENABLE_THINKING, false);
+  }
+
+  private emitProgress(
+    writer: UIMessageStreamWriter,
+    event: LiveProgressEvent
+  ): void {
+    if (event.phase === "thinking" && !this.isThinkingEnabled()) {
+      return;
+    }
+    writer.write({
+      type: "data-progress",
+      transient: true,
+      data: {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        ...event
+      }
+    });
   }
 
   private getMessageText(message: { parts: Array<{ type: string; text?: string }> }): string {
@@ -178,6 +284,23 @@ export class ChatAgent extends AIChatAgent<Env> {
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
+        const emitProgress: ProgressEmitter = (event) =>
+          this.emitProgress(writer, event);
+
+        emitProgress({
+          phase: "context",
+          status: "start",
+          message: "Message received. Preparing response pipeline."
+        });
+
+        const heartbeat = setInterval(() => {
+          emitProgress({
+            phase: "heartbeat",
+            status: "info",
+            message: "Still working..."
+          });
+        }, 1200);
+
         writer.write({ type: "text-start", id: textId });
         writer.write({
           type: "text-delta",
@@ -185,15 +308,33 @@ export class ChatAgent extends AIChatAgent<Env> {
           // Send an invisible keepalive chunk so the client receives an early stream event.
           delta: "\u200b"
         });
-
-        const finalResponse = await this.generateAssistantResponse(
-          latestUserText,
-          true,
-          options?.abortSignal
-        );
-
-        writer.write({ type: "text-delta", id: textId, delta: finalResponse });
-        writer.write({ type: "text-end", id: textId });
+        try {
+          const finalResponse = await this.generateAssistantResponse(
+            latestUserText,
+            true,
+            options?.abortSignal,
+            emitProgress
+          );
+          writer.write({ type: "text-delta", id: textId, delta: finalResponse });
+          writer.write({ type: "text-end", id: textId });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown generation error";
+          emitProgress({
+            phase: "error",
+            status: "error",
+            message: "Generation failed.",
+            snippet: message.slice(0, 240)
+          });
+          writer.write({
+            type: "text-delta",
+            id: textId,
+            delta: `抱歉，处理请求时出错：${message}`
+          });
+          writer.write({ type: "text-end", id: textId });
+        } finally {
+          clearInterval(heartbeat);
+        }
       }
     });
 
@@ -323,26 +464,50 @@ IMPORTANT:
    * Try to execute a tool call from the message content
    */
   private async tryExecuteToolCall(
-    message: string
+    message: string,
+    emitProgress?: ProgressEmitter
   ): Promise<ToolExecutionResult> {
     try {
       await this.ensureMcpConnections();
       const jsonStr = this.extractToolCallJson(message);
       if (!jsonStr) {
+        emitProgress?.({
+          phase: "tool",
+          status: "info",
+          message: "No tool call found in model draft."
+        });
         return { detected: false, executed: false };
       }
 
       const parsed = JSON.parse(jsonStr);
 
       if (!parsed.tool_call || !parsed.tool_call.name) {
+        emitProgress?.({
+          phase: "tool",
+          status: "info",
+          message: "Tool call JSON detected but invalid."
+        });
         return { detected: false, executed: false };
       }
 
       const { name, arguments: args } = parsed.tool_call;
       const normalizedArgs = this.normalizeToolArguments(name, args || {});
+      emitProgress?.({
+        phase: "tool",
+        status: "start",
+        toolName: name,
+        message: `Executing tool "${name}".`,
+        snippet: JSON.stringify(normalizedArgs).slice(0, 240)
+      });
 
       // Check MCP availability using listTools() method
       if (!this.mcp) {
+        emitProgress?.({
+          phase: "tool",
+          status: "error",
+          toolName: name,
+          message: "MCP is unavailable; cannot execute tool."
+        });
         return { detected: true, executed: false, toolName: name, error: "MCP not available" };
       }
 
@@ -360,6 +525,12 @@ IMPORTANT:
       }
 
       if (!toolInfo) {
+        emitProgress?.({
+          phase: "tool",
+          status: "error",
+          toolName: name,
+          message: `Tool "${name}" not found in available tools.`
+        });
         return {
           detected: true,
           executed: false,
@@ -384,10 +555,23 @@ IMPORTANT:
           : JSON.stringify(toolResult, null, 2);
 
       console.log(`Tool ${name} result:`, resultText.substring(0, 200));
+      emitProgress?.({
+        phase: "tool",
+        status: "success",
+        toolName: name,
+        message: `Tool "${name}" completed.`,
+        snippet: resultText.slice(0, 320)
+      });
       return { detected: true, executed: true, toolName: name, result: resultText };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("Tool call error:", error);
+      emitProgress?.({
+        phase: "tool",
+        status: "error",
+        message: "Tool execution failed.",
+        snippet: errorMsg.slice(0, 240)
+      });
       return { detected: true, executed: false, error: errorMsg };
     }
   }
@@ -397,10 +581,21 @@ IMPORTANT:
   private async generateAssistantResponse(
     message: string,
     userAlreadyInHistory: boolean,
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    emitProgress?: ProgressEmitter
   ): Promise<string> {
+    emitProgress?.({
+      phase: "context",
+      status: "start",
+      message: "Loading system prompt and tool context."
+    });
     // Build system prompt
     const systemPrompt = await this.buildSystemPrompt();
+    emitProgress?.({
+      phase: "context",
+      status: "success",
+      message: "Context ready. Requesting draft answer from model."
+    });
 
     // Create GLM provider
     const glm = createOpenAICompatible({
@@ -431,19 +626,30 @@ IMPORTANT:
       : [...existingMessages, userMessage];
 
     // Generate initial response
-    const { text } = await generateText({
-      model: glm("GLM-4.7"),
+    emitProgress?.({
+      phase: "model",
+      status: "start",
+      message: "Model is generating the first draft."
+    });
+    const text = await this.requestModelText({
+      model: glm(this.getModelId()),
       system: systemPrompt,
       messages,
       temperature: 0.7,
       abortSignal
+    });
+    emitProgress?.({
+      phase: "thinking",
+      status: "info",
+      message: "Draft generated. Inspecting for tool instructions.",
+      snippet: text.slice(0, 320)
     });
 
     let finalResponse = text;
 
     // Check for tool calls and execute them
     console.log("Checking for tool calls in response:", text.substring(0, 200));
-    const toolResult = await this.tryExecuteToolCall(text);
+    const toolResult = await this.tryExecuteToolCall(text, emitProgress);
     console.log("Tool execution result:", toolResult);
 
     if (toolResult.executed && toolResult.result) {
@@ -465,8 +671,13 @@ IMPORTANT:
         toolContextMessage
       ];
 
-      const { text: followUpText } = await generateText({
-        model: glm("GLM-4.7"),
+      emitProgress?.({
+        phase: "model",
+        status: "start",
+        message: "Tool returned data. Generating final answer."
+      });
+      const followUpText = await this.requestModelText({
+        model: glm(this.getModelId()),
         system:
           `${systemPrompt}\n\n` +
           "A tool result has already been provided. Do not output tool_call JSON again. " +
@@ -477,6 +688,12 @@ IMPORTANT:
       });
 
       finalResponse = followUpText;
+      emitProgress?.({
+        phase: "thinking",
+        status: "info",
+        message: "Final answer draft generated from tool result.",
+        snippet: followUpText.slice(0, 320)
+      });
     } else if (toolResult.detected && !toolResult.executed) {
       // Avoid returning raw tool_call JSON to user when tool execution fails.
       const fallbackContextMessage: ModelMessage = {
@@ -498,8 +715,13 @@ IMPORTANT:
         fallbackContextMessage
       ];
 
-      const { text: fallbackText } = await generateText({
-        model: glm("GLM-4.7"),
+      emitProgress?.({
+        phase: "model",
+        status: "start",
+        message: "Tool failed. Generating fallback answer without tools."
+      });
+      const fallbackText = await this.requestModelText({
+        model: glm(this.getModelId()),
         system:
           `${systemPrompt}\n\n` +
           "Do not output tool_call JSON. Answer directly based on your own knowledge and be explicit about uncertainty.",
@@ -509,13 +731,24 @@ IMPORTANT:
       });
 
       finalResponse = fallbackText;
+      emitProgress?.({
+        phase: "thinking",
+        status: "info",
+        message: "Fallback answer generated.",
+        snippet: fallbackText.slice(0, 320)
+      });
     }
 
     // Final guardrail: never return raw tool_call JSON to API clients.
     if (this.extractToolCallJson(finalResponse)) {
+      emitProgress?.({
+        phase: "model",
+        status: "start",
+        message: "Detected raw tool JSON in output. Running guardrail rewrite."
+      });
       if (toolResult.executed && toolResult.result) {
-        const { text: forcedFinalText } = await generateText({
-          model: glm("GLM-4.7"),
+        const forcedFinalText = await this.requestModelText({
+          model: glm(this.getModelId()),
           system:
             "You are given user question and tool result. " +
             "Return a direct final answer in Markdown. Never output JSON tool calls.",
@@ -536,8 +769,8 @@ IMPORTANT:
         });
         finalResponse = forcedFinalText;
       } else {
-        const { text: forcedFallbackText } = await generateText({
-          model: glm("GLM-4.7"),
+        const forcedFallbackText = await this.requestModelText({
+          model: glm(this.getModelId()),
           system:
             "Answer the user directly without using tools. " +
             "Never output JSON tool calls.",
@@ -552,8 +785,19 @@ IMPORTANT:
         });
         finalResponse = forcedFallbackText;
       }
+      emitProgress?.({
+        phase: "thinking",
+        status: "info",
+        message: "Guardrail rewrite completed.",
+        snippet: finalResponse.slice(0, 320)
+      });
     }
 
+    emitProgress?.({
+      phase: "result",
+      status: "success",
+      message: "Final answer ready to stream."
+    });
     return finalResponse;
   }
 

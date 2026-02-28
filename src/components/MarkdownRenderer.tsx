@@ -13,7 +13,12 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
-    return content;
+    return content
+      // Strip invisible characters that can break markdown code fence parsing.
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\r\n?/g, "\n")
+      // Some model outputs place code fences after punctuation on the same line.
+      .replace(/([^\n])(```[a-zA-Z]+)/g, "$1\n$2");
   }, [content]);
 
   return (
@@ -23,7 +28,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
         rehypePlugins={[rehypeKatex]}
         components={{
           code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || "");
+            const match = /language-([a-zA-Z0-9_-]+)/.exec(className || "");
             const language = match ? match[1] : "";
             const codeString = String(children).replace(/\n$/, "");
             const isInline = !match && !codeString.includes("\n");

@@ -80,6 +80,8 @@ const Modal = memo(function Modal({
   onClose,
   animationDuration = 200,
 }: ModalProps) {
+  const titleId = `modal-title-${String(id)}`;
+
   // Handle mask click
   const handleMaskClick = useCallback(() => {
     if (maskClosable) {
@@ -93,12 +95,47 @@ const Modal = memo(function Modal({
       if (e.key === "Escape" && closable) {
         onClose();
       }
+
+      if (e.key !== "Tab") {
+        return;
+      }
+
+      const dialog = document.querySelector<HTMLElement>(
+        `[data-modal-id=\"${String(id)}\"]`
+      );
+      if (!dialog) {
+        return;
+      }
+      const focusables = dialog.querySelectorAll<HTMLElement>(
+        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
+      );
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const current = document.activeElement;
+      if (e.shiftKey && current === first) {
+        e.preventDefault();
+        last.focus();
+      }
+      if (!e.shiftKey && current === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
 
     if (visible) {
       document.addEventListener("keydown", handleKeyDown);
       // Prevent body scroll
       document.body.style.overflow = "hidden";
+      queueMicrotask(() => {
+        const dialog = document.querySelector<HTMLElement>(
+          `[data-modal-id=\"${String(id)}\"]`
+        );
+        dialog?.focus();
+      });
     }
 
     return () => {
@@ -144,13 +181,18 @@ const Modal = memo(function Modal({
           maxWidth: typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth,
           transitionDuration: `${animationDuration}ms`,
         }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        data-modal-id={String(id)}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {(title || closable) && (
           <div className="flex items-center justify-between px-5 py-4 border-b border-kumo-line">
             {title && (
-              <Text size="lg" bold>
+              <Text size="lg" bold id={titleId}>
                 {title}
               </Text>
             )}

@@ -5,6 +5,16 @@
 @source "../../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 
 :root {
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #e2e8f0;
+  --surface-elevated: #ffffff;
+  --accent-soft: color-mix(in oklab, #2563eb 12%, #ffffff 88%);
+  --status-info: #0ea5e9;
+  --status-success: #16a34a;
+  --status-warning: #d97706;
+  --status-danger: #dc2626;
+
   --app-surface-primary: #f8fafc;
   --app-surface-secondary: #f1f5f9;
   --app-surface-tertiary: #e2e8f0;
@@ -27,6 +37,16 @@
 }
 
 [data-mode="light"] {
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #e2e8f0;
+  --surface-elevated: #ffffff;
+  --accent-soft: color-mix(in oklab, #2563eb 12%, #ffffff 88%);
+  --status-info: #0ea5e9;
+  --status-success: #16a34a;
+  --status-warning: #d97706;
+  --status-danger: #dc2626;
+
   --app-surface-primary: #f8fafc;
   --app-surface-secondary: #f1f5f9;
   --app-surface-tertiary: #e2e8f0;
@@ -46,6 +66,16 @@
 }
 
 [data-mode="dark"] {
+  --surface-1: #0b1220;
+  --surface-2: #111b2f;
+  --surface-3: #1d2b43;
+  --surface-elevated: #172437;
+  --accent-soft: color-mix(in oklab, #60a5fa 25%, #111b2f 75%);
+  --status-info: #38bdf8;
+  --status-success: #4ade80;
+  --status-warning: #f59e0b;
+  --status-danger: #f87171;
+
   --app-surface-primary: #020617;
   --app-surface-secondary: #0f172a;
   --app-surface-tertiary: #1e293b;
@@ -118,13 +148,29 @@ pre {
 
 .app-panel {
   border: 1px solid var(--app-border-default);
-  background: color-mix(in oklab, var(--app-surface-primary) 92%, var(--app-surface-secondary) 8%);
+  background: color-mix(in oklab, var(--surface-elevated) 92%, var(--surface-2) 8%);
   box-shadow: var(--app-shadow-soft);
 }
 
 .app-panel-soft {
   border: 1px solid color-mix(in oklab, var(--app-border-default) 82%, transparent);
-  background: color-mix(in oklab, var(--app-surface-secondary) 76%, transparent);
+  background: color-mix(in oklab, var(--surface-2) 82%, transparent);
+}
+
+.surface-1 {
+  background: var(--surface-1);
+}
+
+.surface-2 {
+  background: var(--surface-2);
+}
+
+.surface-3 {
+  background: var(--surface-3);
+}
+
+.surface-elevated {
+  background: var(--surface-elevated);
 }
 
 .app-glass {
@@ -162,6 +208,42 @@ pre {
 
 .animate-blink-cursor {
   animation: blink-cursor 1s infinite;
+}
+
+@keyframes live-feed-pulse {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-2px);
+    opacity: 1;
+  }
+}
+
+.live-feed-dots {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.live-feed-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--app-accent) 78%, white 22%);
+  animation: live-feed-pulse 1s infinite ease-in-out;
+}
+
+.live-feed-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.live-feed-dots i:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -213,12 +295,12 @@ pre {
 
 /* Shiki theme overrides */
 [data-mode="dark"] .shiki {
-  background-color: #24292e !important;
-  color: #e1e4e8 !important;
+  background-color: color-mix(in oklab, var(--surface-elevated) 88%, #0f172a 12%) !important;
+  color: #e2e8f0 !important;
 }
 
 [data-mode="light"] .shiki {
-  background-color: #fff !important;
+  background-color: var(--surface-1) !important;
   color: #24292e !important;
 }
 

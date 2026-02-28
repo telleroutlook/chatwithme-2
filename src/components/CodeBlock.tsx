@@ -15,11 +15,17 @@ function useIsDarkMode(): boolean {
   const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const checkDark = () => {
       const html = document.documentElement;
-      return html.classList.contains("dark") ||
-        html.getAttribute("data-theme") === "dark" ||
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const explicitMode = html.getAttribute("data-mode");
+      if (explicitMode === "dark") {
+        return true;
+      }
+      if (explicitMode === "light") {
+        return false;
+      }
+      return mediaQuery.matches;
     };
 
     setIsDark(checkDark());
@@ -30,15 +36,15 @@ function useIsDarkMode(): boolean {
 
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class", "data-theme"],
+      attributeFilter: ["data-mode"],
     });
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    mediaQuery.addEventListener("change", () => setIsDark(checkDark()));
+    const onChange = () => setIsDark(checkDark());
+    mediaQuery.addEventListener("change", onChange);
 
     return () => {
       observer.disconnect();
-      mediaQuery.removeEventListener("change", () => setIsDark(checkDark()));
+      mediaQuery.removeEventListener("change", onChange);
     };
   }, []);
 
@@ -106,7 +112,7 @@ export function CodeBlock({
           </Button>
         )}
       </div>
-      <div className="overflow-x-auto bg-[#24292e] dark:bg-[#24292e]">
+      <div className="overflow-x-auto bg-[var(--surface-2)]">
         {isLoading && (
           <div className="p-4 text-sm text-kumo-subtle">
             Loading syntax highlight...

@@ -12,6 +12,9 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isDark =
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-mode") === "dark";
 
   useEffect(() => {
     let mounted = true;
@@ -21,7 +24,7 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
         const mermaid = (await import("mermaid")).default;
         mermaid.initialize({
           startOnLoad: false,
-          theme: "default",
+          theme: isDark ? "dark" : "default",
           securityLevel: "strict",
         });
 
@@ -52,7 +55,7 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
         containerRef.current.innerHTML = "";
       }
     };
-  }, [code]);
+  }, [code, isDark]);
 
   if (error) {
     return (
@@ -65,7 +68,7 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
   }
 
   return (
-    <Surface className="p-4 rounded-xl ring ring-kumo-line bg-white">
+    <Surface className="p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
       <div className="flex items-center gap-2 mb-2">
         <ChartBarIcon size={14} className="text-kumo-accent" />
         <Text size="xs" variant="secondary" bold>
@@ -179,7 +182,7 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
   }
 
   return (
-    <Surface className="p-4 rounded-xl ring ring-kumo-line bg-white">
+    <Surface className="p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
       <div className="flex items-center gap-2 mb-2">
         <ChartBarIcon size={14} className="text-kumo-accent" />
         <Text size="xs" variant="secondary" bold>
@@ -190,7 +193,7 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
       <div className="relative">
         <div ref={containerRef} className="g2-chart-container" style={{ minHeight: 300 }} />
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-1)]/80">
             <span className="text-sm text-kumo-subtle">Rendering chart...</span>
           </div>
         )}

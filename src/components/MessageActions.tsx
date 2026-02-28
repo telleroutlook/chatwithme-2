@@ -108,7 +108,7 @@ export const MessageActions = memo(function MessageActions({
   const iconSize = compact ? 12 : 14;
 
   return (
-    <div className="mt-0.5 inline-flex items-center gap-1 rounded-lg bg-kumo-base/50 px-1 py-1 backdrop-blur-sm opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity duration-200">
+    <div className="mt-0.5 inline-flex items-center gap-1 rounded-lg bg-kumo-base/60 px-1 py-1 backdrop-blur-sm opacity-95 md:opacity-70 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity duration-200">
       <span className="sr-only" role="status" aria-live="polite">
         {copyAnnouncement}
       </span>
