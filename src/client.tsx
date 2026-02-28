@@ -2,7 +2,11 @@ import { McpItemCard } from "./components/McpItemCard";
 import { Toaster } from "./components/Toaster";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import { ToolCallCard, extractToolCalls } from "./components/ToolCallCard";
-import { ToastProvider, useToast } from "./hooks/useToast.tsx";
+import { MessageActions } from "./components/MessageActions";
+import { ChatInput } from "./components/ChatInput";
+import { ModalHost } from "./components/modal";
+import { ToastProvider, useToast } from "./hooks/useToast";
+import { useResponsive } from "./hooks/useResponsive";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,7 +32,9 @@ import {
   PlusIcon,
   TrashIcon,
   ChatCircleDotsIcon,
-  StopIcon
+  StopIcon,
+  XIcon,
+  ListIcon
 } from "@phosphor-icons/react";
 import type { MCPServersState, UIMessage } from "agents";
 import { nanoid } from "nanoid";
@@ -147,6 +153,16 @@ function App() {
     Record<string, PreconfiguredServer>
   >({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Responsive hook for mobile detection
+  const { mobile, tablet, desktop } = useResponsive();
+
+  // On mobile, sidebar starts closed
+  useEffect(() => {
+    if (mobile) {
+      setSidebarOpen(false);
+    }
+  }, [mobile]);
 
   // Chat input
   const [input, setInput] = useState("");
@@ -331,22 +347,46 @@ function App() {
 
   return (
     <div className="h-full flex bg-kumo-base">
-      {/* Sidebar */}
+      {/* Mobile Drawer Overlay */}
+      {mobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Desktop fixed, Mobile drawer */}
       <aside
-        className={`${
-          sidebarOpen ? "w-64" : "w-0"
-        } flex flex-col border-r border-kumo-line bg-kumo-base transition-all duration-300 overflow-hidden shrink-0`}
+        className={`
+          ${mobile
+            ? `fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`
+            : `${sidebarOpen ? "w-64" : "w-0"} transition-all duration-300`
+          }
+          flex flex-col border-r border-kumo-line bg-kumo-base overflow-hidden shrink-0
+        `}
       >
         {/* Sidebar Header */}
-        <div className="p-3 border-b border-kumo-line">
+        <div className="p-3 border-b border-kumo-line flex items-center justify-between">
           <Button
             variant="primary"
-            className="w-full justify-center"
+            className="flex-1 justify-center"
             icon={<PlusIcon size={16} />}
-            onClick={handleNewSession}
+            onClick={() => {
+              handleNewSession();
+              if (mobile) setSidebarOpen(false);
+            }}
           >
             New Chat
           </Button>
+          {mobile && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="ml-2 p-2 rounded-lg hover:bg-kumo-control transition-colors"
+              aria-label="Close sidebar"
+            >
+              <XIcon size={20} className="text-kumo-subtle" />
+            </button>
+          )}
         </div>
 
         {/* Session List */}
@@ -360,7 +400,10 @@ function App() {
             sessions.map((session) => (
               <button
                 key={session.id}
-                onClick={() => handleSelectSession(session.id)}
+                onClick={() => {
+                  handleSelectSession(session.id);
+                  if (mobile) setSidebarOpen(false);
+                }}
                 className={`w-full text-left p-3 rounded-lg transition-colors group ${
                   currentSessionId === session.id
                     ? "bg-kumo-accent/10 ring-1 ring-kumo-accent"
@@ -417,9 +460,9 @@ function App() {
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-lg hover:bg-kumo-control transition-colors"
-                aria-label="Toggle sidebar"
+                aria-label={mobile ? "Open menu" : "Toggle sidebar"}
               >
-                <ChatCircleDotsIcon size={20} className="text-kumo-subtle" />
+                <ListIcon size={20} className="text-kumo-subtle" />
               </button>
               <PlugsConnectedIcon
                 size={22}
@@ -504,7 +547,7 @@ function App() {
                         key={msg.id}
                         className={`flex flex-col ${
                           isUser ? "items-end" : "items-start"
-                        }`}
+                        } group`}
                       >
                         {/* Tool Calls Display */}
                         {!isUser && hasToolCalls && (
@@ -540,6 +583,17 @@ function App() {
                             />
                           )}
                         </div>
+                        {/* Message Actions */}
+                        <div className="mt-1">
+                          <MessageActions
+                            content={text}
+                            showRegenerate={!isUser}
+                            showEdit={isUser}
+                            showDelete={true}
+                            disabled={isStreaming}
+                            compact={true}
+                          />
+                        </div>
                       </div>
                     );
                   })
@@ -548,51 +602,22 @@ function App() {
               </div>
 
               {/* Chat Input */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSend();
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder={
-                    activeToolsCount > 0
-                      ? "Ask anything... (AI can search web & read pages)"
-                      : "Type a message..."
-                  }
-                  disabled={!isConnected || isStreaming}
-                  className="flex-1 px-4 py-2 text-sm rounded-xl border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:opacity-50"
-                />
-                {isStreaming ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={stop}
-                    icon={<StopIcon size={16} weight="fill" />}
-                  >
-                    Stop
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={!input.trim() || !isConnected}
-                    icon={<PaperPlaneTiltIcon size={16} />}
-                  >
-                    Send
-                  </Button>
-                )}
-              </form>
+              <ChatInput
+                value={input}
+                onChange={setInput}
+                onSubmit={handleSend}
+                onStop={stop}
+                isStreaming={isStreaming}
+                isConnected={isConnected}
+                placeholder={
+                  activeToolsCount > 0
+                    ? "Ask anything... (AI can search web & read pages)"
+                    : "Type a message..."
+                }
+                multiline={true}
+                maxRows={6}
+                showCharCount={true}
+              />
             </div>
           ) : (
             /* MCP Tab */
@@ -732,6 +757,7 @@ createRoot(document.getElementById("root")!).render(
     <ToastProvider>
       <App />
       <Toaster />
+      <ModalHost />
     </ToastProvider>
   </ThemeProvider>
 );

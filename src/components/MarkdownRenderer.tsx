@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import { CodeBlock } from "./CodeBlock";
 import { MermaidRenderer, G2ChartRenderer } from "./ChartRenderer";
@@ -21,7 +20,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
     <div className="markdown-content prose prose-sm max-w-none dark:prose-invert">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeHighlight, rehypeKatex]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           code({ className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || "");

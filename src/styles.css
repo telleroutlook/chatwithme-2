@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "@cloudflare/kumo/styles/tailwind";
 @import "@cloudflare/agents-ui/theme/workers.css";
-@import "highlight.js/styles/github-dark.css";
 @import "katex/dist/katex.min.css";
 @source "../../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 
@@ -60,13 +59,37 @@ body,
   line-height: 1.5;
 }
 
-.markdown-content .hljs {
+/* Shiki syntax highlighting styles */
+.shiki-container {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
+.shiki-container pre {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow-x: auto;
+}
+
+.shiki-container code {
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.6;
   background: transparent !important;
 }
 
-/* Code syntax highlighting adjustments for dark mode */
-.dark .markdown-content .hljs {
-  color: #e6edf3;
+/* Shiki github-dark theme overrides */
+.shiki {
+  background-color: #24292e !important;
+  color: #e1e4e8 !important;
+}
+
+/* Light theme for Shiki */
+@media (prefers-color-scheme: light) {
+  .shiki {
+    background-color: #fff !important;
+    color: #24292e !important;
+  }
 }
 
 /* Link styles within markdown */

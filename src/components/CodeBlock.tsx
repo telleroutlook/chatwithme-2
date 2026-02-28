@@ -1,15 +1,70 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Surface, Button } from "@cloudflare/kumo";
 import { CopyIcon, CheckIcon, CodeIcon } from "@phosphor-icons/react";
+import { useHighlight, preloadHighlighter } from "../hooks/useHighlight";
 
 interface CodeBlockProps {
   language: string;
   code: string;
   showCopy?: boolean;
+  showLineNumbers?: boolean;
 }
 
-export function CodeBlock({ language, code, showCopy = true }: CodeBlockProps) {
+// Detect if dark mode is active
+function useIsDarkMode(): boolean {
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    const checkDark = () => {
+      const html = document.documentElement;
+      return html.classList.contains("dark") ||
+        html.getAttribute("data-theme") === "dark" ||
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+    };
+
+    setIsDark(checkDark());
+
+    const observer = new MutationObserver(() => {
+      setIsDark(checkDark());
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+    });
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    mediaQuery.addEventListener("change", () => setIsDark(checkDark()));
+
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener("change", () => setIsDark(checkDark()));
+    };
+  }, []);
+
+  return isDark;
+}
+
+export function CodeBlock({
+  language,
+  code,
+  showCopy = true,
+  showLineNumbers = false
+}: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const isDark = useIsDarkMode();
+  const theme = isDark ? "github-dark" : "github-light";
+
+  // Preload highlighter on mount
+  useEffect(() => {
+    preloadHighlighter();
+  }, []);
+
+  const { html, isLoading, error } = useHighlight(code, {
+    language,
+    theme,
+    enabled: !!code,
+  });
 
   const handleCopy = useCallback(async () => {
     try {
@@ -21,13 +76,23 @@ export function CodeBlock({ language, code, showCopy = true }: CodeBlockProps) {
     }
   }, [code]);
 
+  // Line numbers generation
+  const lineNumbers = useMemo(() => {
+    if (!showLineNumbers || !code) return null;
+    const lines = code.split("\n");
+    return lines.map((_, i) => i + 1).join("\n");
+  }, [code, showLineNumbers]);
+
+  // Display language name
+  const displayLanguage = language || "text";
+
   return (
     <Surface className="my-3 rounded-xl ring ring-kumo-line overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/50 border-b border-kumo-line">
         <div className="flex items-center gap-2">
           <CodeIcon size={14} className="text-kumo-subtle" />
           <span className="text-xs text-kumo-subtle font-mono">
-            {language || "text"}
+            {displayLanguage}
           </span>
         </div>
         {showCopy && (
@@ -41,10 +106,28 @@ export function CodeBlock({ language, code, showCopy = true }: CodeBlockProps) {
           </Button>
         )}
       </div>
-      <div className="overflow-x-auto">
-        <pre className="!mt-0 !mb-0 p-4 text-sm">
-          <code className={`language-${language}`}>{code}</code>
-        </pre>
+      <div className="overflow-x-auto bg-[#24292e] dark:bg-[#24292e]">
+        {isLoading && (
+          <div className="p-4 text-sm text-kumo-subtle">
+            Loading syntax highlight...
+          </div>
+        )}
+        {error && (
+          <pre className="!mt-0 !mb-0 p-4 text-sm text-red-400">
+            {code}
+          </pre>
+        )}
+        {html && !isLoading && !error && (
+          <div
+            className="shiki-container p-4 [&_pre]:!m-0 [&_pre]:!p-0 [&_pre]:!bg-transparent [&_code]:!bg-transparent"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        )}
+        {!html && !isLoading && !error && (
+          <pre className="!mt-0 !mb-0 p-4 text-sm">
+            <code>{code}</code>
+          </pre>
+        )}
       </div>
     </Surface>
   );
