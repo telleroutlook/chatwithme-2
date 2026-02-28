@@ -256,12 +256,17 @@ After I execute the tool, I will provide you with the results.`;
   }
 
   private async buildSystemPromptDynamic(): Promise<string> {
-    const mcpState = await this.mcp.getState();
-    const toolList = mcpState.tools
-      .map(t => `- ${t.name}: ${t.description || "No description"}`)
-      .join("\n");
+    try {
+      // Safely get MCP state
+      if (!this.mcp || typeof this.mcp.getState !== "function") {
+        return "You are a helpful AI assistant.";
+      }
+      const mcpState = await this.mcp.getState();
+      const toolList = mcpState.tools
+        .map(t => `- ${t.name}: ${t.description || "No description"}`)
+        .join("\n");
 
-    return `You are a helpful AI assistant with access to the following tools:
+      return `You are a helpful AI assistant with access to the following tools:
 
 ${toolList || "No tools available."}
 
@@ -271,6 +276,10 @@ To use a tool, respond with a JSON code block like this:
 \`\`\`
 
 After using a tool, I will provide the results and you can continue helping the user.`;
+    } catch (error) {
+      console.error("Failed to build system prompt:", error);
+      return "You are a helpful AI assistant.";
+    }
   }
 
   private async tryExecuteToolCall(message: string): Promise<{ executed: boolean; toolName?: string; result?: string }> {
@@ -290,7 +299,10 @@ After using a tool, I will provide the results and you can continue helping the 
 
       const { name, arguments: args } = parsed.tool_call;
 
-      // Get MCP state to find the tool
+      // Safely get MCP state to find the tool
+      if (!this.mcp || typeof this.mcp.getState !== "function") {
+        return { executed: false };
+      }
       const mcpState = await this.mcp.getState();
       const toolInfo = mcpState.tools.find((t) => t.name === name);
 
@@ -299,6 +311,9 @@ After using a tool, I will provide the results and you can continue helping the 
       }
 
       // Execute the MCP tool
+      if (typeof this.mcp.callTool !== "function") {
+        return { executed: false };
+      }
       const toolResult = await this.mcp.callTool({
         name,
         serverId: toolInfo.serverId,
@@ -326,16 +341,25 @@ After using a tool, I will provide the results and you can continue helping the 
 
   @callable({ description: "Get chat history" })
   async getHistory(): Promise<ChatMessage[]> {
-    return this.state.messages;
+    return this.state?.messages || [];
   }
 
   @callable({ description: "Get available MCP tools" })
   async getAvailableTools() {
-    const state = await this.mcp.getState();
-    return state.tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      serverId: tool.serverId
-    }));
+    try {
+      // Check if mcp is available and has getState method
+      if (!this.mcp || typeof this.mcp.getState !== "function") {
+        return [];
+      }
+      const state = await this.mcp.getState();
+      return state.tools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        serverId: tool.serverId
+      }));
+    } catch (error) {
+      console.error("Failed to get MCP tools:", error);
+      return [];
+    }
   }
 }
