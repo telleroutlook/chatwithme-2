@@ -21,17 +21,72 @@ import {
   ChatCircleIcon,
   PaperPlaneTiltIcon,
   CheckCircleIcon,
-  WarningIcon
+  WarningIcon,
+  PlusIcon,
+  TrashIcon,
+  ChatCircleDotsIcon
 } from "@phosphor-icons/react";
 import type { MCPServersState } from "agents";
 import { nanoid } from "nanoid";
 import "./styles.css";
 
-let sessionId = localStorage.getItem("sessionId");
-if (!sessionId) {
-  sessionId = nanoid(8);
-  localStorage.setItem("sessionId", sessionId);
+// ============ Session Management ============
+
+interface SessionMeta {
+  id: string;
+  title: string;
+  lastMessage: string;
+  timestamp: string;
+  messageCount: number;
 }
+
+const SESSIONS_KEY = "chatwithme_sessions";
+
+function loadSessions(): SessionMeta[] {
+  try {
+    const data = localStorage.getItem(SESSIONS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessions(sessions: SessionMeta[]): void {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+}
+
+function updateSessionMeta(
+  sessionId: string,
+  updates: Partial<SessionMeta>
+): void {
+  const sessions = loadSessions();
+  const index = sessions.findIndex((s) => s.id === sessionId);
+
+  if (index >= 0) {
+    sessions[index] = { ...sessions[index], ...updates };
+    // Move to top (most recent)
+    const session = sessions.splice(index, 1)[0];
+    sessions.unshift(session);
+  } else {
+    sessions.unshift({
+      id: sessionId,
+      title: "New Chat",
+      lastMessage: "",
+      timestamp: new Date().toISOString(),
+      messageCount: 0,
+      ...updates
+    });
+  }
+
+  saveSessions(sessions);
+}
+
+function deleteSessionMeta(sessionId: string): void {
+  const sessions = loadSessions().filter((s) => s.id !== sessionId);
+  saveSessions(sessions);
+}
+
+// ============ Main App ============
 
 type Tab = "chat" | "mcp";
 
@@ -48,6 +103,17 @@ interface PreconfiguredServer {
 
 function App() {
   const { addToast } = useToast();
+
+  // Session state
+  const [sessions, setSessions] = useState<SessionMeta[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
+    const saved = localStorage.getItem("currentSessionId");
+    if (saved) return saved;
+    const id = nanoid(8);
+    localStorage.setItem("currentSessionId", id);
+    return id;
+  });
+
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting");
@@ -62,6 +128,7 @@ function App() {
   const [preconfiguredServers, setPreconfiguredServers] = useState<
     Record<string, PreconfiguredServer>
   >({});
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Chat state
   const [chatInput, setChatInput] = useState("");
@@ -71,10 +138,20 @@ function App() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // Load sessions on mount
+  useEffect(() => {
+    setSessions(loadSessions());
+  }, []);
+
+  // Save current session ID when changed
+  useEffect(() => {
+    localStorage.setItem("currentSessionId", currentSessionId);
+  }, [currentSessionId]);
+
   // Single unified agent for both Chat and MCP
   const agent = useAgent({
     agent: "chat-agent",
-    name: sessionId!,
+    name: currentSessionId,
     onClose: useCallback(() => setConnectionStatus("disconnected"), []),
     onMcpUpdate: useCallback((mcpServers: MCPServersState) => {
       setMcpState(mcpServers);
@@ -82,8 +159,21 @@ function App() {
     onOpen: useCallback(() => {
       setConnectionStatus("connected");
       loadPreconfiguredServers();
+      loadChatHistory();
     }, [])
   });
+
+  const loadChatHistory = useCallback(async () => {
+    try {
+      const history = await agent.call("getHistory", []);
+      const messages = (history as Array<{ role: string; content: string }>)
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      setChatMessages(messages);
+    } catch (error) {
+      console.error("Failed to load chat history:", error);
+    }
+  }, [agent]);
 
   const loadPreconfiguredServers = useCallback(async () => {
     try {
@@ -101,6 +191,35 @@ function App() {
       loadPreconfiguredServers();
     }
   }, [connectionStatus, loadPreconfiguredServers]);
+
+  // Create new session
+  const handleNewSession = useCallback(() => {
+    const newId = nanoid(8);
+    setCurrentSessionId(newId);
+    setChatMessages([]);
+    setConnectionStatus("connecting");
+  }, []);
+
+  // Switch session
+  const handleSelectSession = useCallback((sessionId: string) => {
+    if (sessionId === currentSessionId) return;
+    setCurrentSessionId(sessionId);
+    setChatMessages([]);
+    setConnectionStatus("connecting");
+  }, [currentSessionId]);
+
+  // Delete session
+  const handleDeleteSession = useCallback((sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    deleteSessionMeta(sessionId);
+    setSessions(loadSessions());
+
+    if (sessionId === currentSessionId) {
+      handleNewSession();
+    }
+
+    addToast("Session deleted", "success");
+  }, [currentSessionId, handleNewSession, addToast]);
 
   const handleToggleServer = useCallback(
     async (name: string) => {
@@ -146,10 +265,26 @@ function App() {
 
       try {
         const response = await agent.call("chat", [userMessage]);
+        const assistantMessage = response as string;
+
         setChatMessages((prev) => [
           ...prev,
-          { role: "assistant", content: response as string }
+          { role: "assistant", content: assistantMessage }
         ]);
+
+        // Update session metadata
+        const newCount = chatMessages.length + 2;
+        const title = chatMessages.length === 0
+          ? userMessage.slice(0, 30) + (userMessage.length > 30 ? "..." : "")
+          : undefined;
+
+        updateSessionMeta(currentSessionId, {
+          title,
+          lastMessage: assistantMessage.slice(0, 50) + (assistantMessage.length > 50 ? "..." : ""),
+          timestamp: new Date().toISOString(),
+          messageCount: newCount
+        });
+        setSessions(loadSessions());
       } catch (error) {
         console.error("Chat error:", error);
         addToast(
@@ -168,7 +303,7 @@ function App() {
         }, 100);
       }
     },
-    [chatInput, isChatLoading, agent, addToast]
+    [chatInput, isChatLoading, agent, addToast, chatMessages.length, currentSessionId]
   );
 
   const serverEntries = useMemo(
@@ -183,63 +318,165 @@ function App() {
 
   const activeToolsCount = mcpState.tools.length;
 
+  // Format relative time
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return "now";
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+    return date.toLocaleDateString();
+  };
+
   return (
-    <div className="h-full flex flex-col bg-kumo-base">
-      <header className="px-5 py-4 border-b border-kumo-line">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <PlugsConnectedIcon
-              size={22}
-              className="text-kumo-accent"
-              weight="bold"
-            />
-            <h1 className="text-lg font-semibold text-kumo-default">
-              ChatWithMe MCP
-            </h1>
+    <div className="h-full flex bg-kumo-base">
+      {/* Sidebar */}
+      <aside
+        className={`${
+          sidebarOpen ? "w-64" : "w-0"
+        } flex flex-col border-r border-kumo-line bg-kumo-base transition-all duration-300 overflow-hidden shrink-0`}
+      >
+        {/* Sidebar Header */}
+        <div className="p-3 border-b border-kumo-line">
+          <Button
+            variant="primary"
+            className="w-full justify-center"
+            icon={<PlusIcon size={16} />}
+            onClick={handleNewSession}
+          >
+            New Chat
+          </Button>
+        </div>
+
+        {/* Session List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {sessions.length === 0 ? (
+            <div className="text-center py-8 text-kumo-subtle">
+              <ChatCircleDotsIcon size={32} className="mx-auto mb-2 opacity-50" />
+              <Text size="xs">No conversations yet</Text>
+            </div>
+          ) : (
+            sessions.map((session) => (
+              <button
+                key={session.id}
+                onClick={() => handleSelectSession(session.id)}
+                className={`w-full text-left p-3 rounded-lg transition-colors group ${
+                  currentSessionId === session.id
+                    ? "bg-kumo-accent/10 ring-1 ring-kumo-accent"
+                    : "hover:bg-kumo-control"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <Text
+                      size="sm"
+                      bold={currentSessionId === session.id}
+                      className="truncate"
+                    >
+                      {session.title}
+                    </Text>
+                    <Text
+                      size="xs"
+                      variant="secondary"
+                      className="truncate mt-0.5"
+                    >
+                      {session.lastMessage || "No messages"}
+                    </Text>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Text size="xs" variant="secondary">
+                        {formatTime(session.timestamp)}
+                      </Text>
+                      {session.messageCount > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {session.messageCount}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-kumo-danger/20 text-kumo-subtle hover:text-kumo-danger transition-all"
+                    aria-label="Delete session"
+                  >
+                    <TrashIcon size={14} />
+                  </button>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="px-5 py-4 border-b border-kumo-line">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 rounded-lg hover:bg-kumo-control transition-colors"
+                aria-label="Toggle sidebar"
+              >
+                <ChatCircleDotsIcon size={20} className="text-kumo-subtle" />
+              </button>
+              <PlugsConnectedIcon
+                size={22}
+                className="text-kumo-accent"
+                weight="bold"
+              />
+              <h1 className="text-lg font-semibold text-kumo-default">
+                ChatWithMe MCP
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <ConnectionIndicator status={connectionStatus} />
+              <ModeToggle />
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <ConnectionIndicator status={connectionStatus} />
-            <ModeToggle />
+        </header>
+
+        {/* Tab Navigation */}
+        <div className="border-b border-kumo-line">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "chat"
+                  ? "border-kumo-accent text-kumo-accent"
+                  : "border-transparent text-kumo-subtle hover:text-kumo-default"
+              }`}
+            >
+              <ChatCircleIcon size={18} weight="bold" />
+              Chat
+              {activeToolsCount > 0 && (
+                <Badge variant="primary">{activeToolsCount} tools</Badge>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("mcp")}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "mcp"
+                  ? "border-kumo-accent text-kumo-accent"
+                  : "border-transparent text-kumo-subtle hover:text-kumo-default"
+              }`}
+            >
+              <PlugIcon size={18} weight="bold" />
+              MCP Servers
+              {serverEntries.length > 0 && (
+                <Badge variant="secondary">{serverEntries.length}</Badge>
+              )}
+            </button>
           </div>
         </div>
-      </header>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-kumo-line">
-        <div className="max-w-3xl mx-auto flex">
-          <button
-            onClick={() => setActiveTab("chat")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "chat"
-                ? "border-kumo-accent text-kumo-accent"
-                : "border-transparent text-kumo-subtle hover:text-kumo-default"
-            }`}
-          >
-            <ChatCircleIcon size={18} weight="bold" />
-            Chat
-            {activeToolsCount > 0 && (
-              <Badge variant="primary">{activeToolsCount} tools</Badge>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("mcp")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "mcp"
-                ? "border-kumo-accent text-kumo-accent"
-                : "border-transparent text-kumo-subtle hover:text-kumo-default"
-            }`}
-          >
-            <PlugIcon size={18} weight="bold" />
-            MCP Servers
-            {serverEntries.length > 0 && (
-              <Badge variant="secondary">{serverEntries.length}</Badge>
-            )}
-          </button>
-        </div>
-      </div>
-
-      <main className="flex-1 overflow-auto p-5">
-        <div className="max-w-3xl mx-auto">
+        <main className="flex-1 overflow-auto p-5">
           {activeTab === "chat" ? (
             /* Chat Tab */
             <div className="flex flex-col h-[calc(100vh-280px)]">
@@ -326,7 +563,7 @@ function App() {
             </div>
           ) : (
             /* MCP Tab */
-            <div className="space-y-8">
+            <div className="space-y-8 max-w-3xl">
               {/* Info */}
               <Surface className="p-4 rounded-xl ring ring-kumo-line">
                 <div className="flex gap-3">
@@ -445,14 +682,14 @@ function App() {
               )}
             </div>
           )}
-        </div>
-      </main>
+        </main>
 
-      <footer className="border-t border-kumo-line py-3">
-        <div className="flex justify-center">
-          <PoweredByAgents />
-        </div>
-      </footer>
+        <footer className="border-t border-kumo-line py-3">
+          <div className="flex justify-center">
+            <PoweredByAgents />
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
