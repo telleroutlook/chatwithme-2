@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.0",
+    "@antv/g2": "^5.4.8",
     "@cloudflare/agents-ui": "*",
     "@cloudflare/ai-chat": "*",
     "@cloudflare/kumo": "^1.7.0",
@@ -19,6 +20,7 @@
     "agents": "*",
     "ai": "^6.0.0",
     "hono": "^4.6.0",
+    "mermaid": "^11.12.3",
     "nanoid": "^5.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

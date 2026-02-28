@@ -1,5 +1,6 @@
 import { McpItemCard } from "./components/McpItemCard";
 import { Toaster } from "./components/Toaster";
+import { ChartDisplay } from "./components/ChartRenderer";
 import { ToastProvider, useToast } from "./hooks/useToast.tsx";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
@@ -494,8 +495,8 @@ function App() {
                     return (
                       <div
                         key={msg.id}
-                        className={`flex ${
-                          isUser ? "justify-end" : "justify-start"
+                        className={`flex flex-col ${
+                          isUser ? "items-end" : "items-start"
                         }`}
                       >
                         <div
@@ -512,6 +513,8 @@ function App() {
                             )}
                           </Text>
                         </div>
+                        {/* Render charts in assistant messages */}
+                        {!isUser && <ChartDisplay text={text} />}
                       </div>
                     );
                   })
