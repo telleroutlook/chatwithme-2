@@ -2,6 +2,7 @@ import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import { callable } from "agents";
 import {
   streamText,
+  generateText,
   convertToModelMessages,
   pruneMessages
 } from "ai";
@@ -107,9 +108,9 @@ export class ChatAgent extends AIChatAgent<Env> {
   private async buildSystemPrompt(): Promise<string> {
     let toolList = "";
     try {
-      if (this.mcp && typeof this.mcp.getState === "function") {
-        const mcpState = await this.mcp.getState();
-        toolList = mcpState.tools
+      if (this.mcp) {
+        const tools = this.mcp.listTools();
+        toolList = tools
           .map((t) => `- ${t.name}: ${t.description || "No description"}`)
           .join("\n");
       }
@@ -127,9 +128,11 @@ To use a web tool, respond with:
 {"tool_call": {"name": "tool_name", "arguments": {"arg": "value"}}}
 \`\`\`
 
-Available tools:
+Available tools and their parameters:
 - webSearchPrime: Search the web for information
+  - Parameters: {"search_query": "your search query"} (REQUIRED: use "search_query" not "query")
 - webReader: Read and extract content from web pages
+  - Parameters: {"url": "https://example.com"}
 
 ## 2. Chart Generation
 
@@ -220,40 +223,46 @@ IMPORTANT:
    */
   private async tryExecuteToolCall(
     message: string
-  ): Promise<{ executed: boolean; toolName?: string; result?: string }> {
+  ): Promise<{ executed: boolean; toolName?: string; result?: string; error?: string }> {
     try {
+      // Extract JSON from code block
       const jsonMatch = message.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (!jsonMatch) {
-        return { executed: false };
+        return { executed: false, error: "No JSON code block found" };
       }
 
       const jsonStr = jsonMatch[1].trim();
       const parsed = JSON.parse(jsonStr);
 
       if (!parsed.tool_call || !parsed.tool_call.name) {
-        return { executed: false };
+        return { executed: false, error: "No tool_call in JSON" };
       }
 
       const { name, arguments: args } = parsed.tool_call;
 
-      if (!this.mcp || typeof this.mcp.getState !== "function") {
-        return { executed: false };
+      // Check MCP availability using listTools() method
+      if (!this.mcp) {
+        return { executed: false, error: "MCP not available" };
       }
 
-      const mcpState = await this.mcp.getState();
-      const toolInfo = mcpState.tools.find((t) => t.name === name);
+      // Get available tools using listTools()
+      const tools = this.mcp.listTools();
+      console.log("Available MCP tools:", tools?.map(t => t.name));
+
+      // Find the tool - tools are namespaced as "serverId.toolName"
+      const toolInfo = tools?.find((t) => t.name === name || t.name.endsWith(`.${name}`));
 
       if (!toolInfo) {
-        return { executed: false };
+        return { executed: false, error: `Tool "${name}" not found in available tools` };
       }
 
-      if (typeof this.mcp.callTool !== "function") {
-        return { executed: false };
-      }
+      // Extract serverId from the namespaced tool name
+      const serverId = toolInfo.name.includes('.') ? toolInfo.name.split('.')[0] : toolInfo.serverId;
 
+      console.log(`Executing tool: ${name} on server: ${serverId} with args:`, args);
       const toolResult = await this.mcp.callTool({
         name,
-        serverId: toolInfo.serverId,
+        serverId,
         arguments: args || {}
       });
 
@@ -262,16 +271,18 @@ IMPORTANT:
           ? toolResult
           : JSON.stringify(toolResult, null, 2);
 
+      console.log(`Tool ${name} result:`, resultText.substring(0, 200));
       return { executed: true, toolName: name, result: resultText };
     } catch (error) {
-      console.error("Tool call parsing error:", error);
-      return { executed: false };
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("Tool call error:", error);
+      return { executed: false, error: errorMsg };
     }
   }
 
   // ============ Chat Methods (callable for REST API) ============
 
-  @callable({ description: "Send a chat message and get AI response" })
+  @callable({ description: "Send a chat message and get AI response with tool execution" })
   async chat(message: string): Promise<string> {
     // Build system prompt
     const systemPrompt = await this.buildSystemPrompt();
@@ -283,33 +294,87 @@ IMPORTANT:
       baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
     });
 
-    // Get existing messages and add the new user message
-    const existingMessages = await convertToModelMessages(this.messages);
-    const messages = [
-      ...existingMessages,
-      { role: "user" as const, content: message }
-    ];
+    // Get existing messages safely - ensure it's an array
+    const currentMessages = Array.isArray(this.messages) ? this.messages : [];
 
-    // Generate response (non-streaming for REST API)
-    const { textStream } = streamText({
+    // Convert messages for the model
+    let existingMessages: Array<{ role: string; content: string }> = [];
+    try {
+      existingMessages = await convertToModelMessages(currentMessages);
+    } catch (e) {
+      console.error("Error converting messages:", e);
+      existingMessages = [];
+    }
+
+    // Create user message
+    const userMessage = { role: "user" as const, content: message };
+    const messages = [...existingMessages, userMessage];
+
+    // Generate initial response
+    const { text } = await generateText({
       model: glm("GLM-4.7"),
       system: systemPrompt,
       messages,
       temperature: 0.7
     });
 
-    // Collect the full response
-    let response = "";
-    for await (const chunk of textStream) {
-      response += chunk;
+    let finalResponse = text;
+
+    // Check for tool calls and execute them
+    console.log("Checking for tool calls in response:", text.substring(0, 200));
+    const toolResult = await this.tryExecuteToolCall(text);
+    console.log("Tool execution result:", toolResult);
+
+    if (toolResult.executed && toolResult.result) {
+      // Tool was executed, now generate a follow-up response with the tool result
+      const toolContextMessage = {
+        role: "user" as const,
+        content: `Tool "${toolResult.toolName}" returned the following result:\n\n${toolResult.result}\n\nPlease use this information to provide a helpful response to the user's original question.`
+      };
+
+      const followUpMessages = [...messages, { role: "assistant" as const, content: text }, toolContextMessage];
+
+      const { text: followUpText } = await generateText({
+        model: glm("GLM-4.7"),
+        system: systemPrompt,
+        messages: followUpMessages,
+        temperature: 0.7
+      });
+
+      finalResponse = followUpText;
     }
 
-    return response;
+    // Persist messages to storage using proper ChatMessage format
+    const timestamp = Date.now();
+    try {
+      await this.persistMessages([
+        ...currentMessages,
+        {
+          id: `user-${timestamp}`,
+          role: "user",
+          content: message,
+          parts: [{ type: "text", text: message }],
+          createdAt: new Date()
+        },
+        {
+          id: `assistant-${timestamp}`,
+          role: "assistant",
+          content: finalResponse,
+          parts: [{ type: "text", text: finalResponse }],
+          createdAt: new Date()
+        }
+      ]);
+    } catch (e) {
+      console.error("Error persisting messages:", e);
+    }
+
+    return finalResponse;
   }
 
   @callable({ description: "Get chat message history" })
   async getHistory(): Promise<Array<{ role: string; content: string; id?: string }>> {
-    return this.messages.map((msg) => ({
+    const messages = Array.isArray(this.messages) ? this.messages : [];
+    return messages.map((msg) => ({
       id: msg.id,
       role: msg.role,
       content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)
@@ -318,8 +383,14 @@ IMPORTANT:
 
   @callable({ description: "Clear chat history" })
   async clearChat(): Promise<{ success: boolean }> {
-    // AIChatAgent doesn't have a direct clear method, return status
-    return { success: true, message: "Clear via WebSocket reconnect" };
+    // Clear all messages by persisting an empty array
+    try {
+      await this.persistMessages([]);
+      return { success: true };
+    } catch (e) {
+      console.error("Error clearing messages:", e);
+      return { success: false };
+    }
   }
 
   // ============ MCP Server Management (callable methods) ============
@@ -421,14 +492,14 @@ IMPORTANT:
   @callable({ description: "Get available MCP tools" })
   async getAvailableTools() {
     try {
-      if (!this.mcp || typeof this.mcp.getState !== "function") {
+      if (!this.mcp) {
         return [];
       }
-      const state = await this.mcp.getState();
-      return state.tools.map((tool) => ({
+      const tools = this.mcp.listTools();
+      return tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
-        serverId: tool.serverId
+        serverId: tool.name.includes('.') ? tool.name.split('.')[0] : tool.serverId
       }));
     } catch (error) {
       console.error("Failed to get MCP tools:", error);
