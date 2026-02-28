@@ -13,6 +13,7 @@ import {
   type ConnectionStatus
 } from "./components/AgentsUiCompat";
 import { ToastProvider, useToast } from "./hooks/useToast";
+import { I18nProvider, useI18n } from "./hooks/useI18n";
 import { useResponsive } from "./hooks/useResponsive";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
@@ -185,6 +186,7 @@ function isDeleteMessageResult(value: unknown): value is DeleteMessageResult {
 
 function App() {
   const { addToast } = useToast();
+  const { t, lang, setLang } = useI18n();
 
   // Session state
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -335,9 +337,9 @@ function App() {
         handleNewSession();
       }
 
-      addToast("Session deleted", "success");
+      addToast(t("session_deleted"), "success");
     },
-    [currentSessionId, handleNewSession, addToast]
+    [currentSessionId, handleNewSession, addToast, t]
   );
 
   const handleDeleteMessage = useCallback(
@@ -350,7 +352,9 @@ function App() {
 
         if (!result.success) {
           addToast(
-            `Failed to delete message: ${result.error || "Unknown error"}`,
+            t("message_delete_failed", {
+              reason: result.error || "Unknown error"
+            }),
             "error"
           );
           return;
@@ -368,18 +372,21 @@ function App() {
         });
         setSessions(loadSessions());
 
-        addToast(result.deleted ? "Message deleted" : "Message already deleted", "success");
+        addToast(
+          result.deleted ? t("message_delete_success") : t("message_already_deleted"),
+          "success"
+        );
       } catch (error) {
         console.error("Failed to delete message:", error);
         addToast(
-          `Failed to delete message: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
+          t("message_delete_failed", {
+            reason: error instanceof Error ? error.message : "Unknown error"
+          }),
           "error"
         );
       }
     },
-    [agent, addToast, currentSessionId, messages, setMessages]
+    [agent, addToast, currentSessionId, messages, setMessages, t]
   );
 
   const handleToggleServer = useCallback(
@@ -392,26 +399,36 @@ function App() {
         }
         if (result.success) {
           addToast(
-            `Server "${name}" ${result.active ? "activated" : "deactivated"}`,
+            t("server_toggle_success", {
+              name,
+              state: result.active
+                ? t("server_toggle_active")
+                : t("server_toggle_inactive")
+            }),
             "success"
           );
           await loadPreconfiguredServers();
         } else {
-          addToast(`Failed to toggle server: ${result.error}`, "error");
+          addToast(
+            t("server_toggle_failed", {
+              reason: result.error || "Unknown error"
+            }),
+            "error"
+          );
         }
       } catch (error) {
         console.error("Failed to toggle server:", error);
         addToast(
-          `Failed to toggle server: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
+          t("server_toggle_failed", {
+            reason: error instanceof Error ? error.message : "Unknown error"
+          }),
           "error"
         );
       } finally {
         setTogglingServer(null);
       }
     },
-    [agent, addToast, loadPreconfiguredServers]
+    [agent, addToast, loadPreconfiguredServers, t]
   );
 
   const handleSend = useCallback(() => {
@@ -450,11 +467,12 @@ function App() {
   };
 
   return (
-    <div className="h-full flex bg-kumo-base">
+    <div className="h-full flex bg-kumo-base/70 text-kumo-default">
       {/* Mobile Drawer Overlay */}
       {mobile && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
+          style={{ background: "var(--app-overlay)" }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -463,43 +481,48 @@ function App() {
       <aside
         className={`
           ${mobile
-            ? `fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`
-            : `${sidebarOpen ? "w-64" : "w-0"} transition-all duration-300`
+            ? `fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`
+            : `${sidebarOpen ? "w-72" : "w-0"} transition-all duration-300`
           }
-          flex flex-col border-r border-kumo-line bg-kumo-base overflow-hidden shrink-0
+          app-panel flex flex-col border-r border-kumo-line bg-kumo-base/95 app-glass overflow-hidden shrink-0
         `}
       >
         {/* Sidebar Header */}
-        <div className="p-3 border-b border-kumo-line flex items-center justify-between">
+        <div className="p-3 border-b border-kumo-line/80 space-y-3 bg-kumo-base/60">
+          <div className="flex items-center justify-between">
+            <Text size="xs" variant="secondary">
+              {t("sidebar_sessions")}
+            </Text>
+            {mobile && (
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-lg hover:bg-kumo-control transition-colors focus-visible:outline-none"
+                aria-label={t("sidebar_close")}
+              >
+                <XIcon size={20} className="text-kumo-subtle" />
+              </button>
+            )}
+          </div>
           <Button
             variant="primary"
-            className="flex-1 justify-center"
+            className="w-full justify-center"
             icon={<PlusIcon size={16} />}
             onClick={() => {
               handleNewSession();
               if (mobile) setSidebarOpen(false);
             }}
           >
-            New Chat
+            {t("session_new")}
           </Button>
-          {mobile && (
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="ml-2 p-2 rounded-lg hover:bg-kumo-control transition-colors"
-              aria-label="Close sidebar"
-            >
-              <XIcon size={20} className="text-kumo-subtle" />
-            </button>
-          )}
         </div>
 
         {/* Session List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
           {sessions.length === 0 ? (
             <div className="text-center py-8 text-kumo-subtle">
               <ChatCircleDotsIcon size={32} className="mx-auto mb-2 opacity-50" />
-              <Text size="xs">No conversations yet</Text>
+              <Text size="xs">{t("session_empty")}</Text>
             </div>
           ) : (
             sessions.map((session) => (
@@ -518,13 +541,14 @@ function App() {
                 }}
                 role="button"
                 tabIndex={0}
-                className={`w-full text-left p-3 rounded-lg transition-colors group ${
+                aria-current={currentSessionId === session.id ? "page" : undefined}
+                className={`w-full text-left p-3 rounded-xl transition-all duration-200 group ${
                   currentSessionId === session.id
-                    ? "bg-kumo-accent/10 ring-1 ring-kumo-accent"
-                    : "hover:bg-kumo-control"
+                    ? "bg-kumo-accent/10 ring-1 ring-kumo-accent shadow-[var(--app-shadow-soft)]"
+                    : "hover:bg-kumo-control/75 ring-1 ring-transparent hover:ring-kumo-line"
                 }`}
               >
-                  <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <span className="block truncate">
                       <Text size="sm" bold={currentSessionId === session.id}>
@@ -533,7 +557,7 @@ function App() {
                     </span>
                     <span className="block truncate mt-0.5">
                       <Text size="xs" variant="secondary">
-                        {session.lastMessage || "No messages"}
+                        {session.lastMessage || t("session_no_messages")}
                       </Text>
                     </span>
                     <div className="flex items-center gap-2 mt-1">
@@ -553,8 +577,8 @@ function App() {
                       e.stopPropagation();
                       handleDeleteSession(session.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-kumo-danger/20 text-kumo-subtle hover:text-kumo-danger transition-all"
-                    aria-label="Delete session"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-kumo-danger/20 text-kumo-subtle hover:text-kumo-danger transition-all focus-visible:opacity-100"
+                    aria-label={t("session_delete")}
                   >
                     <TrashIcon size={14} />
                   </button>
@@ -566,64 +590,125 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Header */}
-        <header className="px-5 py-4 border-b border-kumo-line">
+        <header className="app-glass px-3 sm:px-5 py-3 border-b border-kumo-line/80 bg-kumo-base/70">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-lg hover:bg-kumo-control transition-colors"
-                aria-label={mobile ? "Open menu" : "Toggle sidebar"}
+                className="p-2 rounded-lg hover:bg-kumo-control transition-colors focus-visible:outline-none"
+                aria-label={
+                  mobile
+                    ? t("sidebar_open")
+                    : t("sidebar_toggle")
+                }
               >
                 <ListIcon size={20} className="text-kumo-subtle" />
               </button>
-              <PlugsConnectedIcon
-                size={22}
-                className="text-kumo-accent"
-                weight="bold"
-              />
-              <h1 className="text-lg font-semibold text-kumo-default">
-                ChatWithMe MCP
-              </h1>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <PlugsConnectedIcon
+                  size={22}
+                  className="text-kumo-accent shrink-0"
+                  weight="bold"
+                />
+                <div>
+                  <h1 className="text-base sm:text-lg font-semibold text-kumo-default leading-tight">
+                    {t("app_title")}
+                  </h1>
+                  <Text size="xs" variant="secondary">
+                    {t("app_subtitle")}
+                  </Text>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-3">
-              <ConnectionIndicator status={connectionStatus} />
-              <ModeToggle />
+              <div
+                className="inline-flex items-center rounded-lg border border-[var(--app-border-default)] bg-[var(--app-surface-secondary)] p-1"
+                role="group"
+                aria-label={t("lang_group")}
+              >
+                <button
+                  type="button"
+                  onClick={() => setLang("zh")}
+                  className={`h-8 min-w-8 rounded-md px-2 text-xs font-medium transition-colors ${
+                    lang === "zh"
+                      ? "bg-[var(--app-accent)] text-[var(--app-text-on-accent)]"
+                      : "text-[var(--app-text-secondary)] hover:bg-[var(--app-surface-tertiary)]"
+                  }`}
+                  aria-pressed={lang === "zh"}
+                >
+                  {t("lang_zh")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang("en")}
+                  className={`h-8 min-w-8 rounded-md px-2 text-xs font-medium transition-colors ${
+                    lang === "en"
+                      ? "bg-[var(--app-accent)] text-[var(--app-text-on-accent)]"
+                      : "text-[var(--app-text-secondary)] hover:bg-[var(--app-surface-tertiary)]"
+                  }`}
+                  aria-pressed={lang === "en"}
+                >
+                  {t("lang_en")}
+                </button>
+              </div>
+              <ConnectionIndicator
+                status={connectionStatus}
+                labels={{
+                  connecting: t("connection_connecting"),
+                  connected: t("connection_connected"),
+                  disconnected: t("connection_disconnected")
+                }}
+              />
+              <ModeToggle
+                labels={{
+                  light: t("theme_light"),
+                  dark: t("theme_dark"),
+                  system: t("theme_system"),
+                  group: t("theme_group")
+                }}
+              />
             </div>
           </div>
         </header>
 
         {/* Tab Navigation */}
-        <div className="border-b border-kumo-line">
-          <div className="flex">
+        <div className="border-b border-kumo-line/80 px-3 sm:px-5 bg-kumo-base/55 app-glass">
+          <div className="flex gap-2 py-2" role="tablist" aria-label={t("tabs_label")}>
             <button
               type="button"
               onClick={() => setActiveTab("chat")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              role="tab"
+              aria-selected={activeTab === "chat"}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${
                 activeTab === "chat"
-                  ? "border-kumo-accent text-kumo-accent"
-                  : "border-transparent text-kumo-subtle hover:text-kumo-default"
+                  ? "border-kumo-accent text-kumo-accent bg-kumo-accent/12 shadow-[var(--app-shadow-soft)]"
+                  : "border-kumo-line text-kumo-subtle hover:text-kumo-default hover:bg-kumo-control/70"
               }`}
             >
               <ChatCircleIcon size={18} weight="bold" />
-              Chat
+              {t("tabs_chat")}
               {activeToolsCount > 0 && (
-                <Badge variant="primary">{activeToolsCount} tools</Badge>
+                <Badge variant="primary">
+                  {t("tabs_tools_count", { count: String(activeToolsCount) })}
+                </Badge>
               )}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("mcp")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              role="tab"
+              aria-selected={activeTab === "mcp"}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${
                 activeTab === "mcp"
-                  ? "border-kumo-accent text-kumo-accent"
-                  : "border-transparent text-kumo-subtle hover:text-kumo-default"
+                  ? "border-kumo-accent text-kumo-accent bg-kumo-accent/12 shadow-[var(--app-shadow-soft)]"
+                  : "border-kumo-line text-kumo-subtle hover:text-kumo-default hover:bg-kumo-control/70"
               }`}
             >
               <PlugIcon size={18} weight="bold" />
-              MCP Servers
+              {t("tabs_mcp")}
               {serverEntries.length > 0 && (
                 <Badge variant="secondary">{serverEntries.length}</Badge>
               )}
@@ -631,21 +716,23 @@ function App() {
           </div>
         </div>
 
-        <main className="flex-1 overflow-auto p-5">
+        <main className="flex-1 min-h-0">
           {activeTab === "chat" ? (
             /* Chat Tab */
-            <div className="flex flex-col h-[calc(100vh-280px)]">
+            <section className="flex h-full min-h-0 flex-col">
               {/* Chat Messages with Virtual Scrolling */}
-              <div className="flex-1 overflow-hidden mb-4">
+              <div className="flex-1 min-h-0 overflow-hidden px-3 sm:px-5 pt-4 pb-2">
                 {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <Empty
                       icon={<ChatCircleIcon size={32} />}
-                      title="Start a conversation"
+                      title={t("chat_empty_title")}
                       description={
                         activeToolsCount > 0
-                          ? `AI has access to ${activeToolsCount} tools (web search, reading). Just ask anything!`
-                          : "Connect MCP servers in the MCP tab to enable tool access."
+                          ? t("chat_empty_with_tools", {
+                              count: String(activeToolsCount)
+                            })
+                          : t("chat_empty_no_tools")
                       }
                     />
                   </div>
@@ -673,7 +760,7 @@ function App() {
                         >
                           {/* Tool Calls Display */}
                           {!isUser && hasToolCalls && (
-                            <div className="max-w-[80%] mb-2 space-y-2">
+                            <div className="w-full max-w-[95%] sm:max-w-[85%] mb-2 space-y-2">
                               {toolCalls.map((toolCall, index) => (
                                 <ToolCallCard
                                   key={`${toolCall.toolName}-${index}`}
@@ -688,10 +775,10 @@ function App() {
                           )}
                           {/* Message Content */}
                           <div
-                            className={`max-w-[80%] px-4 py-2 rounded-xl ${
+                            className={`w-fit max-w-[95%] sm:max-w-[85%] px-4 py-2.5 rounded-2xl shadow-[var(--app-shadow-soft)] ${
                               isUser
                                 ? "bg-kumo-accent text-white"
-                                : "bg-kumo-surface ring ring-kumo-line text-kumo-default"
+                                : "bg-kumo-surface/95 ring ring-kumo-line text-kumo-default"
                             }`}
                           >
                             {isUser ? (
@@ -725,28 +812,31 @@ function App() {
               </div>
 
               {/* Chat Input */}
-              <ChatInput
-                value={input}
-                onChange={setInput}
-                onSubmit={handleSend}
-                onStop={stop}
-                isStreaming={isStreaming}
-                isConnected={isConnected}
-                placeholder={
-                  activeToolsCount > 0
-                    ? "Ask anything... (AI can search web & read pages)"
-                    : "Type a message..."
-                }
-                multiline={true}
-                maxRows={6}
-                showCharCount={true}
-              />
-            </div>
+              <div className="sticky bottom-0 z-10 border-t border-kumo-line/80 bg-kumo-base/80 app-glass px-3 sm:px-5 py-3">
+                <ChatInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={handleSend}
+                  onStop={stop}
+                  isStreaming={isStreaming}
+                  isConnected={isConnected}
+                  placeholder={
+                    activeToolsCount > 0
+                      ? t("chat_placeholder_tools")
+                      : t("chat_placeholder_default")
+                  }
+                  multiline={true}
+                  maxRows={6}
+                  showCharCount={true}
+                />
+              </div>
+            </section>
           ) : (
             /* MCP Tab */
-            <div className="space-y-8 max-w-3xl">
+            <section className="h-full overflow-y-auto px-3 sm:px-5 py-5">
+              <div className="space-y-8 max-w-4xl mx-auto">
               {/* Info */}
-              <Surface className="p-4 rounded-xl ring ring-kumo-line">
+              <Surface className="app-panel p-4 rounded-2xl ring ring-kumo-line">
                 <div className="flex gap-3">
                   <InfoIcon
                     size={20}
@@ -755,13 +845,11 @@ function App() {
                   />
                   <div>
                     <Text size="sm" bold>
-                      Pre-configured MCP Servers
+                      {t("mcp_info_title")}
                     </Text>
                     <span className="mt-1 block">
                       <Text size="xs" variant="secondary">
-                        Toggle servers on/off to activate or deactivate them.
-                        Active servers provide tools that the AI can use
-                        automatically during chat.
+                        {t("mcp_info_desc")}
                       </Text>
                     </span>
                   </div>
@@ -773,7 +861,7 @@ function App() {
                 <div className="flex items-center justify-center py-8">
                   <SpinnerIcon size={24} className="animate-spin text-kumo-accent" />
                   <span className="ml-2">
-                    <Text size="sm">Loading servers...</Text>
+                    <Text size="sm">{t("mcp_loading")}</Text>
                   </span>
                 </div>
               )}
@@ -784,14 +872,14 @@ function App() {
                   <div className="flex items-center gap-2 mb-3">
                     <PlugIcon size={18} weight="bold" className="text-kumo-subtle" />
                     <Text size="base" bold>
-                      Available Servers
+                      {t("mcp_available_servers")}
                     </Text>
                   </div>
                   <div className="space-y-2">
                     {preconfiguredServerList.map(([name, server]) => (
                       <Surface
                         key={name}
-                        className="p-4 rounded-xl ring ring-kumo-line"
+                        className="app-panel-soft p-4 rounded-2xl ring ring-kumo-line"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -802,10 +890,10 @@ function App() {
                               {server.connected ? (
                                 <Badge variant="primary">
                                   <CheckCircleIcon size={12} weight="fill" className="mr-1" />
-                                  Active
+                                  {t("mcp_status_active")}
                                 </Badge>
                               ) : (
-                                <Badge variant="secondary">Inactive</Badge>
+                                <Badge variant="secondary">{t("mcp_status_inactive")}</Badge>
                               )}
                             </div>
                             <span className="mt-1 block">
@@ -832,7 +920,7 @@ function App() {
                               <Switch
                                 checked={server.connected}
                                 onChange={() => handleToggleServer(name)}
-                                aria-label={`Toggle ${name}`}
+                                aria-label={t("mcp_toggle_server", { name })}
                               />
                             )}
                           </div>
@@ -849,7 +937,7 @@ function App() {
                   <div className="flex items-center gap-2 mb-3">
                     <WrenchIcon size={18} weight="bold" className="text-kumo-subtle" />
                     <Text size="base" bold>
-                      Available Tools
+                      {t("mcp_available_tools")}
                     </Text>
                     <Badge variant="secondary">{mcpState.tools.length}</Badge>
                   </div>
@@ -860,18 +948,21 @@ function App() {
                         name={tool.name}
                         serverId={tool.serverId}
                         data={tool}
+                        serverLabel={t("mcp_server")}
+                        payloadLabel={t("mcp_raw_payload")}
                       />
                     ))}
                   </div>
                 </section>
               )}
-            </div>
+              </div>
+            </section>
           )}
         </main>
 
-        <footer className="border-t border-kumo-line py-3">
+        <footer className="shrink-0 border-t border-kumo-line/80 py-3 bg-kumo-base/55 app-glass">
           <div className="flex justify-center">
-            <PoweredByAgents />
+            <PoweredByAgents label={t("app_powered_by")} />
           </div>
         </footer>
       </div>
@@ -881,10 +972,12 @@ function App() {
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
-    <ToastProvider>
-      <App />
-      <Toaster />
-      <ModalHost />
-    </ToastProvider>
+    <I18nProvider>
+      <ToastProvider>
+        <App />
+        <Toaster />
+        <ModalHost />
+      </ToastProvider>
+    </I18nProvider>
   </ThemeProvider>
 );

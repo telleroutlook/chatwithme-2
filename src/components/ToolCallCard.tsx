@@ -4,7 +4,8 @@ import {
   SpinnerIcon,
   CheckCircleIcon,
   WarningIcon,
-  ClockIcon
+  ClockIcon,
+  ShieldCheckIcon
 } from "@phosphor-icons/react";
 
 // Tool call states
@@ -37,32 +38,48 @@ interface ToolCallCardProps {
 // Status icon and color mapping
 const statusConfig: Record<
   ToolCallState,
-  { icon: typeof WrenchIcon; color: string; label: string }
+  {
+    icon: typeof WrenchIcon;
+    color: string;
+    label: string;
+    badgeClass: string;
+    panelClass: string;
+  }
 > = {
   "input-streaming": {
     icon: SpinnerIcon,
     color: "text-kumo-accent",
-    label: "Running"
+    label: "Running",
+    badgeClass: "bg-kumo-accent/15 text-kumo-accent",
+    panelClass: "ring-kumo-accent/40"
   },
   "input-available": {
     icon: ClockIcon,
     color: "text-kumo-subtle",
-    label: "Pending"
+    label: "Pending",
+    badgeClass: "bg-kumo-control text-kumo-subtle",
+    panelClass: "ring-kumo-line"
   },
   "output-available": {
     icon: CheckCircleIcon,
     color: "text-green-500",
-    label: "Completed"
+    label: "Completed",
+    badgeClass: "bg-green-500/15 text-green-600",
+    panelClass: "ring-green-500/40"
   },
   error: {
     icon: WarningIcon,
     color: "text-red-500",
-    label: "Error"
+    label: "Error",
+    badgeClass: "bg-red-500/15 text-red-600",
+    panelClass: "ring-red-500/40"
   },
   "approval-requested": {
-    icon: ClockIcon,
+    icon: ShieldCheckIcon,
     color: "text-amber-500",
-    label: "Awaiting Approval"
+    label: "Awaiting Approval",
+    badgeClass: "bg-amber-500/15 text-amber-600",
+    panelClass: "ring-amber-500/40"
   }
 };
 
@@ -98,31 +115,46 @@ export function ToolCallCard({
     return parts.length > 1 ? parts[parts.length - 1] : name;
   };
 
+  const toolNamespace = toolName.includes(".")
+    ? toolName.slice(0, toolName.lastIndexOf("."))
+    : null;
+
   return (
-    <Surface className="my-2 rounded-xl ring ring-kumo-line overflow-hidden">
+    <Surface className={`app-panel my-2 rounded-2xl ring overflow-hidden ${config.panelClass}`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/30 border-b border-kumo-line">
+      <div className="flex items-start justify-between gap-2 px-4 py-3 bg-kumo-control/20 border-b border-kumo-line/80">
         <div className="flex items-center gap-2">
           <StatusIcon
             size={16}
             weight="fill"
             className={`${config.color} ${isRunning ? "animate-spin" : ""}`}
           />
-          <span className="text-sm font-medium text-kumo-default">
-            {formatToolName(toolName)}
-          </span>
-          <span className={`text-xs ${config.color}`}>{config.label}</span>
+          <div>
+            <div className="text-sm font-medium text-kumo-default">
+              {formatToolName(toolName)}
+            </div>
+            {toolNamespace && (
+              <div className="text-xs text-kumo-subtle font-mono mt-0.5">
+                {toolNamespace}
+              </div>
+            )}
+          </div>
         </div>
-        {duration !== undefined && (
-          <span className="text-xs text-kumo-subtle">{duration}ms</span>
-        )}
+        <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${config.badgeClass}`}>
+              {config.label}
+            </span>
+          {duration !== undefined && (
+            <span className="text-xs text-kumo-subtle tabular-nums">{duration}ms</span>
+          )}
+        </div>
       </div>
 
       {/* Input Section */}
       {input && Object.keys(input).length > 0 && (
         <div className="px-4 py-2 border-b border-kumo-line/50">
-          <div className="text-xs text-kumo-subtle mb-1">Input</div>
-          <pre className="text-xs text-kumo-default font-mono overflow-x-auto">
+          <div className="text-xs text-kumo-subtle mb-1 font-medium">Input</div>
+          <pre className="text-xs text-kumo-default font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-kumo-control/20 p-2.5">
             {JSON.stringify(input, null, 2)}
           </pre>
         </div>
@@ -130,11 +162,11 @@ export function ToolCallCard({
 
       {/* Output Section */}
       {state === "output-available" && output !== undefined && (
-        <div className="px-4 py-2 bg-green-50/50 dark:bg-green-900/10">
-          <div className="text-xs text-green-600 dark:text-green-400 mb-1">
+        <div className="px-4 py-2 bg-green-500/5">
+          <div className="text-xs text-green-600 mb-1 font-medium">
             Result
           </div>
-          <pre className="text-xs text-kumo-default font-mono overflow-x-auto whitespace-pre-wrap">
+          <pre className="text-xs text-kumo-default font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-kumo-control/20 p-2.5">
             {formatOutput(output)}
           </pre>
         </div>
@@ -142,11 +174,11 @@ export function ToolCallCard({
 
       {/* Error Section */}
       {state === "error" && errorText && (
-        <div className="px-4 py-2 bg-red-50/50 dark:bg-red-900/10">
-          <div className="text-xs text-red-600 dark:text-red-400 mb-1">
+        <div className="px-4 py-2 bg-red-500/5">
+          <div className="text-xs text-red-600 mb-1 font-medium">
             Error
           </div>
-          <pre className="text-xs text-red-600 dark:text-red-400 font-mono overflow-x-auto whitespace-pre-wrap">
+          <pre className="text-xs text-red-600 font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-red-500/5 p-2.5">
             {errorText}
           </pre>
         </div>

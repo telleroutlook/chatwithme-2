@@ -4,12 +4,132 @@
 @import "katex/dist/katex.min.css";
 @source "../../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 
+:root {
+  --app-surface-primary: #f8fafc;
+  --app-surface-secondary: #f1f5f9;
+  --app-surface-tertiary: #e2e8f0;
+
+  --app-text-primary: #0f172a;
+  --app-text-secondary: #334155;
+  --app-text-muted: #64748b;
+  --app-text-on-accent: #ffffff;
+
+  --app-border-default: #cbd5e1;
+  --app-border-strong: #94a3b8;
+
+  --app-accent: #2563eb;
+  --app-color-success: #16a34a;
+  --app-color-warning: #d97706;
+  --app-color-danger: #dc2626;
+  --app-overlay: rgba(15, 23, 42, 0.5);
+  --app-shadow-soft: 0 4px 18px rgba(15, 23, 42, 0.06);
+  --app-shadow-medium: 0 12px 36px rgba(15, 23, 42, 0.12);
+}
+
+[data-mode="light"] {
+  --app-surface-primary: #f8fafc;
+  --app-surface-secondary: #f1f5f9;
+  --app-surface-tertiary: #e2e8f0;
+
+  --app-text-primary: #0f172a;
+  --app-text-secondary: #334155;
+  --app-text-muted: #64748b;
+  --app-text-on-accent: #ffffff;
+
+  --app-border-default: #cbd5e1;
+  --app-border-strong: #94a3b8;
+
+  --app-accent: #2563eb;
+  --app-color-success: #16a34a;
+  --app-color-warning: #d97706;
+  --app-color-danger: #dc2626;
+}
+
+[data-mode="dark"] {
+  --app-surface-primary: #020617;
+  --app-surface-secondary: #0f172a;
+  --app-surface-tertiary: #1e293b;
+
+  --app-text-primary: #e2e8f0;
+  --app-text-secondary: #cbd5e1;
+  --app-text-muted: #94a3b8;
+  --app-text-on-accent: #f8fafc;
+
+  --app-border-default: #334155;
+  --app-border-strong: #475569;
+
+  --app-accent: #60a5fa;
+  --app-color-success: #4ade80;
+  --app-color-warning: #f59e0b;
+  --app-color-danger: #f87171;
+  --app-overlay: rgba(2, 6, 23, 0.7);
+  --app-shadow-soft: 0 6px 20px rgba(2, 6, 23, 0.45);
+  --app-shadow-medium: 0 14px 38px rgba(2, 6, 23, 0.65);
+}
+
 html,
 body,
 #root {
   width: 100%;
   height: 100%;
   margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 0% -10%, color-mix(in oklab, var(--app-accent) 10%, transparent), transparent 62%),
+    radial-gradient(1200px 600px at 100% -25%, color-mix(in oklab, var(--app-color-success) 9%, transparent), transparent 68%),
+    var(--app-surface-primary);
+  color: var(--app-text-primary);
+  font-family: "IBM Plex Sans", "Noto Sans SC", "Segoe UI", sans-serif;
+}
+
+code,
+pre {
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--app-border-strong) 60%, transparent)
+    transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: color-mix(in oklab, var(--app-border-strong) 66%, transparent);
+}
+
+*:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--app-accent) 75%, white 25%);
+  outline-offset: 2px;
+}
+
+.app-panel {
+  border: 1px solid var(--app-border-default);
+  background: color-mix(in oklab, var(--app-surface-primary) 92%, var(--app-surface-secondary) 8%);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.app-panel-soft {
+  border: 1px solid color-mix(in oklab, var(--app-border-default) 82%, transparent);
+  background: color-mix(in oklab, var(--app-surface-secondary) 76%, transparent);
+}
+
+.app-glass {
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
 }
 
 /* Toast animations */
@@ -30,16 +150,29 @@ body,
 
 /* Blinking cursor animation for streaming */
 @keyframes blink-cursor {
-  0%, 50% {
+  0%,
+  50% {
     opacity: 1;
   }
-  51%, 100% {
+  51%,
+  100% {
     opacity: 0;
   }
 }
 
 .animate-blink-cursor {
   animation: blink-cursor 1s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Markdown content styles */
@@ -78,23 +211,20 @@ body,
   background: transparent !important;
 }
 
-/* Shiki github-dark theme overrides */
-.shiki {
+/* Shiki theme overrides */
+[data-mode="dark"] .shiki {
   background-color: #24292e !important;
   color: #e1e4e8 !important;
 }
 
-/* Light theme for Shiki */
-@media (prefers-color-scheme: light) {
-  .shiki {
-    background-color: #fff !important;
-    color: #24292e !important;
-  }
+[data-mode="light"] .shiki {
+  background-color: #fff !important;
+  color: #24292e !important;
 }
 
 /* Link styles within markdown */
 .markdown-content a {
-  color: var(--kumo-accent, #0066ff);
+  color: var(--app-accent);
   text-decoration: none;
   transition: text-decoration 0.15s ease;
 }
@@ -144,7 +274,6 @@ body,
 }
 
 /* Dark mode KaTeX adjustments */
-.dark .markdown-content .katex {
+[data-mode="dark"] .markdown-content .katex {
   color: #e6edf3;
 }
-

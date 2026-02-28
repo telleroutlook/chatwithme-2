@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, memo, useRef, useEffect } from "react";
 import { Button } from "@cloudflare/kumo";
 import {
   CopyIcon,
@@ -7,6 +7,7 @@ import {
   TrashIcon,
   PencilSimpleIcon,
 } from "@phosphor-icons/react";
+import { useI18n } from "../hooks/useI18n";
 
 interface MessageActionsProps {
   /** Message content to copy */
@@ -53,6 +54,17 @@ export const MessageActions = memo(function MessageActions({
   compact = true,
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
+  const [copyAnnouncement, setCopyAnnouncement] = useState("");
+  const copiedTimerRef = useRef<number | null>(null);
+  const { t } = useI18n();
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopy = useCallback(async () => {
     if (disabled) return;
@@ -64,11 +76,18 @@ export const MessageActions = memo(function MessageActions({
     try {
       await navigator.clipboard.writeText(content);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopyAnnouncement(t("message_actions_copy_status"));
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+      }
+      copiedTimerRef.current = window.setTimeout(() => {
+        setCopied(false);
+        setCopyAnnouncement("");
+      }, 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
-  }, [content, disabled]);
+  }, [content, disabled, t]);
 
   const handleRegenerate = useCallback(() => {
     if (disabled || !onRegenerate) return;
@@ -89,7 +108,10 @@ export const MessageActions = memo(function MessageActions({
   const iconSize = compact ? 12 : 14;
 
   return (
-    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+    <div className="mt-0.5 inline-flex items-center gap-1 rounded-lg bg-kumo-base/50 px-1 py-1 backdrop-blur-sm opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity duration-200">
+      <span className="sr-only" role="status" aria-live="polite">
+        {copyAnnouncement}
+      </span>
       {/* Copy button */}
       {showCopy && (
         <Button
@@ -98,9 +120,9 @@ export const MessageActions = memo(function MessageActions({
           onClick={handleCopy}
           disabled={disabled}
           icon={copied ? <CheckIcon size={iconSize} /> : <CopyIcon size={iconSize} />}
-          aria-label={copied ? "Copied" : "Copy message"}
+          aria-label={copied ? t("message_actions_copied") : t("message_actions_copy_message")}
         >
-          {!compact && (copied ? "Copied" : "Copy")}
+          {!compact && (copied ? t("message_actions_copied") : t("message_actions_copy"))}
         </Button>
       )}
 
@@ -112,9 +134,9 @@ export const MessageActions = memo(function MessageActions({
           onClick={handleRegenerate}
           disabled={disabled}
           icon={<ArrowClockwiseIcon size={iconSize} />}
-          aria-label="Regenerate response"
+          aria-label={t("message_actions_regenerate_response")}
         >
-          {!compact && "Regenerate"}
+          {!compact && t("message_actions_regenerate")}
         </Button>
       )}
 
@@ -126,9 +148,9 @@ export const MessageActions = memo(function MessageActions({
           onClick={handleEdit}
           disabled={disabled}
           icon={<PencilSimpleIcon size={iconSize} />}
-          aria-label="Edit message"
+          aria-label={t("message_actions_edit_message")}
         >
-          {!compact && "Edit"}
+          {!compact && t("message_actions_edit")}
         </Button>
       )}
 
@@ -140,10 +162,10 @@ export const MessageActions = memo(function MessageActions({
           onClick={handleDelete}
           disabled={disabled || !onDelete}
           icon={<TrashIcon size={iconSize} />}
-          aria-label="Delete message"
-          className="hover:!bg-red-500/20 hover:!text-red-500"
+          aria-label={t("message_actions_delete_message")}
+          className="hover:!bg-red-500/20 hover:!text-red-500 focus-visible:!ring-red-500/40"
         >
-          {!compact && "Delete"}
+          {!compact && t("message_actions_delete")}
         </Button>
       )}
     </div>

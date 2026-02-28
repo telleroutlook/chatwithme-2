@@ -4,13 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.ico" />
-    <title>MCP Client</title>
+    <title>ChatWithMe MCP</title>
     <script>
       (() => {
-        const stored = localStorage.getItem("theme");
-        const mode = stored || "light";
-        document.documentElement.setAttribute("data-mode", mode);
-        document.documentElement.style.colorScheme = mode;
+        const THEME_MODE_KEY = "chatwithme_theme_mode";
+        const DARK_MEDIA = "(prefers-color-scheme: dark)";
+        const stored = localStorage.getItem(THEME_MODE_KEY);
+        const mode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+        const resolved = mode === "system"
+          ? (window.matchMedia(DARK_MEDIA).matches ? "dark" : "light")
+          : mode;
+
+        document.documentElement.setAttribute("data-mode", resolved);
+        document.documentElement.style.colorScheme = resolved;
       })();
     </script>
   </head>
