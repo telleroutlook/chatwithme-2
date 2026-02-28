@@ -11,6 +11,7 @@ import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { VList, VListHandle } from "virtua";
 import { ThemeProvider } from "@cloudflare/agents-ui/hooks";
 import {
   ConnectionIndicator,
@@ -167,6 +168,7 @@ function App() {
   // Chat input
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const vListRef = useRef<VListHandle>(null);
 
   // Load sessions on mount
   useEffect(() => {
@@ -221,10 +223,13 @@ function App() {
     }
   }, [agent]);
 
-  // Auto-scroll on new messages
+  // Auto-scroll on new messages (using VList scrollToIndex)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (messages.length > 0 && vListRef.current) {
+      // Scroll to the last message
+      vListRef.current.scrollToIndex(messages.length - 1, { align: "end" });
+    }
+  }, [messages.length]);
 
   // Update session meta when messages change
   useEffect(() => {
@@ -518,8 +523,8 @@ function App() {
           {activeTab === "chat" ? (
             /* Chat Tab */
             <div className="flex flex-col h-[calc(100vh-280px)]">
-              {/* Chat Messages */}
-              <div className="flex-1 overflow-auto space-y-4 mb-4">
+              {/* Chat Messages with Virtual Scrolling */}
+              <div className="flex-1 overflow-hidden mb-4">
                 {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <Empty
@@ -533,72 +538,77 @@ function App() {
                     />
                   </div>
                 ) : (
-                  messages.map((msg) => {
-                    const isUser = msg.role === "user";
-                    const text = getMessageText(msg);
-                    // Extract tool calls from message parts
-                    const toolCalls = Array.isArray(msg.parts)
-                      ? extractToolCalls(msg.parts as Array<{ type: string; [key: string]: unknown }>)
-                      : [];
-                    const hasToolCalls = toolCalls.length > 0;
+                  <VList
+                    ref={vListRef}
+                    style={{ height: "100%" }}
+                    className="space-y-4 px-1"
+                  >
+                    {messages.map((msg) => {
+                      const isUser = msg.role === "user";
+                      const text = getMessageText(msg);
+                      // Extract tool calls from message parts
+                      const toolCalls = Array.isArray(msg.parts)
+                        ? extractToolCalls(msg.parts as Array<{ type: string; [key: string]: unknown }>)
+                        : [];
+                      const hasToolCalls = toolCalls.length > 0;
 
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col ${
-                          isUser ? "items-end" : "items-start"
-                        } group`}
-                      >
-                        {/* Tool Calls Display */}
-                        {!isUser && hasToolCalls && (
-                          <div className="max-w-[80%] mb-2 space-y-2">
-                            {toolCalls.map((toolCall, index) => (
-                              <ToolCallCard
-                                key={`${toolCall.toolName}-${index}`}
-                                toolName={toolCall.toolName}
-                                state={toolCall.state}
-                                input={toolCall.input}
-                                output={toolCall.output}
-                                errorText={toolCall.errorText}
-                              />
-                            ))}
-                          </div>
-                        )}
-                        {/* Message Content */}
+                      return (
                         <div
-                          className={`max-w-[80%] px-4 py-2 rounded-xl ${
-                            isUser
-                              ? "bg-kumo-accent text-white"
-                              : "bg-kumo-surface ring ring-kumo-line text-kumo-default"
-                          }`}
+                          key={msg.id}
+                          className={`flex flex-col ${
+                            isUser ? "items-end" : "items-start"
+                          } group`}
                         >
-                          {isUser ? (
-                            <Text size="sm" className="whitespace-pre-wrap">
-                              {text}
-                            </Text>
-                          ) : (
-                            <MarkdownRenderer
-                              content={text}
-                              isStreaming={isStreaming && msg === messages[messages.length - 1]}
-                            />
+                          {/* Tool Calls Display */}
+                          {!isUser && hasToolCalls && (
+                            <div className="max-w-[80%] mb-2 space-y-2">
+                              {toolCalls.map((toolCall, index) => (
+                                <ToolCallCard
+                                  key={`${toolCall.toolName}-${index}`}
+                                  toolName={toolCall.toolName}
+                                  state={toolCall.state}
+                                  input={toolCall.input}
+                                  output={toolCall.output}
+                                  errorText={toolCall.errorText}
+                                />
+                              ))}
+                            </div>
                           )}
+                          {/* Message Content */}
+                          <div
+                            className={`max-w-[80%] px-4 py-2 rounded-xl ${
+                              isUser
+                                ? "bg-kumo-accent text-white"
+                                : "bg-kumo-surface ring ring-kumo-line text-kumo-default"
+                            }`}
+                          >
+                            {isUser ? (
+                              <Text size="sm" className="whitespace-pre-wrap">
+                                {text}
+                              </Text>
+                            ) : (
+                              <MarkdownRenderer
+                                content={text}
+                                isStreaming={isStreaming && msg === messages[messages.length - 1]}
+                              />
+                            )}
+                          </div>
+                          {/* Message Actions */}
+                          <div className="mt-1">
+                            <MessageActions
+                              content={text}
+                              showRegenerate={!isUser}
+                              showEdit={isUser}
+                              showDelete={true}
+                              disabled={isStreaming}
+                              compact={true}
+                            />
+                          </div>
                         </div>
-                        {/* Message Actions */}
-                        <div className="mt-1">
-                          <MessageActions
-                            content={text}
-                            showRegenerate={!isUser}
-                            showEdit={isUser}
-                            showDelete={true}
-                            disabled={isStreaming}
-                            compact={true}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </VList>
                 )}
-                <div ref={messagesEndRef} />
               </div>
 
               {/* Chat Input */}
