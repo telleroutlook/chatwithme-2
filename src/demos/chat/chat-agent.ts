@@ -174,16 +174,24 @@ export class ChatAgent extends AIChatAgent<Env> {
       return createUIMessageStreamResponse({ stream: emptyStream });
     }
 
-    const finalResponse = await this.generateAssistantResponse(
-      latestUserText,
-      true,
-      options?.abortSignal
-    );
     const textId = crypto.randomUUID();
 
     const stream = createUIMessageStream({
-      execute: ({ writer }) => {
+      execute: async ({ writer }) => {
         writer.write({ type: "text-start", id: textId });
+        writer.write({
+          type: "text-delta",
+          id: textId,
+          // Send an invisible keepalive chunk so the client receives an early stream event.
+          delta: "\u200b"
+        });
+
+        const finalResponse = await this.generateAssistantResponse(
+          latestUserText,
+          true,
+          options?.abortSignal
+        );
+
         writer.write({ type: "text-delta", id: textId, delta: finalResponse });
         writer.write({ type: "text-end", id: textId });
       }
@@ -228,6 +236,8 @@ Available tools and their parameters:
 ## 2. Chart Generation
 
 When asked to create charts or diagrams, you MUST output them in code blocks.
+For scenarios that are suitable for chart-based visualization, prefer G2 JSON charts first.
+Use Mermaid as a secondary option when G2 is not suitable, or when the user explicitly asks for diagrams.
 
 ### For Diagrams (flowcharts, sequence, pie charts):
 Use Mermaid syntax in a code block:
@@ -303,8 +313,8 @@ G2 chart types:
 
 IMPORTANT:
 - Always use actual code blocks (triple backticks) for charts
-- Use Mermaid for diagrams and simple charts
-- Use G2 for data visualization with numbers
+- Prefer G2 for data visualization with numbers and chart-friendly scenarios
+- Use Mermaid as the second choice for diagrams or when G2 is not suitable
 - Make sure JSON is valid in G2 blocks
 - After generating a chart, briefly explain what it shows`;
   }
