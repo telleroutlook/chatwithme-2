@@ -134,6 +134,122 @@ app.delete("/api/chat/history", async (c) => {
 });
 
 /**
+ * DELETE /api/chat/message
+ * Delete one message by id.
+ * Query params: messageId, sessionId
+ */
+app.delete("/api/chat/message", async (c) => {
+  try {
+    const sessionId = resolveSessionIdFromQuery(c);
+    const messageId = c.req.query("messageId");
+    if (!messageId) {
+      return c.json({ success: false, deleted: false, error: "messageId is required" }, 400);
+    }
+    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const result = await agent.deleteMessage(messageId);
+    return c.json(result);
+  } catch (error) {
+    console.error("Delete message error:", error);
+    return c.json(
+      {
+        success: false,
+        deleted: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/chat/edit
+ * Edit user message content.
+ * Body: { "messageId": "...", "content": "...", "sessionId": "optional" }
+ */
+app.post("/api/chat/edit", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { messageId, content } = body as { messageId?: string; content?: string };
+    const sessionId = resolveSessionIdFromBody(body);
+
+    if (!messageId || !content) {
+      return c.json({ success: false, error: "messageId and content are required" }, 400);
+    }
+
+    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const result = await agent.editUserMessage(messageId, content);
+    return c.json(result);
+  } catch (error) {
+    console.error("Edit message error:", error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/chat/regenerate
+ * Regenerate from a given messageId.
+ * Body: { "messageId": "...", "sessionId": "optional" }
+ */
+app.post("/api/chat/regenerate", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { messageId } = body as { messageId?: string };
+    const sessionId = resolveSessionIdFromBody(body);
+    if (!messageId) {
+      return c.json({ success: false, error: "messageId is required" }, 400);
+    }
+
+    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const result = await agent.regenerateFrom(messageId);
+    return c.json(result);
+  } catch (error) {
+    console.error("Regenerate message error:", error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/chat/fork
+ * Fork session from specific message.
+ * Body: { "messageId": "...", "sessionId": "optional" }
+ */
+app.post("/api/chat/fork", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { messageId } = body as { messageId?: string };
+    const sessionId = resolveSessionIdFromBody(body);
+    if (!messageId) {
+      return c.json({ success: false, error: "messageId is required" }, 400);
+    }
+
+    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const result = await agent.forkSession(messageId);
+    return c.json(result);
+  } catch (error) {
+    console.error("Fork session error:", error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
+  }
+});
+
+/**
  * GET /api/mcp/servers
  * Get list of pre-configured MCP servers
  * Query params: sessionId

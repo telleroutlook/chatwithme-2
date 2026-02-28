@@ -1,5 +1,5 @@
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
-import { callable } from "agents";
+import { callable, getAgentByName } from "agents";
 import {
   generateText,
   streamText,
@@ -876,6 +876,159 @@ IMPORTANT:
       const error = e instanceof Error ? e.message : "Unknown error";
       console.error("Error deleting message:", e);
       return { success: false, deleted: false, error };
+    }
+  }
+
+  @callable({ description: "Edit an existing user message" })
+  async editUserMessage(
+    messageId: string,
+    content: string
+  ): Promise<{ success: boolean; updated: boolean; error?: string }> {
+    if (!messageId || !content.trim()) {
+      return { success: false, updated: false, error: "Message ID and content are required" };
+    }
+
+    try {
+      const currentMessages = Array.isArray(this.messages) ? this.messages : [];
+      const targetIndex = currentMessages.findIndex(
+        (message) => message.id === messageId && message.role === "user"
+      );
+
+      if (targetIndex < 0) {
+        return { success: false, updated: false, error: "User message not found" };
+      }
+
+      const targetMessage = currentMessages[targetIndex];
+      const existingText = this.getMessageText(targetMessage);
+      if (existingText.trim() === content.trim()) {
+        return { success: true, updated: false };
+      }
+
+      const nextMessages = currentMessages.map((message, index) => {
+        if (index !== targetIndex) {
+          return message;
+        }
+        return {
+          ...message,
+          parts: [{ type: "text" as const, text: content.trim() }]
+        };
+      });
+
+      await this.persistMessages(nextMessages);
+      return { success: true, updated: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { success: false, updated: false, error: message };
+    }
+  }
+
+  @callable({ description: "Regenerate assistant response starting from a specific message" })
+  async regenerateFrom(
+    messageId: string
+  ): Promise<{ success: boolean; response?: string; error?: string }> {
+    if (!messageId) {
+      return { success: false, error: "Message ID is required" };
+    }
+
+    try {
+      const currentMessages = Array.isArray(this.messages) ? this.messages : [];
+      const index = currentMessages.findIndex((message) => message.id === messageId);
+      if (index < 0) {
+        return { success: false, error: "Message not found" };
+      }
+
+      let anchorIndex = index;
+      if (currentMessages[index].role !== "user") {
+        for (let i = index; i >= 0; i -= 1) {
+          if (currentMessages[i].role === "user") {
+            anchorIndex = i;
+            break;
+          }
+        }
+      }
+
+      const anchorMessage = currentMessages[anchorIndex];
+      if (!anchorMessage || anchorMessage.role !== "user") {
+        return { success: false, error: "No user message found for regeneration" };
+      }
+
+      const userText = this.getMessageText(anchorMessage).trim();
+      if (!userText) {
+        return { success: false, error: "User message content is empty" };
+      }
+
+      const preservedMessages = currentMessages.slice(0, anchorIndex + 1);
+      await this.persistMessages(preservedMessages);
+
+      const regenerated = await this.generateAssistantResponse(userText, true);
+      const assistantMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text: regenerated }]
+      };
+      await this.persistMessages([...preservedMessages, assistantMessage]);
+
+      return { success: true, response: regenerated };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { success: false, error: message };
+    }
+  }
+
+  @callable({ description: "Seed a session with specific history messages" })
+  async seedHistory(
+    messages: Array<{ id: string; role: "user" | "assistant" | "system"; parts: Array<{ type: "text"; text: string }> }>
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.persistMessages(messages);
+      return { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { success: false, error: message };
+    }
+  }
+
+  @callable({ description: "Fork current session into a new session from a specific message" })
+  async forkSession(
+    messageId: string
+  ): Promise<{ success: boolean; newSessionId?: string; error?: string }> {
+    if (!messageId) {
+      return { success: false, error: "Message ID is required" };
+    }
+
+    try {
+      const currentMessages = Array.isArray(this.messages) ? this.messages : [];
+      const index = currentMessages.findIndex((message) => message.id === messageId);
+      if (index < 0) {
+        return { success: false, error: "Message not found" };
+      }
+
+      const forkedHistory = currentMessages.slice(0, index + 1);
+      const newSessionId = crypto.randomUUID().slice(0, 8);
+      const targetAgent = (await getAgentByName(this.runtimeEnv.ChatAgent, newSessionId)) as {
+        seedHistory: (
+          messages: Array<{
+            id: string;
+            role: "user" | "assistant" | "system";
+            parts: Array<{ type: "text"; text: string }>;
+          }>
+        ) => Promise<{ success: boolean; error?: string }>;
+      };
+      const result = await targetAgent.seedHistory(
+        forkedHistory as Array<{
+          id: string;
+          role: "user" | "assistant" | "system";
+          parts: Array<{ type: "text"; text: string }>;
+        }>
+      );
+      if (!result?.success) {
+        return { success: false, error: result?.error || "Failed to seed forked session" };
+      }
+
+      return { success: true, newSessionId };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return { success: false, error: message };
     }
   }
 

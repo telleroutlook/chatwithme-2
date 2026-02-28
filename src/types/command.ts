@@ -14,6 +14,9 @@ export interface CommandSuggestionItem {
   description?: string;
   value: string;
   section: "tools" | "sessions" | "actions";
+  keywords?: string[];
+  priority?: number;
+  group?: string;
 }
 
 export interface CommandExecutionIntent {

@@ -5,7 +5,8 @@ import {
   CheckIcon,
   ArrowClockwiseIcon,
   TrashIcon,
-  PencilSimpleIcon
+  PencilSimpleIcon,
+  GitBranchIcon
 } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
 
@@ -26,10 +27,14 @@ interface MessageActionsProps {
   showEdit?: boolean;
   /** Show delete button */
   showDelete?: boolean;
+  /** Show fork button */
+  showFork?: boolean;
   /** Whether actions are disabled */
   disabled?: boolean;
   /** Compact mode for smaller buttons */
   compact?: boolean;
+  /** Called when user requests session fork from this message */
+  onFork?: () => void;
 }
 
 /**
@@ -50,8 +55,10 @@ export const MessageActions = memo(function MessageActions({
   showRegenerate = true,
   showEdit = false,
   showDelete = false,
+  showFork = false,
   disabled = false,
-  compact = true
+  compact = true,
+  onFork
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
   const [copyAnnouncement, setCopyAnnouncement] = useState("");
@@ -103,6 +110,11 @@ export const MessageActions = memo(function MessageActions({
     if (disabled || !onDelete) return;
     onDelete();
   }, [onDelete, disabled]);
+
+  const handleFork = useCallback(() => {
+    if (disabled || !onFork) return;
+    onFork();
+  }, [disabled, onFork]);
 
   const buttonSize = compact ? "xs" : "sm";
   const iconSize = compact ? 12 : 14;
@@ -166,6 +178,19 @@ export const MessageActions = memo(function MessageActions({
           className="hover:!bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:!text-[var(--app-color-danger)] focus-visible:!ring-[color-mix(in_oklab,var(--app-color-danger)_45%,transparent)]"
         >
           {!compact && t("message_actions_delete")}
+        </Button>
+      )}
+
+      {showFork && onFork && (
+        <Button
+          variant="secondary"
+          size={buttonSize}
+          onClick={handleFork}
+          disabled={disabled}
+          icon={<GitBranchIcon size={iconSize} />}
+          aria-label={t("message_actions_fork_message")}
+        >
+          {!compact && t("message_actions_fork")}
         </Button>
       )}
     </div>

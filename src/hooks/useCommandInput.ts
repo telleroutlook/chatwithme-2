@@ -32,11 +32,12 @@ export function useCommandInput({ input, caretIndex, suggestions }: UseCommandIn
       ? scoped.filter((item) => {
           const label = item.label.toLowerCase();
           const value = item.value.toLowerCase();
-          return label.includes(query) || value.includes(query);
+          const keywords = (item.keywords ?? []).map((keyword) => keyword.toLowerCase());
+          return label.includes(query) || value.includes(query) || keywords.some((k) => k.includes(query));
         })
       : scoped;
 
-    return next.slice(0, 8);
+    return next.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)).slice(0, 8);
   }, [suggestions, token]);
 
   const clampedIndex = Math.min(activeIndex, Math.max(filteredSuggestions.length - 1, 0));

@@ -110,6 +110,14 @@ export const ChatInput = memo(function ChatInput({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (hasOpenMenu) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setCaretIndex(0);
+          if (textareaRef.current) {
+            textareaRef.current.setSelectionRange(0, 0);
+          }
+          return;
+        }
         if (e.key === "ArrowDown") {
           e.preventDefault();
           moveSelection(1);
