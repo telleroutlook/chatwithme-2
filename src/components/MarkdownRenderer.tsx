@@ -15,6 +15,20 @@ interface HtmlPreviewRendererProps {
   code: string;
 }
 
+function looksLikeSvgMarkup(code: string): boolean {
+  const normalized = code.trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized.startsWith("<svg") || normalized.includes("<svg ");
+}
+
+function decodeHtmlEntities(value: string): string {
+  if (!value || !value.includes("&")) return value;
+  if (typeof document === "undefined") return value;
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = value;
+  return textarea.value;
+}
+
 function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
   const frameId = useId();
   const [frameHeight, setFrameHeight] = useState(420);
@@ -124,8 +138,17 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
               }
             }
 
-            if (language === "html" || language === "svg") {
-              return <HtmlPreviewRenderer code={codeString} />;
+            const decodedCodeString = decodeHtmlEntities(codeString);
+            const svgLikeCode = looksLikeSvgMarkup(codeString)
+              ? codeString
+              : looksLikeSvgMarkup(decodedCodeString)
+                ? decodedCodeString
+                : "";
+            const isSvgXmlBlock =
+              (language === "xml" || language === "xhtml" || language === "html") && !!svgLikeCode;
+            const isRawSvgBlock = language === "svg" || (!language && !!svgLikeCode);
+            if (language === "html" || isSvgXmlBlock || isRawSvgBlock) {
+              return <HtmlPreviewRenderer code={svgLikeCode || codeString} />;
             }
 
             if (language === "markdown" || language === "md") {

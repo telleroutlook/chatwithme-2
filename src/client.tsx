@@ -28,6 +28,7 @@ import type { UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import type { CommandSuggestionItem } from "./types/command";
 import { extractMessageSources } from "./types/message-sources";
+import { getMessageText } from "./utils/message-text";
 import { nanoid } from "nanoid";
 import "./styles.css";
 
@@ -81,33 +82,6 @@ function updateSessionMeta(sessionId: string, updates: Partial<SessionMeta>): vo
 function deleteSessionMeta(sessionId: string): void {
   const sessions = loadSessions().filter((s) => s.id !== sessionId);
   saveSessions(sessions);
-}
-
-// ============ Helper to extract text from UIMessage ============
-
-function getMessageText(message: UIMessage): string {
-  const candidate = message as unknown as {
-    content?: unknown;
-    parts?: unknown;
-  };
-
-  if (typeof candidate.content === "string") {
-    return candidate.content;
-  }
-  if (Array.isArray(candidate.parts)) {
-    type TextPart = { type: "text"; text: string };
-    return candidate.parts
-      .filter((part: unknown): part is TextPart => {
-        if (!part || typeof part !== "object") {
-          return false;
-        }
-        const candidate = part as { type?: unknown; text?: unknown };
-        return candidate.type === "text" && typeof candidate.text === "string";
-      })
-      .map((part) => part.text)
-      .join("");
-  }
-  return "";
 }
 
 // ============ Main App ============
