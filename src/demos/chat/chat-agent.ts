@@ -383,9 +383,11 @@ IMPORTANT:
 
   @callable({ description: "Clear chat history" })
   async clearChat(): Promise<{ success: boolean }> {
-    // Clear all messages by persisting an empty array
+    // Clear all messages by directly deleting from SQL
     try {
-      await this.persistMessages([]);
+      this.sql`DELETE FROM cf_ai_chat_agent_messages`;
+      // Also clear the in-memory messages array
+      this.messages.length = 0;
       return { success: true };
     } catch (e) {
       console.error("Error clearing messages:", e);
