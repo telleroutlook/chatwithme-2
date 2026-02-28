@@ -20,7 +20,7 @@ export function Tooltip({ label, children }: TooltipProps) {
       {open && (
         <span
           role="tooltip"
-          className="pointer-events-none absolute -top-8 left-1/2 z-30 -translate-x-1/2 rounded-md bg-black/85 px-2 py-1 text-[11px] text-white"
+          className="pointer-events-none absolute -top-8 left-1/2 z-30 -translate-x-1/2 rounded-md border border-[var(--app-border-default)] bg-[var(--surface-elevated)] px-2 py-1 text-[11px] text-[var(--app-text-primary)] shadow-[var(--app-shadow-soft)]"
         >
           {label}
         </span>

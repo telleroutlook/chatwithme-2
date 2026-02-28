@@ -157,7 +157,7 @@ const Modal = memo(function Modal({
       {mask && (
         <div
           className={`
-            absolute inset-0 bg-black/50 transition-opacity
+            absolute inset-0 bg-[var(--app-overlay)] transition-opacity
             ${visible ? "opacity-100" : "opacity-0"}
           `}
           style={{

@@ -61,7 +61,7 @@ export function Toaster() {
           <button
             type="button"
             onClick={() => removeToast(toast.id)}
-            className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-md opacity-80 hover:opacity-100 hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-current transition"
+            className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-md opacity-80 hover:opacity-100 hover:bg-[color-mix(in_oklab,currentColor_12%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-current transition"
             aria-label={t("toaster_close")}
           >
             <svg

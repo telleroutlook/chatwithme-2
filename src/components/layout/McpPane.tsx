@@ -76,7 +76,7 @@ export function McpPane({
                       <span className="mt-1 block"><Text size="xs" variant="secondary">{server.config.description}</Text></span>
                       <span className="mt-0.5 block font-mono"><Text size="xs" variant="secondary">{server.config.url}</Text></span>
                       {server.error && (
-                        <div className="mt-2 flex items-center gap-1 text-red-500">
+                        <div className="mt-2 flex items-center gap-1 app-text-danger">
                           <WarningIcon size={14} weight="fill" />
                           <Text size="xs">{server.error}</Text>
                         </div>

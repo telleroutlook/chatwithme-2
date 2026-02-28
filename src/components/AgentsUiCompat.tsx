@@ -82,6 +82,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
+export function useThemeMode(): ThemeContextValue {
+  const context = useContext(ThemeContext);
+  if (context) {
+    return context;
+  }
+  return {
+    mode: "system",
+    setMode: () => {}
+  };
+}
+
 interface ConnectionIndicatorProps {
   status: ConnectionStatus;
   labels?: Partial<Record<ConnectionStatus, string>>;

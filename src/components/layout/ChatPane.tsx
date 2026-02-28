@@ -147,7 +147,7 @@ export function ChatPane({
                   <div
                     className={`${bubbleWidthClass} rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] ${
                       isUser
-                        ? "bg-kumo-accent text-white"
+                        ? "bg-kumo-accent text-[var(--app-text-on-accent)]"
                         : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
                     }`}
                   >

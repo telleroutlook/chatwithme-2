@@ -65,9 +65,9 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
 
   if (error) {
     return (
-      <Surface className="p-3 rounded-lg ring ring-red-300 bg-red-50">
+      <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
         <Text size="xs">
-          <span className="text-red-600">Mermaid Error: {error}</span>
+          <span className="app-text-danger">Mermaid Error: {error}</span>
         </Text>
       </Surface>
     );
@@ -124,6 +124,23 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
   useEffect(() => {
     let mounted = true;
     let chart: G2ChartInstance | null = null;
+    let destroyed = false;
+
+    const safeDestroy = () => {
+      if (!chart || destroyed) return;
+      destroyed = true;
+      try {
+        chart.destroy();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // G2 may throw during teardown if container is already detached.
+        if (!/_container|__remove__/i.test(message)) {
+          console.error("Failed to destroy G2 chart:", err);
+        }
+      } finally {
+        chart = null;
+      }
+    };
 
     const renderChart = async () => {
       if (mounted) {
@@ -160,6 +177,9 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         if (spec.style) chart.style(spec.style as Record<string, unknown>);
 
         await chart.render();
+        if (!mounted) {
+          safeDestroy();
+        }
       } catch (err) {
         if (mounted) {
           setError(err instanceof Error ? err.message : "Failed to render chart");
@@ -175,17 +195,15 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
 
     return () => {
       mounted = false;
-      if (chart) {
-        chart.destroy();
-      }
+      safeDestroy();
     };
   }, [spec]);
 
   if (error) {
     return (
-      <Surface className="p-3 rounded-lg ring ring-red-300 bg-red-50">
+      <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
         <Text size="xs">
-          <span className="text-red-600">G2 Chart Error: {error}</span>
+          <span className="app-text-danger">G2 Chart Error: {error}</span>
         </Text>
       </Surface>
     );

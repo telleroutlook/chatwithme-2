@@ -62,24 +62,27 @@ const statusConfig: Record<
   },
   "output-available": {
     icon: CheckCircleIcon,
-    color: "text-green-500",
+    color: "text-[var(--app-color-success)]",
     label: "Completed",
-    badgeClass: "bg-green-500/15 text-green-600",
-    panelClass: "ring-green-500/40"
+    badgeClass:
+      "bg-[color-mix(in_oklab,var(--app-color-success)_16%,transparent)] text-[var(--app-color-success)]",
+    panelClass: "app-border-success-soft"
   },
   error: {
     icon: WarningIcon,
-    color: "text-red-500",
+    color: "text-[var(--app-color-danger)]",
     label: "Error",
-    badgeClass: "bg-red-500/15 text-red-600",
-    panelClass: "ring-red-500/40"
+    badgeClass:
+      "bg-[color-mix(in_oklab,var(--app-color-danger)_16%,transparent)] text-[var(--app-color-danger)]",
+    panelClass: "app-border-danger-soft"
   },
   "approval-requested": {
     icon: ShieldCheckIcon,
-    color: "text-amber-500",
+    color: "text-[var(--app-color-warning)]",
     label: "Awaiting Approval",
-    badgeClass: "bg-amber-500/15 text-amber-600",
-    panelClass: "ring-amber-500/40"
+    badgeClass:
+      "bg-[color-mix(in_oklab,var(--app-color-warning)_16%,transparent)] text-[var(--app-color-warning)]",
+    panelClass: "app-border-warning-soft"
   }
 };
 
@@ -162,8 +165,8 @@ export function ToolCallCard({
 
       {/* Output Section */}
       {state === "output-available" && output !== undefined && (
-        <div className="px-4 py-2 bg-green-500/5">
-          <div className="text-xs text-green-600 mb-1 font-medium">
+        <div className="px-4 py-2 app-bg-success-soft">
+          <div className="mb-1 text-xs font-medium app-text-success">
             Result
           </div>
           <pre className="text-xs text-kumo-default font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-kumo-control/20 p-2.5">
@@ -174,11 +177,11 @@ export function ToolCallCard({
 
       {/* Error Section */}
       {state === "error" && errorText && (
-        <div className="px-4 py-2 bg-red-500/5">
-          <div className="text-xs text-red-600 mb-1 font-medium">
+        <div className="px-4 py-2 app-bg-danger-soft">
+          <div className="mb-1 text-xs font-medium app-text-danger">
             Error
           </div>
-          <pre className="text-xs text-red-600 font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-red-500/5 p-2.5">
+          <pre className="text-xs font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg app-bg-danger-soft app-text-danger p-2.5">
             {errorText}
           </pre>
         </div>

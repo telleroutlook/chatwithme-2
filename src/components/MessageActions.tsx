@@ -163,7 +163,7 @@ export const MessageActions = memo(function MessageActions({
           disabled={disabled || !onDelete}
           icon={<TrashIcon size={iconSize} />}
           aria-label={t("message_actions_delete_message")}
-          className="hover:!bg-red-500/20 hover:!text-red-500 focus-visible:!ring-red-500/40"
+          className="hover:!bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:!text-[var(--app-color-danger)] focus-visible:!ring-[color-mix(in_oklab,var(--app-color-danger)_45%,transparent)]"
         >
           {!compact && t("message_actions_delete")}
         </Button>
@@ -203,7 +203,7 @@ export function ActionIcon({
         ${disabled
           ? "opacity-50 cursor-not-allowed"
           : danger
-            ? "hover:bg-red-500/20 hover:text-red-500"
+            ? "hover:bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:text-[var(--app-color-danger)]"
             : "hover:bg-kumo-control"
         }
         text-kumo-subtle

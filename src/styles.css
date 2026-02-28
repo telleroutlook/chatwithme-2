@@ -157,6 +157,42 @@ pre {
   background: color-mix(in oklab, var(--surface-2) 82%, transparent);
 }
 
+.app-text-success {
+  color: var(--app-color-success);
+}
+
+.app-text-warning {
+  color: var(--app-color-warning);
+}
+
+.app-text-danger {
+  color: var(--app-color-danger);
+}
+
+.app-bg-success-soft {
+  background: color-mix(in oklab, var(--app-color-success) 12%, transparent);
+}
+
+.app-bg-warning-soft {
+  background: color-mix(in oklab, var(--app-color-warning) 12%, transparent);
+}
+
+.app-bg-danger-soft {
+  background: color-mix(in oklab, var(--app-color-danger) 12%, transparent);
+}
+
+.app-border-success-soft {
+  border-color: color-mix(in oklab, var(--app-color-success) 45%, var(--app-border-default) 55%);
+}
+
+.app-border-warning-soft {
+  border-color: color-mix(in oklab, var(--app-color-warning) 45%, var(--app-border-default) 55%);
+}
+
+.app-border-danger-soft {
+  border-color: color-mix(in oklab, var(--app-color-danger) 45%, var(--app-border-default) 55%);
+}
+
 .surface-1 {
   background: var(--surface-1);
 }
@@ -296,12 +332,12 @@ pre {
 /* Shiki theme overrides */
 [data-mode="dark"] .shiki {
   background-color: color-mix(in oklab, var(--surface-elevated) 88%, #0f172a 12%) !important;
-  color: #e2e8f0 !important;
+  color: var(--app-text-primary) !important;
 }
 
 [data-mode="light"] .shiki {
   background-color: var(--surface-1) !important;
-  color: #24292e !important;
+  color: var(--app-text-primary) !important;
 }
 
 /* Link styles within markdown */
@@ -357,7 +393,7 @@ pre {
 
 /* Dark mode KaTeX adjustments */
 [data-mode="dark"] .markdown-content .katex {
-  color: #e6edf3;
+  color: var(--app-text-primary);
 }
 
 .mermaid-container svg {

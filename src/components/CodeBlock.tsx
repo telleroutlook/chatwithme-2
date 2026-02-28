@@ -119,7 +119,7 @@ export function CodeBlock({
           </div>
         )}
         {error && (
-          <pre className="!mt-0 !mb-0 p-4 text-sm text-red-400">
+          <pre className="!mt-0 !mb-0 p-4 text-sm app-text-danger">
             {code}
           </pre>
         )}

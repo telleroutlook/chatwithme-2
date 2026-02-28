@@ -56,7 +56,7 @@ function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
         title="HTML Preview"
         srcDoc={srcDoc}
         sandbox="allow-scripts"
-        className="w-full border-0 bg-white"
+        className="w-full border-0 bg-[var(--surface-1)]"
         style={{ height: frameHeight }}
       />
     </div>
@@ -118,7 +118,7 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
                 return <G2ChartRenderer spec={spec} />;
               } catch {
                 return (
-                  <span className="text-xs text-red-500">Invalid G2 spec</span>
+                  <span className="text-xs app-text-danger">Invalid G2 spec</span>
                 );
               }
             }
