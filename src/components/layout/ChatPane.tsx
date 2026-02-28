@@ -9,6 +9,8 @@ import { ChatInput } from "../ChatInput";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
 
+const RENDERABLE_BLOCK_PATTERN = /```[\s\S]*?```/;
+
 interface ProgressEntry {
   id: string;
   timestamp: string;
@@ -115,9 +117,15 @@ export function ChatPane({
             {messages.map((msg) => {
               const isUser = msg.role === "user";
               const text = getMessageText(msg);
+              const hasRenderableBlock = !isUser && RENDERABLE_BLOCK_PATTERN.test(text);
               const toolCalls = Array.isArray(msg.parts)
                 ? extractToolCalls(msg.parts as Array<{ type: string; [key: string]: unknown }>)
                 : [];
+              const bubbleWidthClass = isUser
+                ? "w-fit max-w-[95%] sm:max-w-[85%]"
+                : hasRenderableBlock
+                  ? "w-full max-w-full"
+                  : "w-fit max-w-[95%] sm:max-w-[85%]";
 
               return (
                 <div key={msg.id} className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}>
@@ -137,7 +145,7 @@ export function ChatPane({
                   )}
 
                   <div
-                    className={`w-fit max-w-[95%] rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] sm:max-w-[85%] ${
+                    className={`${bubbleWidthClass} rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] ${
                       isUser
                         ? "bg-kumo-accent text-white"
                         : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
@@ -154,7 +162,7 @@ export function ChatPane({
                   </div>
 
                   {!isUser && (
-                    <div className="w-full max-w-[95%] sm:max-w-[85%]">
+                    <div className={`${hasRenderableBlock ? "w-full max-w-full" : "w-full max-w-[95%] sm:max-w-[85%]"}`}>
                       <MessageSources
                         parts={msg.parts}
                         title={t("chat_sources_title")}

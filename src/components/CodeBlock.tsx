@@ -93,7 +93,7 @@ export function CodeBlock({
   const displayLanguage = language || "text";
 
   return (
-    <Surface className="my-3 rounded-xl ring ring-kumo-line overflow-hidden">
+    <Surface className="my-3 w-full rounded-xl ring ring-kumo-line overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/50 border-b border-kumo-line">
         <div className="flex items-center gap-2">
           <CodeIcon size={14} className="text-kumo-subtle" />

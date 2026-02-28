@@ -20,12 +20,19 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
     let mounted = true;
 
     const renderMermaid = async () => {
+      if (mounted) {
+        setIsLoading(true);
+        setError(null);
+      }
       try {
         const mermaid = (await import("mermaid")).default;
         mermaid.initialize({
           startOnLoad: false,
           theme: isDark ? "dark" : "default",
           securityLevel: "strict",
+          flowchart: {
+            htmlLabels: true,
+          },
         });
 
         const renderId = `mermaid-${Math.random().toString(36).slice(2)}`;
@@ -34,7 +41,6 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
         if (mounted && containerRef.current) {
           containerRef.current.innerHTML = "";
           containerRef.current.innerHTML = svg;
-          setError(null);
         }
       } catch (err) {
         if (mounted) {
@@ -68,18 +74,21 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
   }
 
   return (
-    <Surface className="p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
+    <Surface className="w-full p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
       <div className="flex items-center gap-2 mb-2">
         <ChartBarIcon size={14} className="text-kumo-accent" />
         <Text size="xs" variant="secondary" bold>
           Mermaid Diagram
         </Text>
       </div>
-      {isLoading ? (
-        <div className="text-center py-4 text-kumo-subtle">Rendering...</div>
-      ) : (
+      <div className="relative">
         <div ref={containerRef} className="mermaid-container overflow-x-auto" />
-      )}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-elevated)]/85">
+            <span className="text-sm text-kumo-subtle">Rendering...</span>
+          </div>
+        )}
+      </div>
     </Surface>
   );
 }
@@ -117,8 +126,13 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
     let chart: G2ChartInstance | null = null;
 
     const renderChart = async () => {
+      if (mounted) {
+        setIsLoading(true);
+        setError(null);
+      }
       try {
         if (!containerRef.current) return;
+        containerRef.current.innerHTML = "";
 
         const { Chart } = await import("@antv/g2");
 
@@ -146,10 +160,6 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         if (spec.style) chart.style(spec.style as Record<string, unknown>);
 
         await chart.render();
-
-        if (mounted) {
-          setError(null);
-        }
       } catch (err) {
         if (mounted) {
           setError(err instanceof Error ? err.message : "Failed to render chart");
@@ -182,7 +192,7 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
   }
 
   return (
-    <Surface className="p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
+    <Surface className="w-full p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
       <div className="flex items-center gap-2 mb-2">
         <ChartBarIcon size={14} className="text-kumo-accent" />
         <Text size="xs" variant="secondary" bold>

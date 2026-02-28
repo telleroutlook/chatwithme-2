@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -11,6 +11,58 @@ interface MarkdownRendererProps {
   isStreaming?: boolean;
 }
 
+interface HtmlPreviewRendererProps {
+  code: string;
+}
+
+function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
+  const frameId = useId();
+  const [frameHeight, setFrameHeight] = useState(420);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        !data ||
+        typeof data !== "object" ||
+        data.type !== "chatwithme-html-preview-resize" ||
+        data.frameId !== frameId
+      ) {
+        return;
+      }
+
+      if (typeof data.height !== "number" || Number.isNaN(data.height)) {
+        return;
+      }
+
+      const nextHeight = Math.max(220, Math.min(1400, Math.ceil(data.height)));
+      setFrameHeight((prev) => (Math.abs(prev - nextHeight) >= 2 ? nextHeight : prev));
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [frameId]);
+
+  const srcDoc = `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><style>html,body{margin:0;padding:8px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}</style></head><body>${code}<script>(function(){var frameId=${JSON.stringify(
+    frameId
+  )};function height(){var b=document.body;var d=document.documentElement;return Math.max(b?b.scrollHeight:0,b?b.offsetHeight:0,d?d.scrollHeight:0,d?d.offsetHeight:0,220);}function report(){parent.postMessage({type:"chatwithme-html-preview-resize",frameId:frameId,height:height()},"*");}window.addEventListener("load",report);window.addEventListener("resize",report);var observer=new MutationObserver(report);observer.observe(document.documentElement,{attributes:true,childList:true,subtree:true,characterData:true});setInterval(report,500);report();})();</script></body></html>`;
+
+  return (
+    <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
+      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line">
+        HTML Preview
+      </div>
+      <iframe
+        title="HTML Preview"
+        srcDoc={srcDoc}
+        sandbox="allow-scripts"
+        className="w-full border-0 bg-white"
+        style={{ height: frameHeight }}
+      />
+    </div>
+  );
+}
+
 export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
     return content
@@ -21,15 +73,26 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
       .replace(/([^\n])(```[a-zA-Z]+)/g, "$1\n$2");
   }, [content]);
 
+  const looksLikeMermaid = (code: string): boolean => {
+    const normalized = code.trim();
+    if (!normalized) return false;
+    return /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline|gitGraph)\b/i.test(
+      normalized
+    );
+  };
+
   return (
     <div className="markdown-content prose prose-sm max-w-none dark:prose-invert">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
+          pre({ children }) {
+            return <div className="my-3 w-full">{children}</div>;
+          },
           code({ className, children, ...props }) {
-            const match = /language-([a-zA-Z0-9_-]+)/.exec(className || "");
-            const language = match ? match[1] : "";
+            const match = /language-([^\s]+)/.exec(className || "");
+            const language = match ? match[1].trim().toLowerCase() : "";
             const codeString = String(children).replace(/\n$/, "");
             const isInline = !match && !codeString.includes("\n");
 
@@ -44,7 +107,8 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
               );
             }
 
-            if (language === "mermaid") {
+            const isMermaidBlock = language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
+            if (isMermaidBlock) {
               return <MermaidRenderer code={codeString} />;
             }
 
@@ -57,6 +121,23 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
                   <span className="text-xs text-red-500">Invalid G2 spec</span>
                 );
               }
+            }
+
+            if (language === "html" || language === "svg") {
+              return <HtmlPreviewRenderer code={codeString} />;
+            }
+
+            if (language === "markdown" || language === "md") {
+              return (
+                <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
+                  <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line">
+                    Markdown Preview
+                  </div>
+                  <div className="p-3">
+                    <MarkdownRenderer content={codeString} />
+                  </div>
+                </div>
+              );
             }
 
             return <CodeBlock language={language} code={codeString} />;

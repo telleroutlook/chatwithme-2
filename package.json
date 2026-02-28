@@ -9,11 +9,12 @@
     "start": "vite build && wrangler dev --port 8787",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "deploy": "vite build && wrangler deploy",
+    "deploy": "npm run typecheck && vite build && wrangler deploy && node scripts/verify-deploy.mjs",
     "types": "wrangler types env.d.ts --include-runtime false",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "deploy:raw": "vite build && wrangler deploy"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.30",

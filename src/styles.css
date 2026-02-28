@@ -359,3 +359,9 @@ pre {
 [data-mode="dark"] .markdown-content .katex {
   color: #e6edf3;
 }
+
+.mermaid-container svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
