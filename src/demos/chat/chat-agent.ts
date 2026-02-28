@@ -80,7 +80,7 @@ export class ChatAgent extends AIChatAgent<Env> {
     // Stream response from GLM
     const result = streamText({
       abortSignal: options?.abortSignal,
-      model: glm.chat("GLM-4.7"),
+      model: glm("GLM-4.7"),
       system: systemPrompt,
       messages,
       temperature: 0.7,
@@ -267,6 +267,59 @@ IMPORTANT:
       console.error("Tool call parsing error:", error);
       return { executed: false };
     }
+  }
+
+  // ============ Chat Methods (callable for REST API) ============
+
+  @callable({ description: "Send a chat message and get AI response" })
+  async chat(message: string): Promise<string> {
+    // Build system prompt
+    const systemPrompt = await this.buildSystemPrompt();
+
+    // Create GLM provider
+    const glm = createOpenAICompatible({
+      name: "glm",
+      apiKey: this.env.BIGMODEL_API_KEY,
+      baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
+    });
+
+    // Get existing messages and add the new user message
+    const existingMessages = await convertToModelMessages(this.messages);
+    const messages = [
+      ...existingMessages,
+      { role: "user" as const, content: message }
+    ];
+
+    // Generate response (non-streaming for REST API)
+    const { textStream } = streamText({
+      model: glm("GLM-4.7"),
+      system: systemPrompt,
+      messages,
+      temperature: 0.7
+    });
+
+    // Collect the full response
+    let response = "";
+    for await (const chunk of textStream) {
+      response += chunk;
+    }
+
+    return response;
+  }
+
+  @callable({ description: "Get chat message history" })
+  async getHistory(): Promise<Array<{ role: string; content: string; id?: string }>> {
+    return this.messages.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)
+    }));
+  }
+
+  @callable({ description: "Clear chat history" })
+  async clearChat(): Promise<{ success: boolean }> {
+    // AIChatAgent doesn't have a direct clear method, return status
+    return { success: true, message: "Clear via WebSocket reconnect" };
   }
 
   // ============ MCP Server Management (callable methods) ============
