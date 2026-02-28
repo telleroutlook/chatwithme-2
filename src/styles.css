@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@cloudflare/kumo/styles/tailwind";
 @import "@cloudflare/agents-ui/theme/workers.css";
+@import "highlight.js/styles/github-dark.css";
+@import "katex/dist/katex.min.css";
 @source "../../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 
 html,
@@ -40,3 +42,86 @@ body,
 .animate-blink-cursor {
   animation: blink-cursor 1s infinite;
 }
+
+/* Markdown content styles */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content pre {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.markdown-content pre code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.markdown-content .hljs {
+  background: transparent !important;
+}
+
+/* Code syntax highlighting adjustments for dark mode */
+.dark .markdown-content .hljs {
+  color: #e6edf3;
+}
+
+/* Link styles within markdown */
+.markdown-content a {
+  color: var(--kumo-accent, #0066ff);
+  text-decoration: none;
+  transition: text-decoration 0.15s ease;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+/* List styles */
+.markdown-content ul,
+.markdown-content ol {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+
+/* Blockquote styles */
+.markdown-content blockquote {
+  font-style: italic;
+}
+
+/* Table styles */
+.markdown-content table {
+  border-collapse: collapse;
+}
+
+.markdown-content th,
+.markdown-content td {
+  text-align: left;
+}
+
+/* KaTeX math styles */
+.markdown-content .katex {
+  font-size: 1.1em;
+}
+
+.markdown-content .katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown-content .katex-display > .katex {
+  white-space: normal;
+}
+
+/* Dark mode KaTeX adjustments */
+.dark .markdown-content .katex {
+  color: #e6edf3;
+}
+

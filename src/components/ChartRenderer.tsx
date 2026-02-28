@@ -178,11 +178,15 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         </Text>
         {spec.type && <Badge variant="secondary">{spec.type}</Badge>}
       </div>
-      {isLoading ? (
-        <div className="text-center py-4 text-kumo-subtle">Rendering chart...</div>
-      ) : (
-        <div ref={containerRef} className="g2-chart-container" />
-      )}
+      {/* Always render container for ref, show loading overlay */}
+      <div className="relative">
+        <div ref={containerRef} className="g2-chart-container" style={{ minHeight: 300 }} />
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+            <span className="text-sm text-kumo-subtle">Rendering chart...</span>
+          </div>
+        )}
+      </div>
     </Surface>
   );
 }

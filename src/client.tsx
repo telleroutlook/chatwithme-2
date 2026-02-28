@@ -1,6 +1,7 @@
 import { McpItemCard } from "./components/McpItemCard";
 import { Toaster } from "./components/Toaster";
-import { ChartDisplay } from "./components/ChartRenderer";
+import { MarkdownRenderer } from "./components/MarkdownRenderer";
+import { ToolCallCard, extractToolCalls } from "./components/ToolCallCard";
 import { ToastProvider, useToast } from "./hooks/useToast.tsx";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
@@ -492,6 +493,12 @@ function App() {
                   messages.map((msg) => {
                     const isUser = msg.role === "user";
                     const text = getMessageText(msg);
+                    // Extract tool calls from message parts
+                    const toolCalls = Array.isArray(msg.parts)
+                      ? extractToolCalls(msg.parts as Array<{ type: string; [key: string]: unknown }>)
+                      : [];
+                    const hasToolCalls = toolCalls.length > 0;
+
                     return (
                       <div
                         key={msg.id}
@@ -499,6 +506,22 @@ function App() {
                           isUser ? "items-end" : "items-start"
                         }`}
                       >
+                        {/* Tool Calls Display */}
+                        {!isUser && hasToolCalls && (
+                          <div className="max-w-[80%] mb-2 space-y-2">
+                            {toolCalls.map((toolCall, index) => (
+                              <ToolCallCard
+                                key={`${toolCall.toolName}-${index}`}
+                                toolName={toolCall.toolName}
+                                state={toolCall.state}
+                                input={toolCall.input}
+                                output={toolCall.output}
+                                errorText={toolCall.errorText}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {/* Message Content */}
                         <div
                           className={`max-w-[80%] px-4 py-2 rounded-xl ${
                             isUser
@@ -506,15 +529,17 @@ function App() {
                               : "bg-kumo-surface ring ring-kumo-line text-kumo-default"
                           }`}
                         >
-                          <Text size="sm" className="whitespace-pre-wrap">
-                            {text}
-                            {!isUser && isStreaming && msg === messages[messages.length - 1] && (
-                              <span className="inline-block w-0.5 h-[1em] bg-kumo-brand ml-0.5 animate-blink-cursor" />
-                            )}
-                          </Text>
+                          {isUser ? (
+                            <Text size="sm" className="whitespace-pre-wrap">
+                              {text}
+                            </Text>
+                          ) : (
+                            <MarkdownRenderer
+                              content={text}
+                              isStreaming={isStreaming && msg === messages[messages.length - 1]}
+                            />
+                          )}
                         </div>
-                        {/* Render charts in assistant messages */}
-                        {!isUser && <ChartDisplay text={text} />}
                       </div>
                     );
                   })
