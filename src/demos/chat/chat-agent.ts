@@ -3,9 +3,9 @@ import { callable } from "agents";
 import {
   streamText,
   convertToModelMessages,
-  pruneMessages,
-  type UIMessage
+  pruneMessages
 } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { MCP_SERVERS, getApiKey, type McpServerConfig } from "../../mcp-config";
 
 // MCP Server state (separate from chat messages)
@@ -70,48 +70,20 @@ export class ChatAgent extends AIChatAgent<Env> {
       keptMessageCount: 50, // Keep last 50 messages
     });
 
+    // Create GLM provider using OpenAI-compatible interface
+    const glm = createOpenAICompatible({
+      name: "glm",
+      apiKey: this.env.BIGMODEL_API_KEY,
+      baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
+    });
+
     // Stream response from GLM
     const result = streamText({
       abortSignal: options?.abortSignal,
-      model: {
-        provider: "openai-compatible",
-        modelId: "GLM-4.7",
-        doGenerate: async ({ prompt, abortSignal }) => {
-          const response = await fetch(
-            "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${this.env.BIGMODEL_API_KEY}`
-              },
-              body: JSON.stringify({
-                model: "GLM-4.7",
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  ...prompt.map((m) => ({
-                    role: m.role,
-                    content: typeof m.content === "string" ? m.content : JSON.stringify(m.content)
-                  }))
-                ],
-                temperature: 0.7,
-                stream: true
-              }),
-              signal: abortSignal
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`GLM API error: ${response.status}`);
-          }
-
-          return {
-            stream: response.body!,
-            rawCall: { rawPrompt: prompt, rawSettings: {} }
-          };
-        }
-      },
+      model: glm.chat("GLM-4.7"),
+      system: systemPrompt,
       messages,
+      temperature: 0.7,
       onChunk: async ({ chunk, finishReason }) => {
         // Check for tool calls in the response
         if (finishReason === "stop" && chunk.type === "text-delta") {
