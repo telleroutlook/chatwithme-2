@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   chatBodySchema,
+  deleteSessionQuerySchema,
   deleteMessageQuerySchema,
   editBodySchema,
   mcpServerBodySchema
@@ -20,6 +21,11 @@ describe("api schemas", () => {
   it("validates delete message query", () => {
     const parsed = deleteMessageQuerySchema.parse({ sessionId: "abc", messageId: "mid" });
     expect(parsed.messageId).toBe("mid");
+  });
+
+  it("validates delete session query", () => {
+    const parsed = deleteSessionQuerySchema.parse({ sessionId: "abc_123" });
+    expect(parsed.sessionId).toBe("abc_123");
   });
 
   it("rejects empty mcp server name", () => {

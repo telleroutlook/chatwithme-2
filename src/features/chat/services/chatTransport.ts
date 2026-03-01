@@ -1,5 +1,6 @@
 import { callApi } from "./apiClient";
 import type {
+  DeleteSessionResult,
   DeleteMessageResult,
   EditMessageResult,
   ForkSessionResult,
@@ -37,7 +38,7 @@ export interface ChatTransport {
   getPermissions: () => Promise<ConnectionPermissions>;
   getHistory: () => Promise<ChatHistoryItem[]>;
   getPreconfiguredServers: () => Promise<Record<string, PreconfiguredServer>>;
-  deleteSession: (targetSessionId: string) => Promise<void>;
+  deleteSession: (targetSessionId: string) => Promise<DeleteSessionResult>;
   deleteMessage: (messageId: string) => Promise<DeleteMessageResult>;
   editMessage: (messageId: string, content: string) => Promise<EditMessageResult>;
   regenerateMessage: (messageId: string) => Promise<RegenerateMessageResult>;
@@ -120,12 +121,18 @@ export function createChatTransport({
 
       const encodedTargetSessionId = encodeURIComponent(normalizedSessionId);
       // Always delete via REST with explicit sessionId to avoid websocket identity drift.
-      await callApi<{ message: string; sessionId: string }>(
-        `/api/chat/history?sessionId=${encodedTargetSessionId}`,
+      const response = await callApi<DeleteSessionResult & { sessionId: string }>(
+        `/api/chat/session?sessionId=${encodedTargetSessionId}`,
         {
           method: "DELETE"
         }
       );
+      return {
+        success: response.success,
+        destroyed: response.destroyed,
+        pendingDestroy: response.pendingDestroy,
+        error: response.error
+      } as DeleteSessionResult;
     },
 
     async deleteMessage(messageId: string) {

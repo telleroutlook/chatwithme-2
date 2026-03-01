@@ -42,6 +42,8 @@ export const chatHistoryQuerySchema = z.object({
   sessionId: sessionIdSchema
 });
 
+export const deleteSessionQuerySchema = chatHistoryQuerySchema;
+
 export const deleteMessageQuerySchema = chatHistoryQuerySchema.extend({
   messageId: z.string().trim().min(1, "messageId is required")
 });
@@ -52,5 +54,6 @@ export type RegenerateBody = z.infer<typeof regenerateBodySchema>;
 export type ForkBody = z.infer<typeof forkBodySchema>;
 export type McpServerBody = z.infer<typeof mcpServerBodySchema>;
 export type ChatHistoryQuery = z.infer<typeof chatHistoryQuerySchema>;
+export type DeleteSessionQuery = z.infer<typeof deleteSessionQuerySchema>;
 export type DeleteMessageQuery = z.infer<typeof deleteMessageQuerySchema>;
 export type ToolApprovalDecisionBody = z.infer<typeof toolApprovalDecisionBodySchema>;

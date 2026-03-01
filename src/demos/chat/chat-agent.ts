@@ -169,6 +169,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   };
 
   private mcpInitPromise: Promise<void> | null = null;
+  private pendingSessionDeletion = false;
 
   private isModelStreamEnabled(): boolean {
     return getModelStreamEnabled(this.runtimeEnv);
@@ -712,6 +713,16 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   }
 
   onClose(_connection: Connection) {
+    if (this.pendingSessionDeletion) {
+      void (async () => {
+        const destroyed = await destroyIfIdle(this as never);
+        if (!destroyed) {
+          return;
+        }
+        this.pendingSessionDeletion = false;
+      })();
+      return;
+    }
     scheduleIdleDestroy(this as never, {
       idleTimeoutSeconds: resolveIdleTimeoutSeconds(this.runtimeEnv.AGENT_IDLE_TIMEOUT_SECONDS)
     });
@@ -1023,6 +1034,47 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     } catch (e) {
       console.error("Error clearing messages:", e);
       return { success: false };
+    }
+  }
+
+  @callable({ description: "Delete session permanently and destroy agent state" })
+  async deleteSession(): Promise<{
+    success: boolean;
+    destroyed: boolean;
+    pendingDestroy?: boolean;
+    error?: string;
+  }> {
+    try {
+      await this.persistMessages([]);
+      this.messages = [];
+
+      this.setState({
+        ...this.state,
+        runtime: {
+          ...this.initialState.runtime,
+          stateVersion: this.state.runtime.stateVersion + 1
+        }
+      });
+
+      const hasConnections = [...this.getConnections()].length > 0;
+      this.pendingSessionDeletion = true;
+      if (!hasConnections) {
+        cancelIdleSchedules(this as never);
+        this.schedule(1, "onIdleTimeout" as never, {});
+      }
+      return {
+        success: true,
+        destroyed: false,
+        pendingDestroy: true
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error("Error deleting session:", error);
+      return {
+        success: false,
+        destroyed: false,
+        error: message
+      };
     }
   }
 

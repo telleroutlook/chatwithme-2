@@ -72,3 +72,23 @@ export function deleteSessionMeta(sessionId: string): void {
   const sessions = loadSessions().filter((session) => session.id !== sessionId);
   saveSessions(sessions);
 }
+
+export function remapSessionMeta(oldSessionId: string, newSessionId: string): void {
+  const from = oldSessionId.trim();
+  const to = newSessionId.trim();
+  if (!from || !to || from === to) return;
+
+  const sessions = loadSessions();
+  const fromIndex = sessions.findIndex((session) => session.id === from);
+  if (fromIndex < 0) return;
+
+  const toIndex = sessions.findIndex((session) => session.id === to);
+  if (toIndex >= 0) {
+    sessions.splice(fromIndex, 1);
+    saveSessions(sessions);
+    return;
+  }
+
+  sessions[fromIndex] = { ...sessions[fromIndex], id: to };
+  saveSessions(sessions);
+}

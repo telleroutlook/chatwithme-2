@@ -1,4 +1,5 @@
 import { Badge, Button, Text } from "@cloudflare/kumo";
+import { useState } from "react";
 import {
   ChatCircleDotsIcon,
   PlusIcon,
@@ -10,6 +11,7 @@ import {
   GlobeHemisphereWestIcon
 } from "@phosphor-icons/react";
 import type { UiLang } from "../../i18n/ui";
+import { confirm } from "../modal";
 
 export type WorkspaceSection = "chats" | "tools" | "resources" | "settings";
 
@@ -31,7 +33,7 @@ interface WorkspaceSidebarProps {
   onClose: () => void;
   onNewSession: () => void;
   onSelectSession: (sessionId: string) => void;
-  onDeleteSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => Promise<void> | void;
   formatTime: (timestamp: string) => string;
   toolsCount: number;
   resourcesCount: number;
@@ -74,6 +76,7 @@ export function WorkspaceSidebar({
   setLang,
   t
 }: WorkspaceSidebarProps) {
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const sections: Array<{
     id: WorkspaceSection;
     label: string;
@@ -226,11 +229,27 @@ export function WorkspaceSidebar({
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => {
+                    disabled={deletingSessionId === session.id}
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      onDeleteSession(session.id);
+                      const confirmed = await confirm({
+                        title: t("session_delete_confirm_title"),
+                        content: t("session_delete_confirm_message"),
+                        okText: t("session_delete_confirm_ok"),
+                        cancelText: t("session_delete_confirm_cancel"),
+                        danger: true
+                      });
+                      if (!confirmed) {
+                        return;
+                      }
+                      setDeletingSessionId(session.id);
+                      try {
+                        await onDeleteSession(session.id);
+                      } finally {
+                        setDeletingSessionId((prev) => (prev === session.id ? null : prev));
+                      }
                     }}
-                    className="rounded p-1 text-kumo-subtle opacity-0 transition-all hover:bg-kumo-danger/20 hover:text-kumo-danger group-hover:opacity-100 focus-visible:opacity-100"
+                    className="rounded p-1 text-kumo-subtle opacity-0 transition-all hover:bg-kumo-danger/20 hover:text-kumo-danger group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-100"
                     aria-label={t("session_delete")}
                   >
                     <TrashIcon size={14} />

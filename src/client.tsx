@@ -34,6 +34,7 @@ import {
   saveSessions,
   updateSessionMeta,
   deleteSessionMeta,
+  remapSessionMeta,
   type SessionMeta
 } from "./features/chat/services/sessionMeta";
 import { callApi } from "./features/chat/services/apiClient";
@@ -206,6 +207,35 @@ function App() {
     agent: "chat-agent-v2",
     name: currentSessionId,
     query: readonlyMode ? { mode: "view" } : undefined,
+    onIdentity: useCallback(
+      (resolvedSessionId: string) => {
+        const normalized = resolvedSessionId.trim();
+        if (!normalized || normalized === currentSessionId) return;
+
+        remapSessionMeta(currentSessionId, normalized);
+        setSessions(loadSessions());
+        setCurrentSessionId(normalized);
+        saveCurrentSessionId(normalized);
+        setConnectionStatus("connecting");
+        setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
+        setIsLoading(true);
+        setPendingApprovals([]);
+        setAwaitingFirstAssistant(false);
+        setAwaitingAssistantFromIndex(null);
+        setLiveProgress([]);
+        addEventLog({
+          level: "info",
+          source: "system",
+          type: "session_identity_remap",
+          message: `Session identity remapped from ${currentSessionId} to ${normalized}.`,
+          data: {
+            previousSessionId: currentSessionId,
+            resolvedSessionId: normalized
+          }
+        });
+      },
+      [addEventLog, currentSessionId, readonlyMode]
+    ),
     onClose: useCallback(() => {
       setConnectionStatus("disconnected");
       addEventLog({

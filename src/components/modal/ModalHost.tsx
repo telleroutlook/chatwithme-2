@@ -37,7 +37,7 @@ function resolveZIndex(id: string | number, zIndex?: number): number {
   const numericId = typeof id === "number" ? id : Number.parseInt(id.replace(/\D/g, ""), 10);
 
   const safeOffset = Number.isFinite(numericId) ? numericId : 0;
-  return 1000 + safeOffset;
+  return 4000 + safeOffset;
 }
 
 // ============ Modal Component ============
@@ -163,8 +163,8 @@ const Modal = memo(function Modal({
       {/* Modal Content */}
       <div
         className={`
-          relative bg-kumo-surface rounded-xl shadow-2xl
-          ring ring-kumo-line
+          relative rounded-xl shadow-2xl
+          bg-[var(--app-surface-primary)] ring ring-[var(--app-border-default)]
           transition-all transform
           ${visible ? "opacity-100 scale-100" : "opacity-0 scale-95"}
           ${className}

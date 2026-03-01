@@ -6,6 +6,7 @@ import { routeAgentRequest, getAgentByName } from "agents";
 import {
   chatBodySchema,
   chatHistoryQuerySchema,
+  deleteSessionQuerySchema,
   deleteMessageQuerySchema,
   editBodySchema,
   forkBodySchema,
@@ -116,6 +117,27 @@ app.delete("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c)
     });
   } catch (error) {
     return errorJson(c, 500, "CHAT_CLEAR_FAILED", unknownErrorMessage(error));
+  }
+});
+
+app.delete("/api/chat/session", validateQuery(deleteSessionQuerySchema), async (c) => {
+  try {
+    const query = c.req.valid("query") as z.infer<typeof deleteSessionQuerySchema>;
+    const sessionId = resolveSessionId(query);
+
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.deleteSession();
+    if (!result?.success) {
+      return errorJson(c, 500, "CHAT_DELETE_SESSION_FAILED", result?.error || "Failed to delete session");
+    }
+
+    return successJson(c, {
+      destroyed: result.destroyed,
+      pendingDestroy: result.pendingDestroy,
+      sessionId
+    });
+  } catch (error) {
+    return errorJson(c, 500, "CHAT_DELETE_SESSION_FAILED", unknownErrorMessage(error));
   }
 });
 

@@ -29,6 +29,13 @@ export interface ForkSessionResult {
   error?: string;
 }
 
+export interface DeleteSessionResult {
+  success: boolean;
+  destroyed: boolean;
+  pendingDestroy?: boolean;
+  error?: string;
+}
+
 export function isToggleServerResult(value: unknown): value is ToggleServerResult {
   if (!value || typeof value !== "object") {
     return false;
@@ -95,6 +102,24 @@ export function isForkSessionResult(value: unknown): value is ForkSessionResult 
   return (
     typeof candidate.success === "boolean" &&
     (candidate.newSessionId === undefined || typeof candidate.newSessionId === "string") &&
+    (candidate.error === undefined || typeof candidate.error === "string")
+  );
+}
+
+export function isDeleteSessionResult(value: unknown): value is DeleteSessionResult {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as {
+    success?: unknown;
+    destroyed?: unknown;
+    pendingDestroy?: unknown;
+    error?: unknown;
+  };
+  return (
+    typeof candidate.success === "boolean" &&
+    typeof candidate.destroyed === "boolean" &&
+    (candidate.pendingDestroy === undefined || typeof candidate.pendingDestroy === "boolean") &&
     (candidate.error === undefined || typeof candidate.error === "string")
   );
 }
