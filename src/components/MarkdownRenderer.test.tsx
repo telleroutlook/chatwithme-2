@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
@@ -74,6 +74,8 @@ describe("MarkdownRenderer", () => {
     expect(srcDoc).toContain("<!DOCTYPE html>");
     expect(srcDoc).not.toContain("font-family:ui-sans-serif");
     expect(frame.className).not.toContain("pointer-events-none");
+    expect(frame.getAttribute("scrolling")).toBe("auto");
+    expect((frame as HTMLIFrameElement).style.height).toBe("560px");
   });
 
   it("supports markdown feature toggles", () => {
@@ -92,5 +94,63 @@ describe("MarkdownRenderer", () => {
     expect(screen.getByText("NOTE")).toBeInTheDocument();
     expect(container.textContent).not.toContain("^1");
     expect(container.querySelector(".animate-blink-cursor")).not.toBeInTheDocument();
+  });
+
+  it("falls back to code block for html while streaming to avoid iframe jitter", () => {
+    const content = ["```html", "<!DOCTYPE html>", "<html><body><h1>Hi</h1></body></html>", "```"].join("\n");
+
+    render(<MarkdownRenderer content={content} isStreaming={true} />);
+
+    expect(screen.queryByText("HTML Preview")).not.toBeInTheDocument();
+    expect(screen.getByText("html")).toBeInTheDocument();
+  });
+
+  it("strips empty sourceMappingURL directives in html preview srcdoc", () => {
+    const content = [
+      "```html",
+      "<!DOCTYPE html>",
+      "<html>",
+      "<body>",
+      "<script>",
+      "//# sourceMappingURL=",
+      "console.log('ok')",
+      "</script>",
+      "</body>",
+      "</html>",
+      "```"
+    ].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    const frame = screen.getByTitle("HTML Preview");
+    const srcDoc = frame.getAttribute("srcdoc") || "";
+    expect(srcDoc).not.toContain("sourceMappingURL=");
+    expect(srcDoc).toContain("console.log('ok')");
+  });
+
+  it("can hide html preview by toggle", () => {
+    const content = ["```html", "<!DOCTYPE html><html><body><h1>Hi</h1></body></html>", "```"].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Code" }));
+    expect(screen.queryByTitle("HTML Preview")).not.toBeInTheDocument();
+    expect(screen.getByText("<!DOCTYPE html><html><body><h1>Hi</h1></body></html>")).toBeInTheDocument();
+  });
+
+  it("supports code and preview tabs for markdown blocks", () => {
+    const content = ["```markdown", "# Title", "", "- one", "- two", "```"].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    expect(screen.getByText("Markdown Preview")).toBeInTheDocument();
+    expect(screen.getByText("Title")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Code" }));
+    const codeView = screen.getByText((_, element) => {
+      return element?.tagName.toLowerCase() === "code" && element.textContent === "# Title\n\n- one\n- two";
+    });
+    expect(codeView).toBeInTheDocument();
   });
 });

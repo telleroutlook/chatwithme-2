@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -22,10 +22,13 @@ interface HtmlPreviewRendererProps {
 interface SvgPreviewRendererProps {
   code: string;
 }
+interface MarkdownPreviewRendererProps {
+  code: string;
+}
 
-const MIN_PREVIEW_HEIGHT = 240;
-const MAX_PREVIEW_HEIGHT = 12000;
-const HTML_PREVIEW_RESIZE_EVENT = "chatwithme-html-preview-resize";
+const HTML_PREVIEW_HEIGHT = 560;
+type HtmlPreviewTab = "preview" | "code";
+type MarkdownPreviewTab = "preview" | "code";
 
 function looksLikeSvgMarkup(code: string): boolean {
   const normalized = code.trim().toLowerCase();
@@ -58,78 +61,68 @@ function extractFirstSvgMarkup(code: string): string | null {
   return match ? match[0] : null;
 }
 
-function createResizeScript(frameId: string): string {
-  return `<script>(function(){var frameId=${JSON.stringify(
-    frameId
-  )};var lastHeight=0;var lastSentAt=0;var rafId=0;function docHeight(){var b=document.body;var d=document.documentElement;return Math.max(b?b.scrollHeight:0,b?b.offsetHeight:0,d?d.scrollHeight:0,d?d.offsetHeight:0,d?d.clientHeight:0,220);}function contentHeight(){var b=document.body;if(!b||!b.children||!b.children.length){return 0;}var top=Infinity;var bottom=-Infinity;for(var i=0;i<b.children.length;i++){var child=b.children[i];if(!(child instanceof HTMLElement)){continue;}var rect=child.getBoundingClientRect();if(rect.width===0&&rect.height===0){continue;}if(rect.top<top){top=rect.top;}if(rect.bottom>bottom){bottom=rect.bottom;}}if(!isFinite(top)||!isFinite(bottom)||bottom<=top){return 0;}return Math.ceil(bottom-top+16);}function height(){var base=docHeight();var tight=contentHeight();if(tight<=0){return Math.max(220,base);}if(base<=tight+40){return Math.max(220,base);}return Math.max(220,tight+24);}function post(){var next=Math.ceil(height());var now=Date.now();if(next<lastHeight&&now-lastSentAt<260&&lastHeight-next<140){return;}if(Math.abs(next-lastHeight)<6){return;}lastHeight=next;lastSentAt=now;parent.postMessage({type:${JSON.stringify(
-    HTML_PREVIEW_RESIZE_EVENT
-  )},frameId:frameId,height:next},"*");}function report(){if(rafId){cancelAnimationFrame(rafId);}rafId=requestAnimationFrame(post);}window.addEventListener("load",report);window.addEventListener("resize",report);window.addEventListener("beforeunload",function(){if(rafId){cancelAnimationFrame(rafId);}});if(typeof ResizeObserver!=="undefined"){var ro=new ResizeObserver(report);if(document.documentElement){ro.observe(document.documentElement);}if(document.body){ro.observe(document.body);} }else{var observer=new MutationObserver(report);observer.observe(document.documentElement,{attributes:true,childList:true,subtree:true,characterData:true});}if(document.fonts&&document.fonts.ready){document.fonts.ready.then(report).catch(function(){});}setTimeout(report,180);setTimeout(report,700);setTimeout(report,1400);report();})();</script>`;
+function stripEmptySourceMapDirectives(code: string): string {
+  if (!code || !code.includes("sourceMappingURL")) return code;
+  return code
+    .replace(/^[\t ]*\/\/[#@]\s*sourceMappingURL=\s*$/gm, "")
+    .replace(/\/\*[#@]\s*sourceMappingURL=\s*\*\//g, "")
+    .replace(/<!--\s*[#@]?\s*sourceMappingURL=\s*-->/g, "");
 }
 
-function injectResizeScript(html: string, script: string): string {
-  if (/<\/body\s*>/i.test(html)) {
-    return html.replace(/<\/body\s*>/i, `${script}</body>`);
+function createPreviewSrcDoc(code: string): string {
+  const sanitizedCode = stripEmptySourceMapDirectives(code);
+  if (looksLikeHtmlDocument(sanitizedCode)) {
+    return sanitizedCode;
   }
-  if (/<\/html\s*>/i.test(html)) {
-    return html.replace(/<\/html\s*>/i, `${script}</html>`);
-  }
-  return `${html}\n${script}`;
+  return `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><style>html,body{margin:0;padding:8px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}</style></head><body>${sanitizedCode}</body></html>`;
 }
 
-function createPreviewSrcDoc(code: string, frameId: string): string {
-  const resizeScript = createResizeScript(frameId);
-  if (looksLikeHtmlDocument(code)) {
-    return injectResizeScript(code, resizeScript);
-  }
-  return `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><style>html,body{margin:0;padding:8px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;}</style></head><body>${code}${resizeScript}</body></html>`;
-}
-
-function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
-  const frameId = useId();
-  const [frameHeight, setFrameHeight] = useState(420);
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const data = event.data;
-      if (
-        !data ||
-        typeof data !== "object" ||
-        data.type !== HTML_PREVIEW_RESIZE_EVENT ||
-        data.frameId !== frameId
-      ) {
-        return;
-      }
-
-      if (typeof data.height !== "number" || Number.isNaN(data.height)) {
-        return;
-      }
-
-      const nextHeight = Math.max(MIN_PREVIEW_HEIGHT, Math.min(MAX_PREVIEW_HEIGHT, Math.ceil(data.height)));
-      setFrameHeight((prev) => (Math.abs(prev - nextHeight) >= 8 ? nextHeight : prev));
-    };
-
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [frameId]);
-
-  const srcDoc = createPreviewSrcDoc(code, frameId);
+const HtmlPreviewRenderer = memo(function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
+  const [activeTab, setActiveTab] = useState<HtmlPreviewTab>("preview");
+  const srcDoc = createPreviewSrcDoc(code);
 
   return (
     <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
-      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line">
-        HTML Preview
+      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line flex items-center justify-between gap-2">
+        <span>HTML Preview</span>
+        <div className="inline-flex items-center rounded-md border border-kumo-line p-0.5">
+          <button
+            type="button"
+            className={`rounded px-2 py-1 text-[11px] ${
+              activeTab === "code" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+            }`}
+            onClick={() => setActiveTab("code")}
+          >
+            Code
+          </button>
+          <button
+            type="button"
+            className={`rounded px-2 py-1 text-[11px] ${
+              activeTab === "preview" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+            }`}
+            onClick={() => setActiveTab("preview")}
+          >
+            Preview
+          </button>
+        </div>
       </div>
-      <iframe
-        title="HTML Preview"
-        srcDoc={srcDoc}
-        sandbox="allow-scripts"
-        scrolling="no"
-        className="block w-full border-0 bg-[var(--surface-1)]"
-        style={{ height: frameHeight }}
-      />
+      {activeTab === "preview" ? (
+        <iframe
+          title="HTML Preview"
+          srcDoc={srcDoc}
+          sandbox="allow-scripts"
+          scrolling="auto"
+          className="block w-full border-0 bg-[var(--surface-1)]"
+          style={{ height: HTML_PREVIEW_HEIGHT }}
+        />
+      ) : (
+        <pre className="!m-0 max-h-[560px] overflow-auto bg-[var(--surface-1)] p-3 text-xs text-kumo-default">
+          <code>{code}</code>
+        </pre>
+      )}
     </div>
   );
-}
+});
 
 function SvgPreviewRenderer({ code }: SvgPreviewRendererProps) {
   const svgDataUrl = useMemo(
@@ -155,6 +148,54 @@ function SvgPreviewRenderer({ code }: SvgPreviewRendererProps) {
     </div>
   );
 }
+
+const MARKDOWN_PREVIEW_HEIGHT = 560;
+
+const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
+  code
+}: MarkdownPreviewRendererProps) {
+  const [activeTab, setActiveTab] = useState<MarkdownPreviewTab>("preview");
+
+  return (
+    <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
+      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line flex items-center justify-between gap-2">
+        <span>Markdown Preview</span>
+        <div className="inline-flex items-center rounded-md border border-kumo-line p-0.5">
+          <button
+            type="button"
+            className={`rounded px-2 py-1 text-[11px] ${
+              activeTab === "code" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+            }`}
+            onClick={() => setActiveTab("code")}
+          >
+            Code
+          </button>
+          <button
+            type="button"
+            className={`rounded px-2 py-1 text-[11px] ${
+              activeTab === "preview" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+            }`}
+            onClick={() => setActiveTab("preview")}
+          >
+            Preview
+          </button>
+        </div>
+      </div>
+      {activeTab === "preview" ? (
+        <div className="max-h-[560px] overflow-auto p-3">
+          <MarkdownRenderer content={code} />
+        </div>
+      ) : (
+        <pre
+          className="!m-0 max-h-[560px] overflow-auto bg-[var(--surface-1)] p-3 text-xs text-kumo-default"
+          style={{ minHeight: MARKDOWN_PREVIEW_HEIGHT }}
+        >
+          <code>{code}</code>
+        </pre>
+      )}
+    </div>
+  );
+});
 
 function preprocessAlerts(content: string): string {
   return content.replace(
@@ -264,6 +305,9 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             }
 
             if (language === "html") {
+              if (isStreaming) {
+                return <CodeBlock language={language} code={codeString} />;
+              }
               if (isHtmlDocument && svgFromHtmlDocument) {
                 return (
                   <>
@@ -276,16 +320,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             }
 
             if (language === "markdown" || language === "md") {
-              return (
-                <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
-                  <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line">
-                    Markdown Preview
-                  </div>
-                  <div className="p-3">
-                    <MarkdownRenderer content={codeString} />
-                  </div>
-                </div>
-              );
+              return <MarkdownPreviewRenderer code={codeString} />;
             }
 
             return <CodeBlock language={language} code={codeString} />;

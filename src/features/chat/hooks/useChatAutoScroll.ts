@@ -26,6 +26,7 @@ export function useChatAutoScroll({
   const [mode, setMode] = useState<AutoScrollMode>("follow");
   const [unreadCount, setUnreadCount] = useState(0);
   const lastManualScrollAtRef = useRef(0);
+  const lastObservedScrollHeightRef = useRef(0);
 
   const isNearBottom = useCallback(() => {
     const element = scrollRef.current;
@@ -68,10 +69,19 @@ export function useChatAutoScroll({
       return;
     }
 
+    lastObservedScrollHeightRef.current = element.scrollHeight;
     let rafId = 0;
     const keepBottom = () => {
+      const currentHeight = element.scrollHeight;
+      const previousHeight = lastObservedScrollHeightRef.current;
+      lastObservedScrollHeightRef.current = currentHeight;
+
       const hiddenHeight = element.scrollHeight - element.scrollTop - element.clientHeight;
       if (hiddenHeight <= 1) {
+        return;
+      }
+      // Only auto-follow when content grows; ignore shrink/reflow jitter.
+      if (currentHeight <= previousHeight + 1) {
         return;
       }
       // Respect recent manual upward scrolls and avoid snapping user back.

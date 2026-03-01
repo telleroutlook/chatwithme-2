@@ -44,12 +44,14 @@ import {
   type ProgressPhase
 } from "./features/chat/services/progress";
 import {
+  isDeleteSessionResult,
   isDeleteMessageResult,
   isEditMessageResult,
   isForkSessionResult,
   isRegenerateMessageResult,
   isToggleServerResult
 } from "./features/chat/services/apiContracts";
+import { getNextSessionAfterDelete } from "./features/chat/services/sessionSelection";
 import { buildCommandSuggestions } from "./features/chat/services/commandSuggestions";
 import { useChatTelemetry } from "./features/chat/hooks/useChatTelemetry";
 import { useEventLog } from "./features/chat/hooks/useEventLog";
@@ -110,6 +112,12 @@ function readPendingApprovalsFromState(state: unknown): RuntimeApprovalItem[] | 
 function isReadonlyModeQueryEnabled(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("mode") === "view";
+}
+
+function buildHistorySignature(history: ChatHistoryItem[]): string {
+  return history
+    .map((item) => `${item.id ?? ""}|${item.role}|${item.content ?? ""}`)
+    .join("\u001f");
 }
 
 interface RuntimeApprovalItem {
@@ -184,6 +192,9 @@ function App() {
   const [awaitingFirstAssistant, setAwaitingFirstAssistant] = useState(false);
   const [awaitingAssistantFromIndex, setAwaitingAssistantFromIndex] = useState<number | null>(null);
   const hasReconciledSessionsRef = useRef(false);
+  const loadHistoryRef = useRef<() => Promise<ChatHistoryItem[]>>(async () => []);
+  const hydrateCooldownRef = useRef<{ sessionId: string; at: number } | null>(null);
+  const lastHydratedSignatureRef = useRef<{ sessionId: string; signature: string } | null>(null);
 
   // Save current session ID when changed
   useEffect(() => {
@@ -289,6 +300,10 @@ function App() {
     return await chatTransport.getHistory();
   }, [chatTransport]);
 
+  useEffect(() => {
+    loadHistoryRef.current = loadHistory;
+  }, [loadHistory]);
+
   // Reconcile local session metadata with server history on startup.
   useEffect(() => {
     if (hasReconciledSessionsRef.current) return;
@@ -385,20 +400,33 @@ function App() {
     let cancelled = false;
 
     const hydrateHistory = async () => {
+      const now = Date.now();
+      const cooldown = hydrateCooldownRef.current;
+      if (cooldown && cooldown.sessionId === currentSessionId && now - cooldown.at < 1200) {
+        return;
+      }
+      hydrateCooldownRef.current = { sessionId: currentSessionId, at: now };
+
       try {
-        const history = await loadHistory();
+        const history = await loadHistoryRef.current();
         if (cancelled) return;
-        const hydrated = Array.isArray(history)
-          ? history.map((item, index) => ({
-              id: item.id ?? `history-${currentSessionId}-${index}`,
-              role:
-                item.role === "user" || item.role === "assistant" || item.role === "system"
-                  ? item.role
-                  : "assistant",
-              parts: [{ type: "text", text: item.content ?? "" }]
-            }))
-          : [];
+        const normalizedHistory = Array.isArray(history) ? history : [];
+        const signature = buildHistorySignature(normalizedHistory);
+        const last = lastHydratedSignatureRef.current;
+        if (last && last.sessionId === currentSessionId && last.signature === signature) {
+          return;
+        }
+
+        const hydrated = normalizedHistory.map((item, index) => ({
+          id: item.id ?? `history-${currentSessionId}-${index}`,
+          role:
+            item.role === "user" || item.role === "assistant" || item.role === "system"
+              ? item.role
+              : "assistant",
+          parts: [{ type: "text", text: item.content ?? "" }]
+        }));
         setChatMessages(hydrated as UIMessage[]);
+        lastHydratedSignatureRef.current = { sessionId: currentSessionId, signature };
       } catch (error) {
         if (cancelled) return;
         console.error("Failed to hydrate chat history:", error);
@@ -410,7 +438,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId, loadHistory, setChatMessages]);
+  }, [currentSessionId, setChatMessages]);
 
   useEffect(() => {
     if (connectionStatus !== "connected") return;
@@ -515,14 +543,24 @@ function App() {
       }
 
       try {
-        await chatTransport.deleteSession(sessionId);
+        const deleteResult = await chatTransport.deleteSession(sessionId);
+        if (!isDeleteSessionResult(deleteResult) || !deleteResult.success) {
+          throw new Error(deleteResult?.error || "Invalid delete session response");
+        }
+
+        const nextSelection = getNextSessionAfterDelete(sessions, sessionId, currentSessionId);
         deleteSessionMeta(sessionId);
         setSessions(loadSessions());
 
-        if (sessionId === currentSessionId) {
+        if (nextSelection.action === "switch") {
+          handleSelectSession(nextSelection.sessionId);
+        } else if (nextSelection.action === "create-new") {
           handleNewSession();
         }
 
+        if (deleteResult.pendingDestroy) {
+          addToast(t("session_delete_pending_destroy"), "info");
+        }
         addToast(t("session_deleted"), "success");
       } catch (error) {
         console.error("Failed to delete session:", error);
@@ -539,7 +577,9 @@ function App() {
       chatTransport,
       currentSessionId,
       handleNewSession,
+      handleSelectSession,
       permissions.canEdit,
+      sessions,
       t
     ]
   );

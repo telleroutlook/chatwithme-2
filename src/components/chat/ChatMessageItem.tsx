@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Button, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import { Dialog } from "../ui";
@@ -30,7 +30,7 @@ interface ChatMessageItemProps {
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
 
-export const ChatMessageItem = memo(function ChatMessageItem({
+function ChatMessageItemInner({
   message,
   isStreaming,
   canEdit,
@@ -49,37 +49,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(text);
   const [saving, setSaving] = useState(false);
-  const [actionsLayout, setActionsLayout] = useState<"inline" | "stack">("inline");
-  const bubbleRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (variant === "docs") {
-      setActionsLayout("stack");
-      return;
-    }
-
-    if (!bubbleRef.current || !containerRef.current) {
-      return;
-    }
-
-    const observer = new ResizeObserver(() => {
-      if (!bubbleRef.current || !containerRef.current) {
-        return;
-      }
-
-      const contentWidth = bubbleRef.current.scrollWidth;
-      const containerWidth = containerRef.current.clientWidth;
-      setActionsLayout(contentWidth + 64 > containerWidth ? "stack" : "inline");
-    });
-
-    observer.observe(bubbleRef.current);
-    observer.observe(containerRef.current);
-
-    return () => observer.disconnect();
-  }, [variant]);
 
   const hasRenderableBlock = !isUser && RENDERABLE_BLOCK_PATTERN.test(text);
+  const actionsLayout: "inline" | "stack" =
+    variant === "docs" || hasRenderableBlock ? "stack" : "inline";
   const bubbleWidthClass =
     variant === "docs"
       ? "w-full max-w-full"
@@ -126,7 +99,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
   return (
     <div
-      ref={containerRef}
       className={`group flex flex-col ${
         variant === "docs" ? "items-stretch" : isUser ? "items-end" : "items-start"
       }`}
@@ -147,7 +119,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       )}
 
       <div
-        ref={bubbleRef}
         className={`${bubbleWidthClass} rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] ${
           variant === "docs"
             ? "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
@@ -261,4 +232,26 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       </Dialog>
     </div>
   );
-});
+}
+
+function areChatMessageItemPropsEqual(
+  prevProps: ChatMessageItemProps,
+  nextProps: ChatMessageItemProps
+): boolean {
+  if (prevProps.message.id !== nextProps.message.id) return false;
+  if (prevProps.message.role !== nextProps.message.role) return false;
+  if (prevProps.message.parts !== nextProps.message.parts) return false;
+  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+  if (prevProps.isLastMessage !== nextProps.isLastMessage) return false;
+  if (prevProps.canEdit !== nextProps.canEdit) return false;
+  if (prevProps.variant !== nextProps.variant) return false;
+  if (prevProps.markdownPrefs?.enableAlerts !== nextProps.markdownPrefs?.enableAlerts) return false;
+  if (prevProps.markdownPrefs?.enableFootnotes !== nextProps.markdownPrefs?.enableFootnotes) return false;
+  if (prevProps.markdownPrefs?.streamCursor !== nextProps.markdownPrefs?.streamCursor) return false;
+
+  const prevText = prevProps.getMessageText(prevProps.message);
+  const nextText = nextProps.getMessageText(nextProps.message);
+  return prevText === nextText;
+}
+
+export const ChatMessageItem = memo(ChatMessageItemInner, areChatMessageItemPropsEqual);
