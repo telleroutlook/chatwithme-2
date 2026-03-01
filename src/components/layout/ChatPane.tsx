@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { Badge, Surface, Text } from "@cloudflare/kumo";
+import { useRef, useState } from "react";
+import { Badge, Button, Surface, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
-import { ChatInputArea, ChatMessageList, BackToBottom } from "../chat";
+import { ChatInputArea, ChatMessageList, BackToBottom, LoadingDots } from "../chat";
+import { useChatAutoScroll } from "../../features/chat/hooks/useChatAutoScroll";
+import { trackChatEvent } from "../../features/chat/services/trackChatEvent";
 
 interface ProgressEntry {
   id: string;
@@ -19,6 +21,8 @@ interface ChatPaneProps {
   isStreaming: boolean;
   isConnected: boolean;
   activeToolsCount: number;
+  mcpConnectedServers: number;
+  mcpTotalServers: number;
   awaitingFirstAssistant: boolean;
   liveProgress: ProgressEntry[];
   phaseLabels: Record<string, string>;
@@ -27,6 +31,7 @@ interface ChatPaneProps {
   commandSuggestions: CommandSuggestionItem[];
   onSend: () => void;
   onStop: () => void;
+  onRetryConnection: () => void;
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
@@ -40,6 +45,8 @@ export function ChatPane({
   isStreaming,
   isConnected,
   activeToolsCount,
+  mcpConnectedServers,
+  mcpTotalServers,
   awaitingFirstAssistant,
   liveProgress,
   phaseLabels,
@@ -48,6 +55,7 @@ export function ChatPane({
   commandSuggestions,
   onSend,
   onStop,
+  onRetryConnection,
   onDeleteMessage,
   onEditMessage,
   onRegenerateMessage,
@@ -56,35 +64,66 @@ export function ChatPane({
   getMessageText
 }: ChatPaneProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showBackToBottom, setShowBackToBottom] = useState(false);
-
-  const scrollToBottom = () => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  };
-
-  const isNearBottom = () => {
-    const el = scrollRef.current;
-    if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-  };
-
-  useEffect(() => {
-    if (!scrollRef.current) return;
-    if (isNearBottom()) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages.length]);
-
-  const onScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const shouldShow = el.scrollHeight - el.scrollTop - el.clientHeight > 180;
-    setShowBackToBottom(shouldShow);
-  };
+  const [messageVariant, setMessageVariant] = useState<"bubble" | "docs">("bubble");
+  const [markdownPrefs, setMarkdownPrefs] = useState(() => ({
+    enableAlerts: true,
+    enableFootnotes: true,
+    streamCursor: true
+  }));
+  const { mode, unreadCount, showBackToBottom, onScroll, scrollToBottom } = useChatAutoScroll({
+    scrollRef,
+    messagesLength: messages.length
+  });
 
   return (
     <section className="flex h-full min-h-0 flex-col">
+      <div className="px-3 pt-3 sm:px-5">
+        <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Badge variant={isConnected ? "primary" : "secondary"}>
+                MCP {mcpConnectedServers}/{mcpTotalServers}
+              </Badge>
+              <Badge variant="secondary">{t("tabs_tools_count", { count: String(activeToolsCount) })}</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="xs"
+                variant={markdownPrefs.streamCursor ? "primary" : "secondary"}
+                onClick={() =>
+                  setMarkdownPrefs((prev) => ({ ...prev, streamCursor: !prev.streamCursor }))
+                }
+              >
+                Stream
+              </Button>
+              <Button
+                size="xs"
+                variant={markdownPrefs.enableAlerts ? "primary" : "secondary"}
+                onClick={() =>
+                  setMarkdownPrefs((prev) => ({ ...prev, enableAlerts: !prev.enableAlerts }))
+                }
+              >
+                Alerts
+              </Button>
+              <Button
+                size="xs"
+                variant={markdownPrefs.enableFootnotes ? "primary" : "secondary"}
+                onClick={() =>
+                  setMarkdownPrefs((prev) => ({ ...prev, enableFootnotes: !prev.enableFootnotes }))
+                }
+              >
+                Footnotes
+              </Button>
+              {!isConnected && (
+                <Button size="xs" variant="secondary" onClick={onRetryConnection}>
+                  Retry
+                </Button>
+              )}
+            </div>
+          </div>
+        </Surface>
+      </div>
+
       {awaitingFirstAssistant && (
         <div className="px-3 pt-3 sm:px-5">
           <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
@@ -94,6 +133,12 @@ export function ChatPane({
               </Text>
               <Badge variant="secondary">{liveProgress.length}</Badge>
             </div>
+            {liveProgress.length === 0 && (
+              <div className="mb-2 flex items-center gap-2 text-kumo-subtle">
+                <Text size="xs">{t("chat_loading_thinking")}</Text>
+                <LoadingDots />
+              </div>
+            )}
             <div className="max-h-40 space-y-1.5 overflow-y-auto">
               {liveProgress.map((entry) => (
                 <div
@@ -112,11 +157,7 @@ export function ChatPane({
                       <Text size="xs">{entry.message}</Text>
                     </span>
                     {(entry.status === "start" || entry.status === "info") && (
-                      <span className="live-feed-dots ml-auto shrink-0" aria-hidden="true">
-                        <i />
-                        <i />
-                        <i />
-                      </span>
+                      <LoadingDots className="ml-auto shrink-0" />
                     )}
                   </div>
                 </div>
@@ -127,10 +168,30 @@ export function ChatPane({
       )}
 
       <div className="relative flex-1 min-h-0 overflow-hidden px-3 pb-2 pt-4 sm:px-5">
+        <div className="mb-2 flex items-center justify-end gap-2">
+          <Button
+            variant={messageVariant === "bubble" ? "primary" : "secondary"}
+            size="xs"
+            onClick={() => setMessageVariant("bubble")}
+            aria-label={t("chat_message_variant_bubble")}
+          >
+            {t("chat_message_variant_bubble")}
+          </Button>
+          <Button
+            variant={messageVariant === "docs" ? "primary" : "secondary"}
+            size="xs"
+            onClick={() => setMessageVariant("docs")}
+            aria-label={t("chat_message_variant_docs")}
+          >
+            {t("chat_message_variant_docs")}
+          </Button>
+        </div>
         <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto pr-1">
           <ChatMessageList
             messages={messages}
             isStreaming={isStreaming}
+            variant={messageVariant}
+            markdownPrefs={markdownPrefs}
             activeToolsCount={activeToolsCount}
             onDeleteMessage={onDeleteMessage}
             onEditMessage={onEditMessage}
@@ -142,8 +203,13 @@ export function ChatPane({
         </div>
         <BackToBottom
           visible={showBackToBottom}
-          onClick={scrollToBottom}
+          onClick={() => {
+            trackChatEvent("scroll_back_bottom", { unreadCount, mode });
+            scrollToBottom();
+          }}
           label={t("chat_back_to_bottom")}
+          unreadCount={unreadCount}
+          modeLabel={mode === "follow" ? t("chat_autoscroll_following") : t("chat_autoscroll_paused")}
         />
       </div>
 

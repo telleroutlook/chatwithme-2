@@ -1,15 +1,10 @@
 import { useState, useCallback, useRef, useEffect, memo, useMemo } from "react";
 import { Button, Text } from "@cloudflare/kumo";
-import {
-  PaperPlaneTiltIcon,
-  StopIcon,
-  XCircleIcon,
-  TextAUnderlineIcon,
-  LightningIcon
-} from "@phosphor-icons/react";
+import { PaperPlaneTiltIcon, StopIcon, XCircleIcon, TextAUnderlineIcon } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
 import { useCommandInput } from "../hooks/useCommandInput";
 import type { CommandSuggestionItem } from "../types/command";
+import { ChatActionBar } from "./chat/ChatActionBar";
 
 interface ChatInputProps {
   value: string;
@@ -43,6 +38,7 @@ export const ChatInput = memo(function ChatInput({
   commandSuggestions = []
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
   const [isFocused, setIsFocused] = useState(false);
   const [caretIndex, setCaretIndex] = useState(0);
   const { t } = useI18n();
@@ -84,7 +80,7 @@ export const ChatInput = memo(function ChatInput({
   }, [setActiveIndex, filteredSuggestions.length]);
 
   const handleSubmit = useCallback(() => {
-    if (!value.trim() || isStreaming || !isConnected) return;
+    if (!value.trim() || isStreaming || !isConnected || isComposingRef.current) return;
     onSubmit();
   }, [value, isStreaming, isConnected, onSubmit]);
 
@@ -139,11 +135,10 @@ export const ChatInput = memo(function ChatInput({
       }
 
       if (e.key !== "Enter") return;
-      if (e.shiftKey) return;
-      if (e.metaKey || e.ctrlKey || !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
+      if (e.shiftKey || isComposingRef.current) return;
+
+      e.preventDefault();
+      handleSubmit();
     },
     [getActiveSuggestion, handleSubmit, handleSuggestionSelect, hasOpenMenu, moveSelection]
   );
@@ -187,8 +182,6 @@ export const ChatInput = memo(function ChatInput({
     return groups;
   }, [filteredSuggestions, t]);
 
-  let globalIndex = -1;
-
   return (
     <div
       className={`
@@ -199,7 +192,7 @@ export const ChatInput = memo(function ChatInput({
       `}
       aria-busy={isStreaming}
     >
-      <div className="flex items-end gap-2 px-2.5 pt-2.5 pb-2">
+      <div className="flex items-end gap-2 px-2.5 pb-2 pt-2.5">
         {multiline && (
           <div
             className="hidden shrink-0 p-2 text-kumo-subtle sm:block"
@@ -218,6 +211,12 @@ export const ChatInput = memo(function ChatInput({
           }}
           onClick={(e) => setCaretIndex((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
           onKeyDown={handleKeyDown}
+          onCompositionStart={() => {
+            isComposingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            isComposingRef.current = false;
+          }}
           onFocus={(e) => {
             setIsFocused(true);
             setCaretIndex(e.target.selectionStart ?? 0);
@@ -280,53 +279,12 @@ export const ChatInput = memo(function ChatInput({
       </div>
 
       {hasOpenMenu && (
-        <div className="mx-2.5 mb-2 rounded-xl border border-[var(--app-border-default)] bg-[var(--app-surface-primary)]/95 p-2 shadow-[var(--app-shadow-soft)]">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[var(--app-text-muted)]">
-            <LightningIcon size={12} />
-            {t("chat_input_command_hint")}
-          </div>
-          <div className="space-y-1">
-            {groupedSuggestions.map((group) => (
-              <div key={group.section}>
-                <div className="px-2 pb-1 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">
-                  {group.section}
-                </div>
-                {group.items.map((item) => {
-                  globalIndex += 1;
-                  const isActive = globalIndex === activeIndex;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => handleSuggestionSelect(item)}
-                      className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left ${
-                        isActive
-                          ? "bg-[var(--app-surface-secondary)]"
-                          : "hover:bg-[var(--app-surface-secondary)]/70"
-                      }`}
-                    >
-                      <span className="font-mono text-xs text-[var(--app-accent)]">
-                        {item.trigger}
-                        {item.value}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-xs font-medium text-[var(--app-text-primary)]">
-                          {item.label}
-                        </span>
-                        {item.description && (
-                          <span className="block truncate text-[11px] text-[var(--app-text-muted)]">
-                            {item.description}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
+        <ChatActionBar
+          groups={groupedSuggestions}
+          activeIndex={activeIndex}
+          onSelect={handleSuggestionSelect}
+          title={t("chat_input_command_hint")}
+        />
       )}
 
       {(showCharCount || multiline) && (value || isFocused || isStreaming || !isConnected) && (
@@ -367,16 +325,17 @@ export function SimpleChatInput({
   placeholder = "Type a message..."
 }: SimpleChatInputProps) {
   const { t } = useI18n();
+  const isComposingRef = useRef(false);
 
   const handleSubmit = useCallback(() => {
-    if (value.trim() && !isStreaming && isConnected) {
+    if (value.trim() && !isStreaming && isConnected && !isComposingRef.current) {
       onSubmit();
     }
   }, [value, isStreaming, isConnected, onSubmit]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !isComposingRef.current) {
         e.preventDefault();
         handleSubmit();
       }
@@ -390,6 +349,12 @@ export function SimpleChatInput({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onCompositionStart={() => {
+          isComposingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          isComposingRef.current = false;
+        }}
         onKeyDown={handleKeyDown}
         placeholder={isConnected ? placeholder : t("chat_input_placeholder_connecting")}
         disabled={!isConnected}

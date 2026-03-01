@@ -5,9 +5,17 @@ interface BackToBottomProps {
   visible: boolean;
   onClick: () => void;
   label: string;
+  unreadCount?: number;
+  modeLabel?: string;
 }
 
-export function BackToBottom({ visible, onClick, label }: BackToBottomProps) {
+export function BackToBottom({
+  visible,
+  onClick,
+  label,
+  unreadCount = 0,
+  modeLabel
+}: BackToBottomProps) {
   return (
     <div
       className={`pointer-events-none absolute bottom-2 left-0 right-0 z-20 flex justify-center transition-opacity duration-200 ${
@@ -21,6 +29,8 @@ export function BackToBottom({ visible, onClick, label }: BackToBottomProps) {
         onClick={onClick}
       >
         {label}
+        {unreadCount > 0 ? ` (${unreadCount})` : ""}
+        {modeLabel ? ` · ${modeLabel}` : ""}
       </Button>
     </div>
   );

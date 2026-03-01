@@ -6,6 +6,12 @@ import { ChatMessageItem } from "./ChatMessageItem";
 interface ChatMessageListProps {
   messages: UIMessage[];
   isStreaming: boolean;
+  variant?: "bubble" | "docs";
+  markdownPrefs?: {
+    enableAlerts: boolean;
+    enableFootnotes: boolean;
+    streamCursor: boolean;
+  };
   activeToolsCount: number;
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
@@ -18,6 +24,8 @@ interface ChatMessageListProps {
 export function ChatMessageList({
   messages,
   isStreaming,
+  variant = "bubble",
+  markdownPrefs,
   activeToolsCount,
   onDeleteMessage,
   onEditMessage,
@@ -50,6 +58,8 @@ export function ChatMessageList({
           message={message}
           isStreaming={isStreaming}
           isLastMessage={index === messages.length - 1}
+          variant={variant}
+          markdownPrefs={markdownPrefs}
           onDelete={onDeleteMessage}
           onEdit={onEditMessage}
           onRegenerate={onRegenerateMessage}

@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
+import { Dialog } from "../ui";
 import { MessageActions } from "../MessageActions";
 import { MessageSources } from "../MessageSources";
 import { MarkdownRenderer } from "../MarkdownRenderer";
 import { ToolCallCard, extractToolCalls } from "../ToolCallCard";
+import { trackChatEvent } from "../../features/chat/services/trackChatEvent";
+import { extractMessageSources } from "../../types/message-sources";
 
 const RENDERABLE_BLOCK_PATTERN = /```[\s\S]*?```/;
 
@@ -12,6 +15,12 @@ interface ChatMessageItemProps {
   message: UIMessage;
   isStreaming: boolean;
   isLastMessage: boolean;
+  variant?: "bubble" | "docs";
+  markdownPrefs?: {
+    enableAlerts: boolean;
+    enableFootnotes: boolean;
+    streamCursor: boolean;
+  };
   onDelete: (messageId: UIMessage["id"]) => void;
   onEdit: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerate: (messageId: UIMessage["id"]) => Promise<void>;
@@ -24,6 +33,8 @@ export function ChatMessageItem({
   message,
   isStreaming,
   isLastMessage,
+  variant = "bubble",
+  markdownPrefs,
   onDelete,
   onEdit,
   onRegenerate,
@@ -36,13 +47,45 @@ export function ChatMessageItem({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(text);
   const [saving, setSaving] = useState(false);
+  const [actionsLayout, setActionsLayout] = useState<"inline" | "stack">("inline");
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (variant === "docs") {
+      setActionsLayout("stack");
+      return;
+    }
+
+    if (!bubbleRef.current || !containerRef.current) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (!bubbleRef.current || !containerRef.current) {
+        return;
+      }
+
+      const contentWidth = bubbleRef.current.scrollWidth;
+      const containerWidth = containerRef.current.clientWidth;
+      setActionsLayout(contentWidth + 64 > containerWidth ? "stack" : "inline");
+    });
+
+    observer.observe(bubbleRef.current);
+    observer.observe(containerRef.current);
+
+    return () => observer.disconnect();
+  }, [variant]);
 
   const hasRenderableBlock = !isUser && RENDERABLE_BLOCK_PATTERN.test(text);
-  const bubbleWidthClass = isUser
-    ? "w-fit max-w-[95%] sm:max-w-[85%]"
-    : hasRenderableBlock
+  const bubbleWidthClass =
+    variant === "docs"
       ? "w-full max-w-full"
-      : "w-fit max-w-[95%] sm:max-w-[85%]";
+      : isUser
+        ? "w-fit max-w-[95%] sm:max-w-[85%]"
+        : hasRenderableBlock
+          ? "w-full max-w-full"
+          : "w-fit max-w-[95%] sm:max-w-[85%]";
 
   const toolCalls = useMemo(
     () =>
@@ -51,6 +94,18 @@ export function ChatMessageItem({
         : [],
     [message.parts]
   );
+  const sourceGroups = useMemo(() => extractMessageSources(message.parts), [message.parts]);
+  const citations = useMemo(
+    () =>
+      sourceGroups.map((group) => ({
+        id: group.id,
+        title: group.title,
+        preview: group.chunks[0]?.preview ?? "",
+        url: group.url
+      })),
+    [sourceGroups]
+  );
+  const hasErrorLikeContent = !isUser && /(处理请求时出错|error|failed)/i.test(text);
 
   const saveEdit = async () => {
     if (!draft.trim() || draft === text) {
@@ -60,6 +115,7 @@ export function ChatMessageItem({
     setSaving(true);
     try {
       await onEdit(message.id, draft.trim());
+      trackChatEvent("message_edit_confirm", { messageId: message.id });
       setIsEditing(false);
     } finally {
       setSaving(false);
@@ -67,7 +123,12 @@ export function ChatMessageItem({
   };
 
   return (
-    <div className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+    <div
+      ref={containerRef}
+      className={`group flex flex-col ${
+        variant === "docs" ? "items-stretch" : isUser ? "items-end" : "items-start"
+      }`}
+    >
       {!isUser && toolCalls.length > 0 && (
         <div className="mb-2 w-full max-w-[95%] space-y-2 sm:max-w-[85%]">
           {toolCalls.map((toolCall, index) => (
@@ -84,68 +145,116 @@ export function ChatMessageItem({
       )}
 
       <div
+        ref={bubbleRef}
         className={`${bubbleWidthClass} rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] ${
-          isUser
-            ? "bg-kumo-accent text-[var(--app-text-on-accent)]"
-            : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
+          variant === "docs"
+            ? "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
+            : isUser
+              ? "bg-kumo-accent text-[var(--app-text-on-accent)]"
+              : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
         }`}
       >
-        {isEditing ? (
-          <div className="space-y-2">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="min-h-24 w-full resize-y rounded-lg border border-kumo-line bg-kumo-base/80 p-2 text-sm text-kumo-default"
-              aria-label={t("message_actions_edit_message")}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setIsEditing(false)}>
-                {t("message_actions_cancel")}
-              </Button>
-              <Button variant="primary" size="sm" onClick={saveEdit} disabled={saving}>
-                {t("message_actions_save")}
-              </Button>
-            </div>
-          </div>
-        ) : isUser ? (
+        {isUser ? (
           <span className="block whitespace-pre-wrap">
             <Text size="sm">{text}</Text>
           </span>
         ) : (
-          <MarkdownRenderer content={text} isStreaming={isStreaming && isLastMessage} />
+          <MarkdownRenderer
+            content={text}
+            isStreaming={isStreaming && isLastMessage}
+            enableAlerts={markdownPrefs?.enableAlerts ?? true}
+            enableFootnotes={markdownPrefs?.enableFootnotes ?? true}
+            streamCursor={markdownPrefs?.streamCursor ?? true}
+            citations={citations}
+          />
         )}
       </div>
+
+      {hasErrorLikeContent && (
+        <div className="mt-2 rounded-lg border app-border-danger-soft app-bg-danger-soft p-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="app-text-danger">
+              <Text size="xs">{text}</Text>
+            </span>
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={() => {
+                trackChatEvent("message_regenerate", { messageId: message.id, source: "error-card" });
+                void onRegenerate(message.id);
+              }}
+            >
+              {t("message_actions_regenerate")}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {!isUser && (
         <div className={`${hasRenderableBlock ? "w-full max-w-full" : "w-full max-w-[95%] sm:max-w-[85%]"}`}>
           <MessageSources
-            parts={message.parts}
+            groups={sourceGroups}
             title={t("chat_sources_title")}
             emptyLabel={t("chat_sources_empty")}
           />
         </div>
       )}
 
-      {!isEditing && (
-        <div className="mt-1">
-          <MessageActions
-            content={text}
-            showRegenerate={!isUser}
-            showEdit={isUser}
-            showDelete={true}
-            showFork={true}
-            onEdit={() => {
-              setDraft(text);
-              setIsEditing(true);
-            }}
-            onRegenerate={() => onRegenerate(message.id)}
-            onDelete={() => onDelete(message.id)}
-            onFork={() => onFork(message.id)}
-            disabled={isStreaming}
-            compact={true}
-          />
-        </div>
-      )}
+      <div className={`mt-1 ${actionsLayout === "stack" ? "w-full" : ""}`}>
+        <MessageActions
+          content={text}
+          showRegenerate={!isUser}
+          showEdit={isUser}
+          showDelete={true}
+          showFork={true}
+          onEdit={() => {
+            setDraft(text);
+            setIsEditing(true);
+            trackChatEvent("message_edit_open", { messageId: message.id });
+          }}
+          onRegenerate={() => {
+            trackChatEvent("message_regenerate", { messageId: message.id });
+            return onRegenerate(message.id);
+          }}
+          onDelete={() => onDelete(message.id)}
+          onFork={() => onFork(message.id)}
+          disabled={isStreaming}
+          compact={actionsLayout !== "stack"}
+        />
+      </div>
+
+      <Dialog
+        open={isEditing}
+        onClose={() => {
+          setIsEditing(false);
+          setDraft(text);
+        }}
+        title={t("message_actions_edit_message")}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setIsEditing(false);
+                setDraft(text);
+              }}
+            >
+              {t("message_actions_cancel")}
+            </Button>
+            <Button variant="primary" size="sm" onClick={saveEdit} disabled={saving}>
+              {t("message_actions_save")}
+            </Button>
+          </div>
+        }
+      >
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className="min-h-36 w-full resize-y rounded-lg border border-kumo-line bg-kumo-base/80 p-2 text-sm text-kumo-default"
+          aria-label={t("message_actions_edit_message")}
+        />
+      </Dialog>
     </div>
   );
 }

@@ -52,4 +52,22 @@ describe("MarkdownRenderer", () => {
     expect(screen.getByText("HTML Preview")).toBeInTheDocument();
     expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
   });
+
+  it("supports markdown feature toggles", () => {
+    const content = "> [!NOTE]\n> hello[^1]\n\n[^1]: test";
+
+    const { container } = render(
+      <MarkdownRenderer
+        content={content}
+        isStreaming={true}
+        enableAlerts={true}
+        enableFootnotes={false}
+        streamCursor={false}
+      />
+    );
+
+    expect(screen.getByText("NOTE")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("^1");
+    expect(container.querySelector(".animate-blink-cursor")).not.toBeInTheDocument();
+  });
 });

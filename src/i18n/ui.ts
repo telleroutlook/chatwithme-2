@@ -85,6 +85,8 @@ export const uiMessages = {
     chat_input_action_send: "Send",
     chat_input_action_stop: "Stop",
     chat_input_action_clear: "Clear input",
+    chat_input_expand: "Expand",
+    chat_input_collapse: "Compact",
     chat_input_multiline_indicator: "Multiline input enabled",
     chat_input_hint_shortcuts: "Shift+Enter new line, Enter/Ctrl+Enter/Cmd+Enter send",
     chat_input_command_hint: "Command input",
@@ -117,6 +119,11 @@ export const uiMessages = {
     message_fork_failed: "Failed to fork session: {reason}",
     session_fork_title: "Forked Chat",
     chat_back_to_bottom: "Back to bottom",
+    chat_message_variant_bubble: "Bubble",
+    chat_message_variant_docs: "Docs",
+    chat_autoscroll_following: "Following",
+    chat_autoscroll_paused: "Paused",
+    chat_loading_thinking: "Thinking",
 
     toaster_region_label: "Notifications",
     toaster_close: "Dismiss notification",
@@ -124,7 +131,10 @@ export const uiMessages = {
     inspector_overview: "Workspace Overview",
     inspector_sources: "{count} source groups",
     inspector_live: "Latest Pipeline Events",
-    inspector_live_empty: "No live events yet."
+    inspector_live_empty: "No live events yet.",
+    inspector_telemetry: "Telemetry",
+    inspector_telemetry_events: "{count} events",
+    inspector_telemetry_empty: "No telemetry events yet."
   },
   zh: {
     app_title: "ChatWithMe MCP",
@@ -206,6 +216,8 @@ export const uiMessages = {
     chat_input_action_send: "发送",
     chat_input_action_stop: "停止",
     chat_input_action_clear: "清空输入",
+    chat_input_expand: "展开",
+    chat_input_collapse: "紧凑",
     chat_input_multiline_indicator: "已启用多行输入",
     chat_input_hint_shortcuts: "Shift+Enter 换行，Enter/Ctrl+Enter/Cmd+Enter 发送",
     chat_input_command_hint: "命令输入",
@@ -238,6 +250,11 @@ export const uiMessages = {
     message_fork_failed: "分叉会话失败：{reason}",
     session_fork_title: "分叉会话",
     chat_back_to_bottom: "回到底部",
+    chat_message_variant_bubble: "气泡",
+    chat_message_variant_docs: "文档",
+    chat_autoscroll_following: "跟随",
+    chat_autoscroll_paused: "已暂停",
+    chat_loading_thinking: "正在思考",
 
     toaster_region_label: "通知",
     toaster_close: "关闭通知",
@@ -245,7 +262,10 @@ export const uiMessages = {
     inspector_overview: "工作台概览",
     inspector_sources: "{count} 组来源",
     inspector_live: "最新执行事件",
-    inspector_live_empty: "暂无实时事件。"
+    inspector_live_empty: "暂无实时事件。",
+    inspector_telemetry: "遥测事件",
+    inspector_telemetry_events: "{count} 条事件",
+    inspector_telemetry_empty: "暂无遥测事件。"
   }
 } as const;
 

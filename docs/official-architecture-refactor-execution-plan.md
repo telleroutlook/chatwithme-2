@@ -189,3 +189,114 @@
 - Added lint/format toolchain in `/home/dev/github/chatwithme-2/package.json`, `/home/dev/github/chatwithme-2/eslint.config.mjs`, and `/home/dev/github/chatwithme-2/.prettierrc`.
 - Ran `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run format` in `/home/dev/github/chatwithme-2`.
 - Production deployment executed via `npm run deploy` from `/home/dev/github/chatwithme-2`.
+
+## Execution Notes (2026-02-28, Lobe-UI inspired upgrade)
+
+- Added chat domain UX/state modules:
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useChatAutoScroll.ts`
+  - `/home/dev/github/chatwithme-2/src/features/chat/services/trackChatEvent.ts`
+- Upgraded chat interaction components:
+  - `/home/dev/github/chatwithme-2/src/components/layout/ChatPane.tsx`
+  - `/home/dev/github/chatwithme-2/src/components/ChatInput.tsx`
+  - `/home/dev/github/chatwithme-2/src/components/chat/ChatInputArea.tsx`
+  - `/home/dev/github/chatwithme-2/src/components/chat/ChatMessageItem.tsx`
+  - `/home/dev/github/chatwithme-2/src/components/chat/ChatMessageList.tsx`
+  - `/home/dev/github/chatwithme-2/src/components/chat/BackToBottom.tsx`
+  - `/home/dev/github/chatwithme-2/src/components/chat/LoadingDots.tsx`
+- Added i18n keys for composer expand/collapse, message view variants, and auto-scroll states in `/home/dev/github/chatwithme-2/src/i18n/ui.ts`.
+- Added tests:
+  - `/home/dev/github/chatwithme-2/src/components/chat/ChatMessageItem.test.tsx`
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useChatAutoScroll.test.ts`
+- Quality gates executed and passed:
+  - `npm run test:run`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run build`
+- Production deployment executed by `npm run deploy`.
+  - Worker URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+  - Version ID: `567812e6-f950-4680-8773-428bad5be743`
+- Production smoke tests executed:
+  - `GET /` returned `HTTP/2 200`
+  - `GET /api/chat/history?sessionId=prod-smoke-20260228` returned success payload
+  - `GET /api/mcp/servers?sessionId=prod-smoke-20260228` returned success payload
+  - `POST /api/chat` returned success payload and assistant response
+  - `DELETE /api/chat/history?sessionId=prod-smoke-20260228` returned success payload
+- Negative case `POST /api/chat/edit` without required fields returned expected error payload
+
+## Execution Notes (2026-03-01, Remaining-items completion pass)
+
+- Continued implementation against remaining checklist items:
+  - Refactored `client.tsx` to use extracted chat domain services:
+    - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionMeta.ts`
+    - `/home/dev/github/chatwithme-2/src/features/chat/services/progress.ts`
+  - Extended ChatPane with:
+    - MCP status summary card
+    - connection retry action
+    - markdown runtime toggles (`Stream`, `Alerts`, `Footnotes`)
+  - Extended message rendering chain for markdown preferences:
+    - `ChatPane -> ChatMessageList -> ChatMessageItem -> MarkdownRenderer`
+  - Added error retry surface in message item for error-like assistant content.
+  - Added markdown feature toggles in renderer (`enableAlerts`, `enableFootnotes`, `streamCursor`) with preprocessing and footnote stripping fallback.
+- Added/updated tests:
+  - `/home/dev/github/chatwithme-2/src/components/MarkdownRenderer.test.tsx`
+- Validation gates passed:
+  - `npm run test:run`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run build`
+- Production deployment:
+  - URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+  - Version ID: `4d2d6bfd-d8b2-4387-a445-48abe516d44d`
+- Production smoke tests:
+  - `GET /` -> `HTTP/2 200`
+  - `GET /api/chat/history?sessionId=prod-smoke-20260301-b` -> success
+  - `GET /api/mcp/servers?sessionId=prod-smoke-20260301-b` -> success
+  - `POST /api/chat` -> success
+  - `POST /api/chat/edit` missing fields -> expected validation error
+  - `DELETE /api/chat/history?sessionId=prod-smoke-20260301-b` -> success
+
+## Execution Notes (2026-03-01, Plan 100% Completion)
+
+### Remaining-items checklist (all completed)
+
+- [x] 1. Further modularize `client.tsx`
+  - extracted API contract guards/types into `/home/dev/github/chatwithme-2/src/features/chat/services/apiContracts.ts`
+  - extracted command suggestion builder into `/home/dev/github/chatwithme-2/src/features/chat/services/commandSuggestions.ts`
+  - extracted telemetry hook + snapshot aggregator into:
+    - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useChatTelemetry.ts`
+    - `/home/dev/github/chatwithme-2/src/features/chat/services/observability.ts`
+
+- [x] 2. Productize markdown citations
+  - added citation cards: `/home/dev/github/chatwithme-2/src/components/CitationCards.tsx`
+  - added source URL extraction and group pass-through:
+    - `/home/dev/github/chatwithme-2/src/types/message-sources.ts`
+    - `/home/dev/github/chatwithme-2/src/components/MessageSources.tsx`
+  - wired citations into markdown message rendering:
+    - `/home/dev/github/chatwithme-2/src/components/chat/ChatMessageItem.tsx`
+    - `/home/dev/github/chatwithme-2/src/components/MarkdownRenderer.tsx`
+
+- [x] 3. Improve observability
+  - added telemetry event capture + aggregation + inspector panel visualization
+  - inspector telemetry section localized via i18n keys in `/home/dev/github/chatwithme-2/src/i18n/ui.ts`
+
+- [x] 4. Add fuller E2E automation
+  - added production smoke script: `/home/dev/github/chatwithme-2/test/e2e/smoke.production.mjs`
+  - added npm entry: `npm run test:e2e`
+
+### Validation and release gate
+
+- Passed locally before release:
+  - `npm run test:run`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run test:e2e`
+- Production deployed after completion pass via `npm run deploy`.
+
+### Production release record (2026-03-01)
+
+- Deploy command: `npm run deploy`
+- URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+- Version ID: `237a4b91-0b9d-40fb-a1ed-c324620a198c`
+- Post-deploy smoke test: `npm run test:e2e` passed
+  - session id: `e2e-smoke-1772326426292`

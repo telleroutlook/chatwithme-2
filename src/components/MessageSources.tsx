@@ -1,16 +1,20 @@
 import { useMemo, useState } from "react";
 import { CaretDownIcon, CaretRightIcon, FilesIcon } from "@phosphor-icons/react";
 import { Text, Badge } from "@cloudflare/kumo";
-import { extractMessageSources } from "../types/message-sources";
+import { extractMessageSources, type MessageSourceGroup } from "../types/message-sources";
 
 interface MessageSourcesProps {
-  parts: unknown;
+  parts?: unknown;
+  groups?: MessageSourceGroup[];
   title: string;
   emptyLabel: string;
 }
 
-export function MessageSources({ parts, title, emptyLabel }: MessageSourcesProps) {
-  const groups = useMemo(() => extractMessageSources(parts), [parts]);
+export function MessageSources({ parts, groups: providedGroups, title, emptyLabel }: MessageSourcesProps) {
+  const groups = useMemo(
+    () => providedGroups ?? extractMessageSources(parts),
+    [providedGroups, parts]
+  );
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
 
   if (groups.length === 0) {
@@ -47,6 +51,17 @@ export function MessageSources({ parts, title, emptyLabel }: MessageSourcesProps
               >
                 {open ? <CaretDownIcon size={12} /> : <CaretRightIcon size={12} />}
                 <span className="truncate text-xs font-medium">{group.title}</span>
+                {group.url ? (
+                  <a
+                    href={group.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-kumo-accent hover:underline"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    open
+                  </a>
+                ) : null}
                 <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
                   {group.chunks.length}
                 </span>

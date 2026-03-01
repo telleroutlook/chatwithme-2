@@ -19,70 +19,41 @@ import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Badge } from "@cloudflare/kumo";
-import {
-  PlugIcon,
-  ChatCircleIcon,
-  ListIcon
-} from "@phosphor-icons/react";
+import { PlugIcon, ChatCircleIcon } from "@phosphor-icons/react";
 import type { UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import type { CommandSuggestionItem } from "./types/command";
 import { extractMessageSources } from "./types/message-sources";
 import { getMessageText } from "./utils/message-text";
 import { nanoid } from "nanoid";
+import { trackChatEvent } from "./features/chat/services/trackChatEvent";
+import {
+  loadSessions,
+  updateSessionMeta,
+  deleteSessionMeta,
+  type SessionMeta
+} from "./features/chat/services/sessionMeta";
+import {
+  parseLiveProgressPart,
+  type LiveProgressEntry,
+  type ProgressPhase
+} from "./features/chat/services/progress";
+import {
+  isDeleteMessageResult,
+  isEditMessageResult,
+  isForkSessionResult,
+  isRegenerateMessageResult,
+  isToggleServerResult,
+  type DeleteMessageResult,
+  type EditMessageResult,
+  type ForkSessionResult,
+  type RegenerateMessageResult,
+  type ToggleServerResult
+} from "./features/chat/services/apiContracts";
+import { buildCommandSuggestions } from "./features/chat/services/commandSuggestions";
+import { useChatTelemetry } from "./features/chat/hooks/useChatTelemetry";
+import { buildObservabilitySnapshot } from "./features/chat/services/observability";
 import "./styles.css";
-
-// ============ Session Management ============
-
-interface SessionMeta {
-  id: string;
-  title: string;
-  lastMessage: string;
-  timestamp: string;
-  messageCount: number;
-}
-
-const SESSIONS_KEY = "chatwithme_sessions";
-
-function loadSessions(): SessionMeta[] {
-  try {
-    const data = localStorage.getItem(SESSIONS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveSessions(sessions: SessionMeta[]): void {
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
-}
-
-function updateSessionMeta(sessionId: string, updates: Partial<SessionMeta>): void {
-  const sessions = loadSessions();
-  const index = sessions.findIndex((s) => s.id === sessionId);
-
-  if (index >= 0) {
-    sessions[index] = { ...sessions[index], ...updates };
-    const session = sessions.splice(index, 1)[0];
-    sessions.unshift(session);
-  } else {
-    sessions.unshift({
-      id: sessionId,
-      title: "New Chat",
-      lastMessage: "",
-      timestamp: new Date().toISOString(),
-      messageCount: 0,
-      ...updates
-    });
-  }
-
-  saveSessions(sessions);
-}
-
-function deleteSessionMeta(sessionId: string): void {
-  const sessions = loadSessions().filter((s) => s.id !== sessionId);
-  saveSessions(sessions);
-}
 
 // ============ Main App ============
 
@@ -97,171 +68,6 @@ interface PreconfiguredServer {
   serverId?: string;
   connected: boolean;
   error?: string;
-}
-
-interface ToggleServerResult {
-  success: boolean;
-  active?: boolean;
-  error?: string;
-}
-
-interface DeleteMessageResult {
-  success: boolean;
-  deleted: boolean;
-  error?: string;
-}
-
-interface EditMessageResult {
-  success: boolean;
-  updated: boolean;
-  error?: string;
-}
-
-interface RegenerateMessageResult {
-  success: boolean;
-  response?: string;
-  error?: string;
-}
-
-interface ForkSessionResult {
-  success: boolean;
-  newSessionId?: string;
-  error?: string;
-}
-
-type ProgressPhase = "context" | "model" | "thinking" | "tool" | "heartbeat" | "result" | "error";
-
-type ProgressStatus = "start" | "success" | "error" | "info";
-
-interface LiveProgressEntry {
-  id: string;
-  timestamp: string;
-  phase: ProgressPhase;
-  message: string;
-  status: ProgressStatus;
-  toolName?: string;
-  snippet?: string;
-}
-
-function isProgressStatus(value: unknown): value is ProgressStatus {
-  return value === "start" || value === "success" || value === "error" || value === "info";
-}
-
-function isProgressPhase(value: unknown): value is ProgressPhase {
-  return (
-    value === "context" ||
-    value === "model" ||
-    value === "thinking" ||
-    value === "tool" ||
-    value === "heartbeat" ||
-    value === "result" ||
-    value === "error"
-  );
-}
-
-function parseLiveProgressPart(part: unknown): LiveProgressEntry | null {
-  if (!part || typeof part !== "object") {
-    return null;
-  }
-  const candidate = part as { type?: unknown; data?: unknown };
-  if (candidate.type !== "data-progress") {
-    return null;
-  }
-  if (!candidate.data || typeof candidate.data !== "object") {
-    return null;
-  }
-
-  const data = candidate.data as {
-    id?: unknown;
-    timestamp?: unknown;
-    phase?: unknown;
-    message?: unknown;
-    status?: unknown;
-    toolName?: unknown;
-    snippet?: unknown;
-  };
-
-  if (!isProgressPhase(data.phase) || typeof data.message !== "string") {
-    return null;
-  }
-
-  return {
-    id: typeof data.id === "string" ? data.id : nanoid(10),
-    timestamp: typeof data.timestamp === "string" ? data.timestamp : new Date().toISOString(),
-    phase: data.phase,
-    message: data.message,
-    status: isProgressStatus(data.status) ? data.status : "info",
-    toolName: typeof data.toolName === "string" ? data.toolName : undefined,
-    snippet: typeof data.snippet === "string" ? data.snippet : undefined
-  };
-}
-
-function isToggleServerResult(value: unknown): value is ToggleServerResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const candidate = value as {
-    success?: unknown;
-    active?: unknown;
-    error?: unknown;
-  };
-  return (
-    typeof candidate.success === "boolean" &&
-    (candidate.active === undefined || typeof candidate.active === "boolean") &&
-    (candidate.error === undefined || typeof candidate.error === "string")
-  );
-}
-
-function isDeleteMessageResult(value: unknown): value is DeleteMessageResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const candidate = value as {
-    success?: unknown;
-    deleted?: unknown;
-    error?: unknown;
-  };
-  return (
-    typeof candidate.success === "boolean" &&
-    typeof candidate.deleted === "boolean" &&
-    (candidate.error === undefined || typeof candidate.error === "string")
-  );
-}
-
-function isEditMessageResult(value: unknown): value is EditMessageResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const candidate = value as { success?: unknown; updated?: unknown; error?: unknown };
-  return (
-    typeof candidate.success === "boolean" &&
-    typeof candidate.updated === "boolean" &&
-    (candidate.error === undefined || typeof candidate.error === "string")
-  );
-}
-
-function isRegenerateMessageResult(value: unknown): value is RegenerateMessageResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const candidate = value as { success?: unknown; response?: unknown; error?: unknown };
-  return (
-    typeof candidate.success === "boolean" &&
-    (candidate.response === undefined || typeof candidate.response === "string") &&
-    (candidate.error === undefined || typeof candidate.error === "string")
-  );
-}
-
-function isForkSessionResult(value: unknown): value is ForkSessionResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const candidate = value as { success?: unknown; newSessionId?: unknown; error?: unknown };
-  return (
-    typeof candidate.success === "boolean" &&
-    (candidate.newSessionId === undefined || typeof candidate.newSessionId === "string") &&
-    (candidate.error === undefined || typeof candidate.error === "string")
-  );
 }
 
 function App() {
@@ -636,6 +442,7 @@ function App() {
 
   const handleRegenerateMessage = useCallback(
     async (messageId: UIMessage["id"]) => {
+      trackChatEvent("message_regenerate", { messageId });
       try {
         const result = shouldUseRestFallback
           ? await requestJson<RegenerateMessageResult>("/api/chat/regenerate", {
@@ -719,6 +526,7 @@ function App() {
   const handleToggleServer = useCallback(
     async (name: string) => {
       setTogglingServer(name);
+      trackChatEvent("mcp_toggle", { name });
       try {
         const result = shouldUseRestFallback
           ? await requestJson<ToggleServerResult>("/api/mcp/toggle", {
@@ -765,6 +573,7 @@ function App() {
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text || isStreaming) return;
+    trackChatEvent("composer_send", { sessionId: currentSessionId, length: text.length });
 
     if (text.includes("!new")) {
       handleNewSession();
@@ -799,7 +608,9 @@ function App() {
         timestamp: new Date().toISOString(),
         phase: "context",
         message: t("live_feed_sent"),
-        status: "start"
+        status: "start",
+        severity: "low",
+        groupKey: "context"
       }
     ]);
     if (shouldUseRestFallback) {
@@ -859,9 +670,20 @@ function App() {
   const handleStop = useCallback(() => {
     stop();
     setAwaitingFirstAssistant(false);
-  }, [stop]);
+    trackChatEvent("composer_stop", { sessionId: currentSessionId });
+  }, [currentSessionId, stop]);
 
   const serverEntries = useMemo(() => Object.entries(mcpState.servers), [mcpState.servers]);
+  const connectedServerCount = useMemo(
+    () => Object.values(preconfiguredServers).filter((server) => server.connected).length,
+    [preconfiguredServers]
+  );
+  const totalServerCount = useMemo(
+    () => Object.keys(preconfiguredServers).length,
+    [preconfiguredServers]
+  );
+  const telemetry = useChatTelemetry();
+  const telemetrySummary = useMemo(() => buildObservabilitySnapshot(telemetry), [telemetry]);
 
   const preconfiguredServerList = useMemo(
     () => Object.entries(preconfiguredServers),
@@ -869,58 +691,15 @@ function App() {
   );
 
   const activeToolsCount = mcpState.tools.length;
-  const commandSuggestions = useMemo<CommandSuggestionItem[]>(() => {
-    const toolItems = mcpState.tools.slice(0, 20).map((tool) => ({
-      id: `tool-${tool.serverId}-${tool.name}`,
-      trigger: "@" as const,
-      label: tool.name,
-      description: tool.serverId,
-      value: tool.name,
-      section: "tools" as const,
-      group: "tools",
-      priority: 100,
-      keywords: [tool.name, tool.serverId ?? ""]
-    }));
-
-    const sessionItems = sessions.slice(0, 12).map((session) => ({
-      id: `session-${session.id}`,
-      trigger: "#" as const,
-      label: session.title,
-      description: session.lastMessage || t("session_no_messages"),
-      value: session.id,
-      section: "sessions" as const,
-      group: "sessions",
-      priority: 80,
-      keywords: [session.title, session.lastMessage]
-    }));
-
-    const actionItems: CommandSuggestionItem[] = [
-      {
-        id: "action-new",
-        trigger: "!" as const,
-        label: t("session_new"),
-        description: "Create a new session",
-        value: "new",
-        section: "actions",
-        group: "actions",
-        priority: 60,
-        keywords: ["new", "session", "create"]
-      },
-      {
-        id: "action-stop",
-        trigger: "!" as const,
-        label: t("chat_input_action_stop"),
-        description: "Stop current generation",
-        value: "stop",
-        section: "actions",
-        group: "actions",
-        priority: 50,
-        keywords: ["stop", "abort", "cancel"]
-      }
-    ];
-
-    return [...toolItems, ...sessionItems, ...actionItems];
-  }, [mcpState.tools, sessions, t]);
+  const commandSuggestions = useMemo<CommandSuggestionItem[]>(
+    () =>
+      buildCommandSuggestions({
+        tools: mcpState.tools,
+        sessions,
+        t
+      }),
+    [mcpState.tools, sessions, t]
+  );
 
   const phaseLabels: Record<ProgressPhase, string> = {
     context: t("live_feed_phase_context"),
@@ -1043,6 +822,8 @@ function App() {
                 isStreaming={isStreaming}
                 isConnected={isConnected}
                 activeToolsCount={activeToolsCount}
+                mcpConnectedServers={connectedServerCount}
+                mcpTotalServers={totalServerCount}
                 awaitingFirstAssistant={awaitingFirstAssistant}
                 liveProgress={liveProgress}
                 phaseLabels={phaseLabels}
@@ -1051,6 +832,10 @@ function App() {
                 commandSuggestions={commandSuggestions}
                 onSend={handleSend}
                 onStop={handleStop}
+                onRetryConnection={() => {
+                  setConnectionStatus("connecting");
+                  void loadPreconfiguredServers();
+                }}
                 onDeleteMessage={handleDeleteMessage}
                 onEditMessage={handleEditMessage}
                 onRegenerateMessage={handleRegenerateMessage}
@@ -1074,6 +859,8 @@ function App() {
             toolsCount={mcpState.tools.length}
             sourcesCount={sourceGroupsCount}
             liveProgress={liveProgress}
+            telemetry={telemetry}
+            telemetrySummary={telemetrySummary}
             t={t}
           />
         </div>

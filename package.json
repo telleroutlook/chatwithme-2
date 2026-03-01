@@ -17,6 +17,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "node test/e2e/smoke.production.mjs",
     "deploy:raw": "vite build && wrangler deploy"
   },
   "dependencies": {

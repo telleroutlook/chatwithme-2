@@ -7,6 +7,7 @@ export interface MessageSourceChunk {
 export interface MessageSourceGroup {
   id: string;
   title: string;
+  url?: string;
   chunks: MessageSourceChunk[];
 }
 
@@ -21,6 +22,9 @@ interface CandidateSource {
   fileName?: unknown;
   title?: unknown;
   source?: unknown;
+  url?: unknown;
+  href?: unknown;
+  link?: unknown;
   chunks?: unknown;
 }
 
@@ -89,6 +93,11 @@ export function extractMessageSources(parts: unknown): MessageSourceGroup[] {
       groups.push({
         id: sourceId,
         title,
+        url:
+          (typeof source.url === "string" && source.url) ||
+          (typeof source.href === "string" && source.href) ||
+          (typeof source.link === "string" && source.link) ||
+          undefined,
         chunks
       });
     }

@@ -5,10 +5,15 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { CodeBlock } from "./CodeBlock";
 import { MermaidRenderer, G2ChartRenderer } from "./ChartRenderer";
+import { CitationCards, type CitationCardItem } from "./CitationCards";
 
 interface MarkdownRendererProps {
   content: string;
   isStreaming?: boolean;
+  enableAlerts?: boolean;
+  enableFootnotes?: boolean;
+  streamCursor?: boolean;
+  citations?: CitationCardItem[];
 }
 
 interface HtmlPreviewRendererProps {
@@ -77,9 +82,29 @@ function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
   );
 }
 
-export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
+function preprocessAlerts(content: string): string {
+  return content.replace(
+    /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/gim,
+    (_match, type: string) => `> **${type.toUpperCase()}**`
+  );
+}
+
+function stripFootnotes(content: string): string {
+  return content
+    .replace(/\[\^[^\]]+\]/g, "")
+    .replace(/^\[\^[^\]]+\]:.*$/gim, "");
+}
+
+export function MarkdownRenderer({
+  content,
+  isStreaming,
+  enableAlerts = true,
+  enableFootnotes = true,
+  streamCursor = true,
+  citations = []
+}: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
-    return (
+    let normalized = (
       content
         // Strip invisible characters that can break markdown code fence parsing.
         .replace(/[\u200B-\u200D\uFEFF]/g, "")
@@ -87,7 +112,14 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
         // Some model outputs place code fences after punctuation on the same line.
         .replace(/([^\n])(```[a-zA-Z]+)/g, "$1\n$2")
     );
-  }, [content]);
+    if (enableAlerts) {
+      normalized = preprocessAlerts(normalized);
+    }
+    if (!enableFootnotes) {
+      normalized = stripFootnotes(normalized);
+    }
+    return normalized;
+  }, [content, enableAlerts, enableFootnotes]);
 
   const looksLikeMermaid = (code: string): boolean => {
     const normalized = code.trim();
@@ -260,9 +292,10 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
       >
         {processedContent}
       </ReactMarkdown>
-      {isStreaming && (
+      {isStreaming && streamCursor && (
         <span className="inline-block w-0.5 h-[1em] bg-kumo-brand ml-0.5 animate-blink-cursor" />
       )}
+      <CitationCards items={citations} />
     </div>
   );
 }
