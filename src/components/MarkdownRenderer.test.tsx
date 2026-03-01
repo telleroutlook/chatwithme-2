@@ -53,6 +53,24 @@ describe("MarkdownRenderer", () => {
     expect(screen.getByAltText("SVG Preview")).toBeInTheDocument();
   });
 
+  it("renders html preview and svg preview for full html documents containing svg", () => {
+    const content = [
+      "```html",
+      "<!DOCTYPE html>",
+      "<html>",
+      "<body>",
+      '<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="16" fill="red" /></svg>',
+      "</body>",
+      "</html>",
+      "```"
+    ].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    expect(screen.getByText("HTML Preview")).toBeInTheDocument();
+    expect(screen.getByText("SVG Preview")).toBeInTheDocument();
+  });
+
   it("supports markdown feature toggles", () => {
     const content = "> [!NOTE]\n> hello[^1]\n\n[^1]: test";
 

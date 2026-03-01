@@ -40,6 +40,23 @@ function decodeHtmlEntities(value: string): string {
   return textarea.value;
 }
 
+function looksLikeHtmlDocument(code: string): boolean {
+  const normalized = code.trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized.startsWith("<!doctype html") ||
+    normalized.includes("<html") ||
+    normalized.includes("<head") ||
+    normalized.includes("<body")
+  );
+}
+
+function extractFirstSvgMarkup(code: string): string | null {
+  if (!code) return null;
+  const match = code.match(/<svg\b[\s\S]*?<\/svg>/i);
+  return match ? match[0] : null;
+}
+
 function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
   const frameId = useId();
   const [frameHeight, setFrameHeight] = useState(420);
@@ -61,7 +78,7 @@ function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
       }
 
       const nextHeight = Math.max(MIN_PREVIEW_HEIGHT, Math.min(MAX_PREVIEW_HEIGHT, Math.ceil(data.height)));
-      setFrameHeight((prev) => (Math.abs(prev - nextHeight) >= 4 ? nextHeight : prev));
+      setFrameHeight((prev) => (Math.abs(prev - nextHeight) >= 8 ? nextHeight : prev));
     };
 
     window.addEventListener("message", onMessage);
@@ -70,7 +87,7 @@ function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
 
   const srcDoc = `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><style>html,body{margin:0;padding:8px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;}</style></head><body>${code}<script>(function(){var frameId=${JSON.stringify(
     frameId
-  )};var lastHeight=0;var rafId=0;function height(){var b=document.body;var d=document.documentElement;return Math.max(b?b.scrollHeight:0,b?b.offsetHeight:0,d?d.scrollHeight:0,d?d.offsetHeight:0,220);}function post(){var next=Math.ceil(height());if(Math.abs(next-lastHeight)<2){return;}lastHeight=next;parent.postMessage({type:"chatwithme-html-preview-resize",frameId:frameId,height:next},"*");}function report(){if(rafId){cancelAnimationFrame(rafId);}rafId=requestAnimationFrame(post);}window.addEventListener("load",report);window.addEventListener("resize",report);window.addEventListener("beforeunload",function(){if(rafId){cancelAnimationFrame(rafId);}});var observer=new MutationObserver(report);observer.observe(document.documentElement,{attributes:true,childList:true,subtree:true,characterData:true});if(document.fonts&&document.fonts.ready){document.fonts.ready.then(report).catch(function(){});}setTimeout(report,180);setTimeout(report,700);setTimeout(report,1400);report();})();</script></body></html>`;
+  )};var lastHeight=0;var lastSentAt=0;var rafId=0;function docHeight(){var b=document.body;var d=document.documentElement;return Math.max(b?b.scrollHeight:0,b?b.offsetHeight:0,d?d.scrollHeight:0,d?d.offsetHeight:0,d?d.clientHeight:0,220);}function contentHeight(){var b=document.body;if(!b||!b.children||!b.children.length){return 0;}var top=Infinity;var bottom=-Infinity;for(var i=0;i<b.children.length;i++){var child=b.children[i];if(!(child instanceof HTMLElement)){continue;}var rect=child.getBoundingClientRect();if(rect.width===0&&rect.height===0){continue;}if(rect.top<top){top=rect.top;}if(rect.bottom>bottom){bottom=rect.bottom;}}if(!isFinite(top)||!isFinite(bottom)||bottom<=top){return 0;}return Math.ceil(bottom-top+16);}function height(){var base=docHeight();var tight=contentHeight();if(tight<=0){return Math.max(220,base);}if(base<=tight+40){return Math.max(220,base);}return Math.max(220,tight+24);}function post(){var next=Math.ceil(height());var now=Date.now();if(next<lastHeight&&now-lastSentAt<260&&lastHeight-next<140){return;}if(Math.abs(next-lastHeight)<6){return;}lastHeight=next;lastSentAt=now;parent.postMessage({type:"chatwithme-html-preview-resize",frameId:frameId,height:next},"*");}function report(){if(rafId){cancelAnimationFrame(rafId);}rafId=requestAnimationFrame(post);}window.addEventListener("load",report);window.addEventListener("resize",report);window.addEventListener("beforeunload",function(){if(rafId){cancelAnimationFrame(rafId);}});if(typeof ResizeObserver!=="undefined"){var ro=new ResizeObserver(report);if(document.documentElement){ro.observe(document.documentElement);}if(document.body){ro.observe(document.body);} }else{var observer=new MutationObserver(report);observer.observe(document.documentElement,{attributes:true,childList:true,subtree:true,characterData:true});}if(document.fonts&&document.fonts.ready){document.fonts.ready.then(report).catch(function(){});}setTimeout(report,180);setTimeout(report,700);setTimeout(report,1400);report();})();</script></body></html>`;
 
   return (
     <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
@@ -207,14 +224,29 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               : looksLikeSvgMarkup(decodedCodeString)
                 ? decodedCodeString
                 : "";
+            const isHtmlDocument =
+              language === "html" &&
+              (looksLikeHtmlDocument(codeString) || looksLikeHtmlDocument(decodedCodeString));
+            const firstSvgInCode = extractFirstSvgMarkup(codeString);
+            const firstSvgInDecodedCode = extractFirstSvgMarkup(decodedCodeString);
+            const svgFromHtmlDocument = firstSvgInCode ?? firstSvgInDecodedCode;
             const isSvgXmlBlock =
-              (language === "xml" || language === "xhtml" || language === "html") && !!svgLikeCode;
+              (language === "xml" || language === "xhtml" || (language === "html" && !isHtmlDocument)) &&
+              !!svgLikeCode;
             const isRawSvgBlock = language === "svg" || (!language && !!svgLikeCode);
             if (isSvgXmlBlock || isRawSvgBlock) {
               return <SvgPreviewRenderer code={svgLikeCode} />;
             }
 
             if (language === "html") {
+              if (isHtmlDocument && svgFromHtmlDocument) {
+                return (
+                  <>
+                    <HtmlPreviewRenderer code={codeString} />
+                    <SvgPreviewRenderer code={svgFromHtmlDocument} />
+                  </>
+                );
+              }
               return <HtmlPreviewRenderer code={codeString} />;
             }
 
