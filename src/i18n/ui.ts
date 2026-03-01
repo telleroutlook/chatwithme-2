@@ -42,6 +42,7 @@ export const uiMessages = {
     session_no_messages: "No messages",
     session_delete: "Delete session",
     session_deleted: "Session deleted",
+    session_delete_failed: "Failed to delete session: {reason}",
 
     tabs_label: "Main sections",
     tabs_chat: "Chat",
@@ -189,6 +190,7 @@ export const uiMessages = {
     session_no_messages: "暂无消息",
     session_delete: "删除会话",
     session_deleted: "会话已删除",
+    session_delete_failed: "删除会话失败：{reason}",
 
     tabs_label: "主区域",
     tabs_chat: "聊天",

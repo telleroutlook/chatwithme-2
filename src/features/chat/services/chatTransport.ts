@@ -37,6 +37,7 @@ export interface ChatTransport {
   getPermissions: () => Promise<ConnectionPermissions>;
   getHistory: () => Promise<ChatHistoryItem[]>;
   getPreconfiguredServers: () => Promise<Record<string, PreconfiguredServer>>;
+  deleteSession: (targetSessionId: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<DeleteMessageResult>;
   editMessage: (messageId: string, content: string) => Promise<EditMessageResult>;
   regenerateMessage: (messageId: string) => Promise<RegenerateMessageResult>;
@@ -52,11 +53,14 @@ interface ChatTransportParams {
   readonlyMode: boolean;
 }
 
-async function withApiFallback<T>(apiCall: () => Promise<T>, agentCall: () => Promise<T>): Promise<T> {
+async function withAgentFallback<T>(
+  agentCall: () => Promise<T>,
+  apiCall: () => Promise<T>
+): Promise<T> {
   try {
-    return await apiCall();
-  } catch {
     return await agentCall();
+  } catch {
+    return await apiCall();
   }
 }
 
@@ -69,7 +73,8 @@ export function createChatTransport({
 
   return {
     async getPermissions() {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("getPermissions", [])) as ConnectionPermissions,
         async () => {
           const response = await callApi<ConnectionPermissions>(
             `/api/chat/permissions?sessionId=${encodedSessionId}${readonlyMode ? "&mode=view" : ""}`
@@ -78,38 +83,54 @@ export function createChatTransport({
             canEdit: Boolean(response.canEdit),
             readonly: Boolean(response.readonly)
           };
-        },
-        async () => (await agent.call("getPermissions", [])) as ConnectionPermissions
+        }
       );
     },
 
     async getHistory() {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("getHistory", [])) as ChatHistoryItem[],
         async () => {
           const response = await callApi<{ history: ChatHistoryItem[] }>(
             `/api/chat/history?sessionId=${encodedSessionId}`
           );
           return Array.isArray(response.history) ? response.history : [];
-        },
-        async () => (await agent.call("getHistory", [])) as ChatHistoryItem[]
+        }
       );
     },
 
     async getPreconfiguredServers() {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () =>
+          (await agent.call("getPreconfiguredServers", [])) as Record<string, PreconfiguredServer>,
         async () => {
           const response = await callApi<{ servers: Record<string, PreconfiguredServer> }>(
             `/api/mcp/servers?sessionId=${encodedSessionId}`
           );
           return response.servers;
-        },
-        async () =>
-          (await agent.call("getPreconfiguredServers", [])) as Record<string, PreconfiguredServer>
+        }
+      );
+    },
+
+    async deleteSession(targetSessionId: string) {
+      const normalizedSessionId = targetSessionId.trim();
+      if (!normalizedSessionId) {
+        throw new Error("Session ID is required");
+      }
+
+      const encodedTargetSessionId = encodeURIComponent(normalizedSessionId);
+      // Always delete via REST with explicit sessionId to avoid websocket identity drift.
+      await callApi<{ message: string; sessionId: string }>(
+        `/api/chat/history?sessionId=${encodedTargetSessionId}`,
+        {
+          method: "DELETE"
+        }
       );
     },
 
     async deleteMessage(messageId: string) {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("deleteMessage", [messageId])) as DeleteMessageResult,
         async () => {
           const response = await callApi<DeleteMessageResult>(
             `/api/chat/message?sessionId=${encodedSessionId}&messageId=${encodeURIComponent(messageId)}`,
@@ -122,13 +143,13 @@ export function createChatTransport({
             deleted: response.deleted,
             error: response.error
           } as DeleteMessageResult;
-        },
-        async () => (await agent.call("deleteMessage", [messageId])) as DeleteMessageResult
+        }
       );
     },
 
     async editMessage(messageId: string, content: string) {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("editUserMessage", [messageId, content])) as EditMessageResult,
         async () => {
           const response = await callApi<EditMessageResult>("/api/chat/edit", {
             method: "POST",
@@ -144,13 +165,13 @@ export function createChatTransport({
             updated: response.updated,
             error: response.error
           } as EditMessageResult;
-        },
-        async () => (await agent.call("editUserMessage", [messageId, content])) as EditMessageResult
+        }
       );
     },
 
     async regenerateMessage(messageId: string) {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("regenerateFrom", [messageId])) as RegenerateMessageResult,
         async () => {
           const response = await callApi<RegenerateMessageResult>("/api/chat/regenerate", {
             method: "POST",
@@ -165,13 +186,13 @@ export function createChatTransport({
             response: response.response,
             error: response.error
           } as RegenerateMessageResult;
-        },
-        async () => (await agent.call("regenerateFrom", [messageId])) as RegenerateMessageResult
+        }
       );
     },
 
     async forkSession(messageId: string) {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("forkSession", [messageId])) as ForkSessionResult,
         async () => {
           const response = await callApi<ForkSessionResult>("/api/chat/fork", {
             method: "POST",
@@ -186,13 +207,13 @@ export function createChatTransport({
             newSessionId: response.newSessionId,
             error: response.error
           } as ForkSessionResult;
-        },
-        async () => (await agent.call("forkSession", [messageId])) as ForkSessionResult
+        }
       );
     },
 
     async toggleServer(name: string) {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("toggleServer", [name])) as ToggleServerResult,
         async () => {
           const response = await callApi<ToggleServerResult>("/api/mcp/toggle", {
             method: "POST",
@@ -208,25 +229,33 @@ export function createChatTransport({
             error: response.error,
             stateVersion: response.stateVersion
           } as ToggleServerResult;
-        },
-        async () => (await agent.call("toggleServer", [name])) as ToggleServerResult
+        }
       );
     },
 
     async listApprovals() {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => (await agent.call("listToolApprovals", [])) as unknown[],
         async () => {
           const response = await callApi<{ approvals: unknown[] }>(
             `/api/runtime/approvals?sessionId=${encodedSessionId}`
           );
           return Array.isArray(response.approvals) ? response.approvals : [];
-        },
-        async () => (await agent.call("listToolApprovals", [])) as unknown[]
+        }
       );
     },
 
     async decideApproval(approvalId: string, decision: "approve" | "reject", reason?: string) {
-      return await withApiFallback(
+      return await withAgentFallback(
+        async () => {
+          const result =
+            decision === "approve"
+              ? await agent.call("approveToolCall", [approvalId])
+              : await agent.call("rejectToolCall", [approvalId, reason]);
+          if (!result || typeof result !== "object") return false;
+          const candidate = result as { success?: unknown };
+          return candidate.success === true;
+        },
         async () => {
           const response = await callApi<{ stateVersion: number }>("/api/runtime/approvals/decision", {
             method: "POST",
@@ -239,15 +268,6 @@ export function createChatTransport({
             })
           });
           return response.success === true;
-        },
-        async () => {
-          const result =
-            decision === "approve"
-              ? await agent.call("approveToolCall", [approvalId])
-              : await agent.call("rejectToolCall", [approvalId, reason]);
-          if (!result || typeof result !== "object") return false;
-          const candidate = result as { success?: unknown };
-          return candidate.success === true;
         }
       );
     }

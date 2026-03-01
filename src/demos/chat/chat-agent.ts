@@ -1017,11 +1017,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
   @callable({ description: "Clear chat history" })
   async clearChat(): Promise<{ success: boolean }> {
-    // Clear all messages by directly deleting from SQL
     try {
-      this.sql`DELETE FROM cf_ai_chat_agent_messages`;
-      // Also clear the in-memory messages array
-      this.messages.length = 0;
+      await this.persistMessages([]);
       return { success: true };
     } catch (e) {
       console.error("Error clearing messages:", e);

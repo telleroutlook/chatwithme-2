@@ -105,7 +105,10 @@ app.delete("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c)
     const sessionId = resolveSessionId(query);
 
     const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
-    await agent.clearChat();
+    const result = await agent.clearChat();
+    if (!result?.success) {
+      return errorJson(c, 500, "CHAT_CLEAR_FAILED", "Failed to clear chat history");
+    }
 
     return successJson(c, {
       message: "Chat history cleared",

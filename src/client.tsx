@@ -16,7 +16,7 @@ import { useResponsive } from "./hooks/useResponsive";
 import { Tabs } from "./components/ui";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Badge } from "@cloudflare/kumo";
 import { PlugIcon, ChatCircleIcon } from "@phosphor-icons/react";
@@ -31,10 +31,12 @@ import {
   loadCurrentSessionId,
   loadSessions,
   saveCurrentSessionId,
+  saveSessions,
   updateSessionMeta,
   deleteSessionMeta,
   type SessionMeta
 } from "./features/chat/services/sessionMeta";
+import { callApi } from "./features/chat/services/apiClient";
 import {
   appendLiveProgressEntry,
   parseLiveProgressPart,
@@ -74,6 +76,35 @@ function readPreconfiguredServersFromState(
   const servers = candidate.mcp?.preconfiguredServers;
   if (!servers || typeof servers !== "object") return null;
   return servers;
+}
+
+function readPendingApprovalsFromState(state: unknown): RuntimeApprovalItem[] | null {
+  if (!state || typeof state !== "object") return null;
+  const candidate = state as {
+    runtime?: {
+      approvals?: Array<{
+        id?: unknown;
+        toolName?: unknown;
+        argsSnippet?: unknown;
+        status?: unknown;
+        createdAt?: unknown;
+      }>;
+    };
+  };
+  const approvals = candidate.runtime?.approvals;
+  if (!Array.isArray(approvals)) return null;
+
+  return approvals
+    .filter((item): item is RuntimeApprovalItem => {
+      return (
+        typeof item.id === "string" &&
+        typeof item.toolName === "string" &&
+        typeof item.argsSnippet === "string" &&
+        (item.status === "pending" || item.status === "approved" || item.status === "rejected") &&
+        typeof item.createdAt === "string"
+      );
+    })
+    .filter((item) => item.status === "pending");
 }
 
 function isReadonlyModeQueryEnabled(): boolean {
@@ -152,11 +183,7 @@ function App() {
   const [liveProgress, setLiveProgress] = useState<LiveProgressEntry[]>([]);
   const [awaitingFirstAssistant, setAwaitingFirstAssistant] = useState(false);
   const [awaitingAssistantFromIndex, setAwaitingAssistantFromIndex] = useState<number | null>(null);
-
-  // Load sessions on mount
-  useEffect(() => {
-    setSessions(loadSessions());
-  }, []);
+  const hasReconciledSessionsRef = useRef(false);
 
   // Save current session ID when changed
   useEffect(() => {
@@ -182,9 +209,14 @@ function App() {
     }, []),
     onStateUpdate: useCallback((nextState: unknown) => {
       const servers = readPreconfiguredServersFromState(nextState);
-      if (!servers) return;
-      setPreconfiguredServers(servers);
-      setIsLoading(false);
+      if (servers) {
+        setPreconfiguredServers(servers);
+        setIsLoading(false);
+      }
+      const approvals = readPendingApprovalsFromState(nextState);
+      if (approvals) {
+        setPendingApprovals(approvals);
+      }
     }, []),
     onOpen: useCallback(() => {
       setConnectionStatus("connected");
@@ -257,83 +289,133 @@ function App() {
     return await chatTransport.getHistory();
   }, [chatTransport]);
 
-  const loadPreconfiguredServers = useCallback(
-    async (attempt = 0) => {
-      try {
-        const servers = await chatTransport.getPreconfiguredServers();
-        setPreconfiguredServers(servers);
-        setIsLoading(false);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const isConnectionIssue = /connection closed/i.test(message);
-        if (isConnectionIssue && attempt < 3) {
-          const delay = 300 * (attempt + 1);
-          setTimeout(() => {
-            void loadPreconfiguredServers(attempt + 1);
-          }, delay);
-          return;
+  // Reconcile local session metadata with server history on startup.
+  useEffect(() => {
+    if (hasReconciledSessionsRef.current) return;
+    hasReconciledSessionsRef.current = true;
+
+    let cancelled = false;
+
+    const fetchHistoryForSession = async (sessionId: string): Promise<ChatHistoryItem[]> => {
+      const response = await callApi<{ history: ChatHistoryItem[] }>(
+        `/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`
+      );
+      return Array.isArray(response.history) ? response.history : [];
+    };
+
+    const reconcileSessions = async () => {
+      const stored = loadSessions();
+      setSessions(stored);
+      if (stored.length === 0) return;
+
+      const validSessionIds = new Set<string>();
+      const workers = Array.from({ length: 3 }, async (_, workerIndex) => {
+        for (let i = workerIndex; i < stored.length; i += 3) {
+          const session = stored[i];
+          try {
+            const history = await fetchHistoryForSession(session.id);
+            const hasLocalSnapshot =
+              session.messageCount > 0 || session.lastMessage.trim().length > 0;
+            const invalid = hasLocalSnapshot && history.length === 0;
+            if (!invalid) {
+              validSessionIds.add(session.id);
+            }
+          } catch {
+            // Keep session when verification fails to avoid destructive false positives.
+            validSessionIds.add(session.id);
+          }
         }
-        console.error("Failed to load pre-configured servers:", error);
-        setIsLoading(false);
-      }
-    },
-    [chatTransport]
-  );
-
-  const loadApprovals = useCallback(async () => {
-    try {
-      const rows = await chatTransport.listApprovals();
-      const parsed = rows.filter((item): item is RuntimeApprovalItem => {
-        if (!item || typeof item !== "object") return false;
-        const candidate = item as {
-          id?: unknown;
-          toolName?: unknown;
-          argsSnippet?: unknown;
-          status?: unknown;
-          createdAt?: unknown;
-        };
-        return (
-          typeof candidate.id === "string" &&
-          typeof candidate.toolName === "string" &&
-          typeof candidate.argsSnippet === "string" &&
-          (candidate.status === "pending" ||
-            candidate.status === "approved" ||
-            candidate.status === "rejected") &&
-          typeof candidate.createdAt === "string"
-        );
       });
-      setPendingApprovals(parsed.filter((item) => item.status === "pending"));
-    } catch (error) {
-      console.error("Failed to load tool approvals:", error);
-    }
-  }, [chatTransport]);
 
-  // Load preconfigured servers only after confirmed connected state.
+      await Promise.all(workers);
+      if (cancelled) return;
+
+      const filtered = stored.filter((session) => validSessionIds.has(session.id));
+      if (filtered.length === stored.length) return;
+
+      saveSessions(filtered);
+      setSessions(filtered);
+
+      const currentStillValid = filtered.some((session) => session.id === currentSessionId);
+      if (currentStillValid) return;
+
+      if (filtered.length > 0) {
+        stop();
+        setChatMessages([]);
+        setCurrentSessionId(filtered[0].id);
+        setConnectionStatus("connecting");
+        setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
+        setIsLoading(true);
+        setPreconfiguredServers({});
+        setPendingApprovals([]);
+        setAwaitingFirstAssistant(false);
+        setAwaitingAssistantFromIndex(null);
+        setLiveProgress([]);
+        return;
+      }
+
+      const newId = nanoid(8);
+      updateSessionMeta(newId, {
+        title: t("session_new"),
+        lastMessage: "",
+        timestamp: new Date().toISOString(),
+        messageCount: 0
+      });
+      setSessions(loadSessions());
+      setCurrentSessionId(newId);
+      setConnectionStatus("connecting");
+      setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
+      setIsLoading(true);
+      setPreconfiguredServers({});
+      setPendingApprovals([]);
+      setAwaitingFirstAssistant(false);
+      setAwaitingAssistantFromIndex(null);
+      setLiveProgress([]);
+    };
+
+    void reconcileSessions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSessionId, readonlyMode, setChatMessages, stop, t]);
+
+  // Hydrate session history on session switch even when websocket reconnect is unstable.
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateHistory = async () => {
+      try {
+        const history = await loadHistory();
+        if (cancelled) return;
+        const hydrated = Array.isArray(history)
+          ? history.map((item, index) => ({
+              id: item.id ?? `history-${currentSessionId}-${index}`,
+              role:
+                item.role === "user" || item.role === "assistant" || item.role === "system"
+                  ? item.role
+                  : "assistant",
+              parts: [{ type: "text", text: item.content ?? "" }]
+            }))
+          : [];
+        setChatMessages(hydrated as UIMessage[]);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Failed to hydrate chat history:", error);
+      }
+    };
+
+    void hydrateHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSessionId, loadHistory, setChatMessages]);
+
   useEffect(() => {
     if (connectionStatus !== "connected") return;
     void loadPermissions();
   }, [connectionStatus, loadPermissions]);
-
-  useEffect(() => {
-    if (connectionStatus !== "connected") return;
-    if (Object.keys(preconfiguredServers).length > 0) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    void loadPreconfiguredServers();
-  }, [connectionStatus, loadPreconfiguredServers, preconfiguredServers]);
-
-  useEffect(() => {
-    if (connectionStatus !== "connected") return;
-    void loadApprovals();
-    const timer = window.setInterval(() => {
-      void loadApprovals();
-    }, 5000);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [connectionStatus, loadApprovals]);
 
   // Hide live progress panel once assistant content starts arriving.
   useEffect(() => {
@@ -397,6 +479,9 @@ function App() {
     setCurrentSessionId(newId);
     setConnectionStatus("connecting");
     setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
+    setIsLoading(true);
+    setPreconfiguredServers({});
+    setPendingApprovals([]);
     setAwaitingFirstAssistant(false);
     setAwaitingAssistantFromIndex(null);
     setLiveProgress([]);
@@ -411,6 +496,9 @@ function App() {
       setCurrentSessionId(sessionId);
       setConnectionStatus("connecting");
       setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
+      setIsLoading(true);
+      setPreconfiguredServers({});
+      setPendingApprovals([]);
       setAwaitingFirstAssistant(false);
       setAwaitingAssistantFromIndex(null);
       setLiveProgress([]);
@@ -420,17 +508,40 @@ function App() {
 
   // Delete session
   const handleDeleteSession = useCallback(
-    (sessionId: string) => {
-      deleteSessionMeta(sessionId);
-      setSessions(loadSessions());
-
-      if (sessionId === currentSessionId) {
-        handleNewSession();
+    async (sessionId: string) => {
+      if (!permissions.canEdit) {
+        addToast(t("readonly_action_blocked"), "info");
+        return;
       }
 
-      addToast(t("session_deleted"), "success");
+      try {
+        await chatTransport.deleteSession(sessionId);
+        deleteSessionMeta(sessionId);
+        setSessions(loadSessions());
+
+        if (sessionId === currentSessionId) {
+          handleNewSession();
+        }
+
+        addToast(t("session_deleted"), "success");
+      } catch (error) {
+        console.error("Failed to delete session:", error);
+        addToast(
+          t("session_delete_failed", {
+            reason: error instanceof Error ? error.message : "Unknown error"
+          }),
+          "error"
+        );
+      }
     },
-    [currentSessionId, handleNewSession, addToast, t]
+    [
+      addToast,
+      chatTransport,
+      currentSessionId,
+      handleNewSession,
+      permissions.canEdit,
+      t
+    ]
   );
 
   const handleDeleteMessage = useCallback(
@@ -614,6 +725,9 @@ function App() {
         setCurrentSessionId(result.newSessionId);
         setConnectionStatus("connecting");
         setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
+        setIsLoading(true);
+        setPreconfiguredServers({});
+        setPendingApprovals([]);
         addToast(t("message_fork_success"), "success");
       } catch (error) {
         console.error("Failed to fork session:", error);
@@ -655,7 +769,6 @@ function App() {
             }),
             "success"
           );
-          await loadPreconfiguredServers();
         } else {
           addEventLog({
             level: "error",
@@ -688,7 +801,7 @@ function App() {
         setTogglingServer(null);
       }
     },
-    [addEventLog, addToast, chatTransport, loadPreconfiguredServers, permissions.canEdit, t]
+    [addEventLog, addToast, chatTransport, permissions.canEdit, t]
   );
 
   const handleApproveToolCall = useCallback(
@@ -699,7 +812,7 @@ function App() {
           addToast(t("server_toggle_failed", { reason: "Approval failed" }), "error");
           return;
         }
-        await loadApprovals();
+        setPendingApprovals((prev) => prev.filter((item) => item.id !== approvalId));
         addToast(t("inspector_approvals_approve"), "success");
       } catch (error) {
         addToast(
@@ -710,7 +823,7 @@ function App() {
         );
       }
     },
-    [addToast, chatTransport, loadApprovals, t]
+    [addToast, chatTransport, t]
   );
 
   const handleRejectToolCall = useCallback(
@@ -721,7 +834,7 @@ function App() {
           addToast(t("server_toggle_failed", { reason: "Rejection failed" }), "error");
           return;
         }
-        await loadApprovals();
+        setPendingApprovals((prev) => prev.filter((item) => item.id !== approvalId));
         addToast(t("inspector_approvals_reject"), "success");
       } catch (error) {
         addToast(
@@ -732,7 +845,7 @@ function App() {
         );
       }
     },
-    [addToast, chatTransport, loadApprovals, t]
+    [addToast, chatTransport, t]
   );
 
   const handleSend = useCallback(() => {
@@ -989,7 +1102,7 @@ function App() {
                 onStop={handleStop}
                 onRetryConnection={() => {
                   setConnectionStatus("connecting");
-                  void loadPreconfiguredServers();
+                  setIsLoading(true);
                 }}
                 onDeleteMessage={handleDeleteMessage}
                 onEditMessage={handleEditMessage}
