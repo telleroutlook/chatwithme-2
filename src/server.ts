@@ -1,441 +1,308 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import { routeAgentRequest, getAgentByName } from "agents";
-import { ChatAgent } from "./demos/chat/chat-agent";
+import {
+  chatBodySchema,
+  chatHistoryQuerySchema,
+  deleteMessageQuerySchema,
+  editBodySchema,
+  forkBodySchema,
+  mcpServerBodySchema,
+  regenerateBodySchema
+} from "./schema/api";
+import { errorJson, successJson, unknownErrorMessage } from "./server/http";
+import { ChatAgentV2 } from "./demos/chat/chat-agent";
 
-// Export the ChatAgent for Durable Objects
-export { ChatAgent };
+export { ChatAgentV2 };
 
-// Create Hono app
-const app = new Hono<{ Bindings: Env }>();
+type ServerVariables = {
+  requestId: string;
+};
 
-// Enable CORS for all routes
+const app = new Hono<{ Bindings: Env; Variables: ServerVariables }>();
+
 app.use("*", cors());
+app.use("*", async (c, next) => {
+  const requestId = c.req.header("x-request-id") || crypto.randomUUID();
+  c.set("requestId", requestId);
+  await next();
+  c.header("x-request-id", requestId);
+});
 
-function resolveSessionIdFromBody(body: unknown): string {
-  if (!body || typeof body !== "object") {
-    return "default";
-  }
-  const payload = body as { sessionId?: unknown; conversationId?: unknown };
-  if (typeof payload.sessionId === "string" && payload.sessionId.trim()) {
-    return payload.sessionId.trim();
-  }
-  if (typeof payload.conversationId === "string" && payload.conversationId.trim()) {
-    return payload.conversationId.trim();
-  }
-  return "default";
+function resolveSessionId(input: { sessionId: string }): string {
+  return input.sessionId.trim();
 }
 
-function resolveSessionIdFromQuery(c: {
-  req: { query: (key: string) => string | undefined };
-}): string {
-  const sessionId = c.req.query("sessionId");
-  const conversationId = c.req.query("conversationId");
-  if (sessionId?.trim()) return sessionId.trim();
-  if (conversationId?.trim()) return conversationId.trim();
-  return "default";
-}
+const validateJson = (schema: z.ZodTypeAny) =>
+  zValidator("json", schema, (result, c) => {
+    if (result.success) return;
+    return errorJson(c, 400, "VALIDATION_ERROR", result.error.message);
+  });
 
-// ============ REST API Routes ============
+const validateQuery = (schema: z.ZodTypeAny) =>
+  zValidator("query", schema, (result, c) => {
+    if (result.success) return;
+    return errorJson(c, 400, "VALIDATION_ERROR", result.error.message);
+  });
 
-/**
- * POST /api/chat
- * Send a chat message and get AI response
- * Body: { "message": "your message", "sessionId": "optional-session-id" }
- */
-app.post("/api/chat", async (c) => {
+app.post("/api/chat", validateJson(chatBodySchema), async (c) => {
   try {
-    const body = await c.req.json();
-    const resolvedSessionId = resolveSessionIdFromBody(body);
-    const { message } = body as { message?: string };
+    const body = c.req.valid("json") as z.infer<typeof chatBodySchema>;
+    const sessionId = resolveSessionId(body);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const response = await agent.chat(body.message);
 
-    if (!message) {
-      return c.json({ success: false, error: "Message is required" }, 400);
-    }
-
-    // Get or create agent instance
-    const agent = await getAgentByName(c.env.ChatAgent, resolvedSessionId);
-
-    // Call the chat method
-    const response = await agent.chat(message);
-
-    return c.json({
-      success: true,
+    return successJson(c, {
       response,
-      sessionId: resolvedSessionId
+      sessionId,
+      traceId: c.get("requestId")
     });
   } catch (error) {
-    console.error("Chat API error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "CHAT_GENERATION_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * GET /api/chat/history
- * Get chat history for a session
- * Query params: sessionId
- */
-app.get("/api/chat/history", async (c) => {
+app.get("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c) => {
   try {
-    const sessionId = resolveSessionIdFromQuery(c);
+    const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
+    const sessionId = resolveSessionId(query);
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
     const history = await agent.getHistory();
 
-    return c.json({
-      success: true,
+    return successJson(c, {
       history,
       sessionId
     });
   } catch (error) {
-    console.error("Get history error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "CHAT_HISTORY_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * DELETE /api/chat/history
- * Clear chat history for a session
- * Query params: sessionId
- */
-app.delete("/api/chat/history", async (c) => {
+app.delete("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c) => {
   try {
-    const sessionId = resolveSessionIdFromQuery(c);
+    const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
+    const sessionId = resolveSessionId(query);
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
     await agent.clearChat();
 
-    return c.json({
-      success: true,
-      message: "Chat history cleared"
+    return successJson(c, {
+      message: "Chat history cleared",
+      sessionId
     });
   } catch (error) {
-    console.error("Clear history error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "CHAT_CLEAR_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * DELETE /api/chat/message
- * Delete one message by id.
- * Query params: messageId, sessionId
- */
-app.delete("/api/chat/message", async (c) => {
+app.delete("/api/chat/message", validateQuery(deleteMessageQuerySchema), async (c) => {
   try {
-    const sessionId = resolveSessionIdFromQuery(c);
-    const messageId = c.req.query("messageId");
-    if (!messageId) {
-      return c.json({ success: false, deleted: false, error: "messageId is required" }, 400);
-    }
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
-    const result = await agent.deleteMessage(messageId);
-    return c.json(result);
-  } catch (error) {
-    console.error("Delete message error:", error);
-    return c.json(
-      {
-        success: false,
-        deleted: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
-  }
-});
+    const query = c.req.valid("query") as z.infer<typeof deleteMessageQuerySchema>;
+    const sessionId = resolveSessionId(query);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.deleteMessage(query.messageId);
 
-/**
- * POST /api/chat/edit
- * Edit user message content.
- * Body: { "messageId": "...", "content": "...", "sessionId": "optional" }
- */
-app.post("/api/chat/edit", async (c) => {
-  try {
-    const body = await c.req.json();
-    const { messageId, content } = body as { messageId?: string; content?: string };
-    const sessionId = resolveSessionIdFromBody(body);
-
-    if (!messageId || !content) {
-      return c.json({ success: false, error: "messageId and content are required" }, 400);
+    if (!result.success) {
+      return errorJson(c, 400, "CHAT_DELETE_MESSAGE_FAILED", result.error || "Delete failed");
     }
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
-    const result = await agent.editUserMessage(messageId, content);
-    return c.json(result);
+    return successJson(c, {
+      deleted: result.deleted,
+      sessionId
+    });
   } catch (error) {
-    console.error("Edit message error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "CHAT_DELETE_MESSAGE_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * POST /api/chat/regenerate
- * Regenerate from a given messageId.
- * Body: { "messageId": "...", "sessionId": "optional" }
- */
-app.post("/api/chat/regenerate", async (c) => {
+app.post("/api/chat/edit", validateJson(editBodySchema), async (c) => {
   try {
-    const body = await c.req.json();
-    const { messageId } = body as { messageId?: string };
-    const sessionId = resolveSessionIdFromBody(body);
-    if (!messageId) {
-      return c.json({ success: false, error: "messageId is required" }, 400);
+    const body = c.req.valid("json") as z.infer<typeof editBodySchema>;
+    const sessionId = resolveSessionId(body);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.editUserMessage(body.messageId, body.content);
+
+    if (!result.success) {
+      return errorJson(c, 400, "CHAT_EDIT_MESSAGE_FAILED", result.error || "Edit failed");
     }
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
-    const result = await agent.regenerateFrom(messageId);
-    return c.json(result);
+    return successJson(c, {
+      updated: result.updated,
+      sessionId
+    });
   } catch (error) {
-    console.error("Regenerate message error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "CHAT_EDIT_MESSAGE_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * POST /api/chat/fork
- * Fork session from specific message.
- * Body: { "messageId": "...", "sessionId": "optional" }
- */
-app.post("/api/chat/fork", async (c) => {
+app.post("/api/chat/regenerate", validateJson(regenerateBodySchema), async (c) => {
   try {
-    const body = await c.req.json();
-    const { messageId } = body as { messageId?: string };
-    const sessionId = resolveSessionIdFromBody(body);
-    if (!messageId) {
-      return c.json({ success: false, error: "messageId is required" }, 400);
+    const body = c.req.valid("json") as z.infer<typeof regenerateBodySchema>;
+    const sessionId = resolveSessionId(body);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.regenerateFrom(body.messageId);
+
+    if (!result.success) {
+      return errorJson(c, 400, "CHAT_REGENERATE_FAILED", result.error || "Regenerate failed");
     }
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
-    const result = await agent.forkSession(messageId);
-    return c.json(result);
+    return successJson(c, {
+      response: result.response,
+      sessionId
+    });
   } catch (error) {
-    console.error("Fork session error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "CHAT_REGENERATE_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * GET /api/mcp/servers
- * Get list of pre-configured MCP servers
- * Query params: sessionId
- */
-app.get("/api/mcp/servers", async (c) => {
+app.post("/api/chat/fork", validateJson(forkBodySchema), async (c) => {
   try {
-    const sessionId = resolveSessionIdFromQuery(c);
+    const body = c.req.valid("json") as z.infer<typeof forkBodySchema>;
+    const sessionId = resolveSessionId(body);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.forkSession(body.messageId);
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    if (!result.success || !result.newSessionId) {
+      return errorJson(c, 400, "CHAT_FORK_FAILED", result.error || "Fork failed");
+    }
+
+    return successJson(c, {
+      newSessionId: result.newSessionId,
+      sessionId
+    });
+  } catch (error) {
+    return errorJson(c, 500, "CHAT_FORK_FAILED", unknownErrorMessage(error));
+  }
+});
+
+app.get("/api/mcp/servers", validateQuery(chatHistoryQuerySchema), async (c) => {
+  try {
+    const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
+    const sessionId = resolveSessionId(query);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
     const servers = await agent.getPreconfiguredServers();
 
-    return c.json({
-      success: true,
+    return successJson(c, {
       servers,
-      sessionId
+      sessionId,
+      stateVersion: (await agent.getRuntimeSnapshot()).stateVersion
     });
   } catch (error) {
-    console.error("Get servers error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "MCP_SERVERS_LIST_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * POST /api/mcp/toggle
- * Toggle MCP server activation
- * Body: { "name": "server-name", "sessionId": "optional-session-id" }
- */
-app.post("/api/mcp/toggle", async (c) => {
+app.post("/api/mcp/toggle", validateJson(mcpServerBodySchema), async (c) => {
   try {
-    const body = await c.req.json();
-    const { name } = body as { name?: string };
-    const sessionId = resolveSessionIdFromBody(body);
+    const body = c.req.valid("json") as z.infer<typeof mcpServerBodySchema>;
+    const sessionId = resolveSessionId(body);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.toggleServer(body.name);
 
-    if (!name) {
-      return c.json({ success: false, error: "Server name is required" }, 400);
+    if (!result.success) {
+      return errorJson(c, 400, "MCP_SERVER_TOGGLE_FAILED", result.error || "Toggle failed");
     }
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
-    const result = await agent.toggleServer(name);
-
-    return c.json({
-      success: result.success,
+    return successJson(c, {
       active: result.active,
-      error: result.error,
-      sessionId
+      sessionId,
+      stateVersion: result.stateVersion
     });
   } catch (error) {
-    console.error("Toggle server error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "MCP_SERVER_TOGGLE_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * POST /api/mcp/activate
- * Activate a specific MCP server
- * Body: { "name": "server-name", "sessionId": "optional-session-id" }
- */
-app.post("/api/mcp/activate", async (c) => {
+app.post("/api/mcp/activate", validateJson(mcpServerBodySchema), async (c) => {
   try {
-    const body = await c.req.json();
-    const { name } = body as { name?: string };
-    const sessionId = resolveSessionIdFromBody(body);
+    const body = c.req.valid("json") as z.infer<typeof mcpServerBodySchema>;
+    const sessionId = resolveSessionId(body);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.activateServer(body.name);
 
-    if (!name) {
-      return c.json({ success: false, error: "Server name is required" }, 400);
+    if (!result.success) {
+      return errorJson(c, 400, "MCP_SERVER_ACTIVATE_FAILED", result.error || "Activate failed");
     }
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
-    const result = await agent.activateServer(name);
-
-    return c.json({
-      ...result,
-      sessionId
+    return successJson(c, {
+      sessionId,
+      stateVersion: result.stateVersion
     });
   } catch (error) {
-    console.error("Activate server error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "MCP_SERVER_ACTIVATE_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * POST /api/mcp/deactivate
- * Deactivate a specific MCP server
- * Body: { "name": "server-name", "sessionId": "optional-session-id" }
- */
-app.post("/api/mcp/deactivate", async (c) => {
+app.post("/api/mcp/deactivate", validateJson(mcpServerBodySchema), async (c) => {
   try {
-    const body = await c.req.json();
-    const { name } = body as { name?: string };
-    const sessionId = resolveSessionIdFromBody(body);
+    const body = c.req.valid("json") as z.infer<typeof mcpServerBodySchema>;
+    const sessionId = resolveSessionId(body);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const result = await agent.deactivateServer(body.name);
 
-    if (!name) {
-      return c.json({ success: false, error: "Server name is required" }, 400);
+    if (!result.success) {
+      return errorJson(c, 400, "MCP_SERVER_DEACTIVATE_FAILED", "Deactivate failed");
     }
 
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
-    const result = await agent.deactivateServer(name);
-
-    return c.json({
-      ...result,
-      sessionId
+    return successJson(c, {
+      sessionId,
+      stateVersion: result.stateVersion
     });
   } catch (error) {
-    console.error("Deactivate server error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "MCP_SERVER_DEACTIVATE_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * GET /api/tools
- * Get available MCP tools
- * Query params: sessionId
- */
-app.get("/api/tools", async (c) => {
+app.get("/api/tools", validateQuery(chatHistoryQuerySchema), async (c) => {
   try {
-    const sessionId = resolveSessionIdFromQuery(c);
-
-    const agent = await getAgentByName(c.env.ChatAgent, sessionId);
+    const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
+    const sessionId = resolveSessionId(query);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
     const tools = await agent.getAvailableTools();
 
-    return c.json({
-      success: true,
+    return successJson(c, {
       tools,
       count: tools.length,
       sessionId
     });
   } catch (error) {
-    console.error("Get tools error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      },
-      500
-    );
+    return errorJson(c, 500, "MCP_TOOLS_LIST_FAILED", unknownErrorMessage(error));
   }
 });
 
-/**
- * GET /api/health
- * Health check endpoint
- */
+app.get("/api/runtime/snapshot", validateQuery(chatHistoryQuerySchema), async (c) => {
+  try {
+    const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
+    const sessionId = resolveSessionId(query);
+    const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+    const snapshot = await agent.getRuntimeSnapshot();
+
+    return successJson(c, {
+      ...snapshot,
+      sessionId
+    });
+  } catch (error) {
+    return errorJson(c, 500, "RUNTIME_SNAPSHOT_FAILED", unknownErrorMessage(error));
+  }
+});
+
 app.get("/api/health", (c) => {
-  return c.json({
-    success: true,
+  return successJson(c, {
     status: "healthy",
     timestamp: new Date().toISOString()
   });
 });
 
-// ============ Agent Routes (WebSocket + HTTP) ============
-
-// Handle all /agents/* routes for WebSocket connections and agent HTTP requests
 app.all("/agents/*", async (c) => {
   const response = await routeAgentRequest(c.req.raw, c.env, { cors: true });
   return response || c.notFound();
 });
 
-// ============ Static Assets ============
+app.onError((error, c) => {
+  return errorJson(c, 500, "UNHANDLED_ERROR", unknownErrorMessage(error));
+});
 
-// Serve static assets (handled by Cloudflare Workers assets binding)
-// This is configured in wrangler.jsonc
-
-// Export default handler
 export default app;

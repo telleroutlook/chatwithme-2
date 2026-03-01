@@ -2,6 +2,7 @@ import { Toaster } from "./components/Toaster";
 import { ModalHost } from "./components/modal";
 import {
   ChatPane,
+  InspectorPane,
   McpPane,
   MobileTabBar,
   TopBar,
@@ -27,7 +28,9 @@ import { getMessageText } from "./utils/message-text";
 import { nanoid } from "nanoid";
 import { trackChatEvent } from "./features/chat/services/trackChatEvent";
 import {
+  loadCurrentSessionId,
   loadSessions,
+  saveCurrentSessionId,
   updateSessionMeta,
   deleteSessionMeta,
   type SessionMeta
@@ -52,6 +55,7 @@ import {
 } from "./features/chat/services/apiContracts";
 import { buildCommandSuggestions } from "./features/chat/services/commandSuggestions";
 import { useChatTelemetry } from "./features/chat/hooks/useChatTelemetry";
+import { useEventLog } from "./features/chat/hooks/useEventLog";
 import { buildObservabilitySnapshot } from "./features/chat/services/observability";
 import "./styles.css";
 
@@ -77,10 +81,10 @@ function App() {
   // Session state
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
-    const saved = localStorage.getItem("currentSessionId");
+    const saved = loadCurrentSessionId();
     if (saved) return saved;
     const id = nanoid(8);
-    localStorage.setItem("currentSessionId", id);
+    saveCurrentSessionId(id);
     return id;
   });
 
@@ -99,6 +103,7 @@ function App() {
     Record<string, PreconfiguredServer>
   >({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { events: eventLogs, addEvent: addEventLog, clear: clearEventLogs } = useEventLog();
 
   // Responsive hook for mobile detection
   const { mobile } = useResponsive();
@@ -134,20 +139,34 @@ function App() {
 
   // Save current session ID when changed
   useEffect(() => {
-    localStorage.setItem("currentSessionId", currentSessionId);
+    saveCurrentSessionId(currentSessionId);
   }, [currentSessionId]);
 
   // Agent connection
   const agent = useAgent({
-    agent: "chat-agent",
+    agent: "chat-agent-v2",
     name: currentSessionId,
-    onClose: useCallback(() => setConnectionStatus("disconnected"), []),
+    onClose: useCallback(() => {
+      setConnectionStatus("disconnected");
+      addEventLog({
+        level: "error",
+        source: "system",
+        type: "connection_closed",
+        message: "Agent connection closed."
+      });
+    }, [addEventLog]),
     onMcpUpdate: useCallback((mcpServers: MCPServersState) => {
       setMcpState(mcpServers);
     }, []),
     onOpen: useCallback(() => {
       setConnectionStatus("connected");
-    }, [])
+      addEventLog({
+        level: "success",
+        source: "system",
+        type: "connection_open",
+        message: "Agent connection established."
+      });
+    }, [addEventLog])
   });
 
   // useAgentChat hook for AIChatAgent integration
@@ -162,6 +181,14 @@ function App() {
       const progress = parseLiveProgressPart(part);
       if (!progress) return;
       setLiveProgress((prev) => appendLiveProgressEntry(prev, progress, 2));
+      addEventLog({
+        level: progress.status === "error" ? "error" : progress.status === "success" ? "success" : "info",
+        source: "agent",
+        type: `progress_${progress.phase}`,
+        message: progress.message,
+        data: progress.snippet ? { snippet: progress.snippet } : undefined,
+        timestamp: progress.timestamp
+      });
     }
   });
 
@@ -489,6 +516,12 @@ function App() {
           throw new Error("Invalid toggleServer response");
         }
         if (result.success) {
+          addEventLog({
+            level: "success",
+            source: "client",
+            type: "mcp_toggle_success",
+            message: `Server ${name} toggled to ${result.active ? "active" : "inactive"}.`
+          });
           addToast(
             t("server_toggle_success", {
               name,
@@ -498,6 +531,12 @@ function App() {
           );
           await loadPreconfiguredServers();
         } else {
+          addEventLog({
+            level: "error",
+            source: "client",
+            type: "mcp_toggle_failed",
+            message: result.error || "Toggle failed"
+          });
           addToast(
             t("server_toggle_failed", {
               reason: result.error || "Unknown error"
@@ -507,6 +546,12 @@ function App() {
         }
       } catch (error) {
         console.error("Failed to toggle server:", error);
+        addEventLog({
+          level: "error",
+          source: "client",
+          type: "mcp_toggle_failed",
+          message: error instanceof Error ? error.message : "Unknown error"
+        });
         addToast(
           t("server_toggle_failed", {
             reason: error instanceof Error ? error.message : "Unknown error"
@@ -517,7 +562,7 @@ function App() {
         setTogglingServer(null);
       }
     },
-    [agent, addToast, loadPreconfiguredServers, t]
+    [agent, addEventLog, addToast, loadPreconfiguredServers, t]
   );
 
   const handleSend = useCallback(() => {
@@ -554,6 +599,16 @@ function App() {
     setInput("");
     setAwaitingFirstAssistant(true);
     setAwaitingAssistantFromIndex(chatMessages.length);
+    addEventLog({
+      level: "info",
+      source: "client",
+      type: "chat_send",
+      message: "User message sent.",
+      data: {
+        sessionId: currentSessionId,
+        length: text.length
+      }
+    });
     setLiveProgress([
       {
         id: nanoid(10),
@@ -567,6 +622,7 @@ function App() {
     ]);
     sendMessage({ role: "user", parts: [{ type: "text", text }] });
   }, [
+    addEventLog,
     addToast,
     handleNewSession,
     handleSelectSession,
@@ -776,6 +832,16 @@ function App() {
               />
             )}
           </main>
+          <InspectorPane
+            toolsCount={activeToolsCount}
+            sourcesCount={sourceGroupsCount}
+            liveProgress={liveProgress}
+            telemetry={telemetry}
+            telemetrySummary={telemetrySummary}
+            eventLogs={eventLogs}
+            onClearEventLogs={clearEventLogs}
+            t={t}
+          />
         </div>
 
         <footer className={`app-glass shrink-0 border-t border-kumo-line/80 bg-kumo-base/55 py-3 ${mobile ? "pb-16" : ""}`}>

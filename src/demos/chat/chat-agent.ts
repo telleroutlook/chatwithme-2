@@ -1,5 +1,5 @@
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
-import { callable, getAgentByName } from "agents";
+import { callable, getAgentByName, type Connection, type ConnectionContext } from "agents";
 import {
   generateText,
   streamText,
@@ -18,13 +18,18 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 import { MCP_SERVERS, getApiKey, type McpServerConfig } from "../../mcp-config";
 import {
+  cancelIdleSchedules,
+  destroyIfIdle,
+  resolveIdleTimeoutSeconds,
+  scheduleIdleDestroy
+} from "../../shared/agent-lifecycle";
+import {
   getMessageText,
   normalizeToolArguments as normalizeArgs,
   toFallbackModelMessages
 } from "./model-utils";
 
-// MCP Server state (separate from chat messages)
-export interface McpServerState {
+export interface McpServerConnectionState {
   preconfiguredServers: Record<
     string,
     {
@@ -34,6 +39,38 @@ export interface McpServerState {
       error?: string;
     }
   >;
+}
+
+export interface ToolRunRecord {
+  id: string;
+  toolName: string;
+  serverId?: string;
+  status: "running" | "success" | "error" | "blocked";
+  startedAt: string;
+  finishedAt?: string;
+  argsSnippet?: string;
+  resultSnippet?: string;
+  error?: string;
+}
+
+export interface AgentRuntimeEvent {
+  id: string;
+  level: "info" | "success" | "error";
+  source: "chat" | "mcp" | "tool" | "system";
+  type: string;
+  message: string;
+  timestamp: string;
+  data?: Record<string, unknown>;
+}
+
+export interface ChatAgentState {
+  mcp: McpServerConnectionState;
+  runtime: {
+    toolRuns: ToolRunRecord[];
+    lastError?: string;
+    events: AgentRuntimeEvent[];
+    stateVersion: number;
+  };
 }
 
 type ProgressPhase = "context" | "model" | "thinking" | "tool" | "heartbeat" | "result" | "error";
@@ -60,14 +97,21 @@ type ProgressEmitter = (event: LiveProgressEvent) => void;
  * - Pre-configured MCP server management
  * - Dynamic tool execution
  */
-export class ChatAgent extends AIChatAgent<Env> {
+export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   // Keep last 100 messages in SQLite storage
   maxPersistedMessages = 100;
 
-  // MCP server state (stored separately)
-  private mcpServerState: McpServerState = {
-    preconfiguredServers: {}
+  initialState: ChatAgentState = {
+    mcp: {
+      preconfiguredServers: {}
+    },
+    runtime: {
+      toolRuns: [],
+      events: [],
+      stateVersion: 0
+    }
   };
+
   private mcpInitPromise: Promise<void> | null = null;
 
   private parseBooleanEnv(raw: string | undefined, defaultValue: boolean): boolean {
@@ -143,6 +187,97 @@ export class ChatAgent extends AIChatAgent<Env> {
 
   private isThinkingEnabled(): boolean {
     return this.parseBooleanEnv(this.runtimeEnv.CHAT_ENABLE_THINKING, false);
+  }
+
+  private appendRuntimeEvent(
+    event: Omit<AgentRuntimeEvent, "id" | "timestamp">
+  ): AgentRuntimeEvent {
+    const runtimeEvent: AgentRuntimeEvent = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      ...event
+    };
+    const nextEvents = [...this.state.runtime.events, runtimeEvent].slice(-120);
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        events: nextEvents,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+    return runtimeEvent;
+  }
+
+  private upsertToolRun(run: ToolRunRecord): void {
+    const withoutCurrent = this.state.runtime.toolRuns.filter((item) => item.id !== run.id);
+    const nextRuns = [...withoutCurrent, run].slice(-80);
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        toolRuns: nextRuns,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+  }
+
+  private updateLastError(message?: string): void {
+    if (!message) return;
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        lastError: message,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+  }
+
+  private setServerConnectionState(
+    name: string,
+    next: Partial<{
+      serverId?: string;
+      connected: boolean;
+      error?: string;
+    }>
+  ): void {
+    const current = this.state.mcp.preconfiguredServers[name];
+    if (!current) return;
+    this.setState({
+      ...this.state,
+      mcp: {
+        preconfiguredServers: {
+          ...this.state.mcp.preconfiguredServers,
+          [name]: {
+            ...current,
+            ...next
+          }
+        }
+      },
+      runtime: {
+        ...this.state.runtime,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+  }
+
+  private getToolTimeoutMs(): number {
+    const raw = this.runtimeEnv.CHAT_TOOL_TIMEOUT_MS;
+    if (!raw) return 25000;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 25000;
+  }
+
+  private requiresApprovalPolicy(toolName: string, args: Record<string, unknown>): boolean {
+    const lowered = toolName.toLowerCase();
+    const dangerousTokens = ["delete", "remove", "drop", "write", "update", "create", "patch"];
+    if (dangerousTokens.some((token) => lowered.includes(token))) {
+      return true;
+    }
+
+    const serialized = JSON.stringify(args);
+    return serialized.length > 8000;
   }
 
   private emitProgress(writer: UIMessageStreamWriter, event: LiveProgressEvent): void {
@@ -222,6 +357,27 @@ export class ChatAgent extends AIChatAgent<Env> {
           inputSchema: z.object({}).passthrough(),
           execute: async (args: Record<string, unknown>) => {
             const normalizedArgs = this.normalizeToolArguments(rawName, args);
+            const runId = crypto.randomUUID();
+            const runStart = new Date().toISOString();
+            const baseRun: ToolRunRecord = {
+              id: runId,
+              toolName: alias,
+              serverId,
+              status: "running",
+              startedAt: runStart,
+              argsSnippet: JSON.stringify(normalizedArgs).slice(0, 320)
+            };
+            this.upsertToolRun(baseRun);
+            this.appendRuntimeEvent({
+              level: "info",
+              source: "tool",
+              type: "tool_start",
+              message: `Tool ${alias} started`,
+              data: {
+                toolName: alias,
+                serverId
+              }
+            });
             emitProgress?.({
               phase: "tool",
               status: "start",
@@ -231,15 +387,72 @@ export class ChatAgent extends AIChatAgent<Env> {
             });
             try {
               if (!this.mcp) {
-                return { error: "MCP unavailable" };
+                const error = "MCP unavailable";
+                this.upsertToolRun({
+                  ...baseRun,
+                  status: "error",
+                  finishedAt: new Date().toISOString(),
+                  error
+                });
+                this.updateLastError(error);
+                return { error };
               }
-              const result = await this.mcp.callTool({
-                name: rawName,
-                serverId,
-                arguments: normalizedArgs
-              });
+              if (this.requiresApprovalPolicy(rawName, normalizedArgs)) {
+                const error =
+                  "Tool blocked by policy: this action requires approval in server safety policy.";
+                this.upsertToolRun({
+                  ...baseRun,
+                  status: "blocked",
+                  finishedAt: new Date().toISOString(),
+                  error
+                });
+                this.appendRuntimeEvent({
+                  level: "error",
+                  source: "tool",
+                  type: "tool_blocked",
+                  message: `Tool ${alias} blocked by policy`,
+                  data: { toolName: alias }
+                });
+                this.updateLastError(error);
+                emitProgress?.({
+                  phase: "tool",
+                  status: "error",
+                  toolName: alias,
+                  message: `Tool "${alias}" blocked by approval policy`,
+                  snippet: error
+                });
+                return { error };
+              }
+              const timeoutMs = this.getToolTimeoutMs();
+              const result = await Promise.race([
+                this.mcp.callTool({
+                  name: rawName,
+                  serverId,
+                  arguments: normalizedArgs
+                }),
+                new Promise<never>((_, reject) => {
+                  setTimeout(() => {
+                    reject(new Error(`Tool timeout after ${timeoutMs}ms`));
+                  }, timeoutMs);
+                })
+              ]);
               const resultSnippet =
                 typeof result === "string" ? result : JSON.stringify(result, null, 2);
+              this.upsertToolRun({
+                ...baseRun,
+                status: "success",
+                finishedAt: new Date().toISOString(),
+                resultSnippet: resultSnippet.slice(0, 480)
+              });
+              this.appendRuntimeEvent({
+                level: "success",
+                source: "tool",
+                type: "tool_success",
+                message: `Tool ${alias} completed`,
+                data: {
+                  toolName: alias
+                }
+              });
               emitProgress?.({
                 phase: "tool",
                 status: "success",
@@ -250,6 +463,22 @@ export class ChatAgent extends AIChatAgent<Env> {
               return result;
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
+              this.upsertToolRun({
+                ...baseRun,
+                status: "error",
+                finishedAt: new Date().toISOString(),
+                error: message
+              });
+              this.appendRuntimeEvent({
+                level: "error",
+                source: "tool",
+                type: "tool_error",
+                message: `Tool ${alias} failed`,
+                data: {
+                  toolName: alias
+                }
+              });
+              this.updateLastError(message);
               emitProgress?.({
                 phase: "tool",
                 status: "error",
@@ -268,14 +497,57 @@ export class ChatAgent extends AIChatAgent<Env> {
     return { tools, toolList };
   }
 
+  onConnect(_connection: Connection, _ctx: ConnectionContext) {
+    cancelIdleSchedules(this as never);
+  }
+
+  onClose(_connection: Connection) {
+    scheduleIdleDestroy(this as never, {
+      idleTimeoutSeconds: resolveIdleTimeoutSeconds(this.runtimeEnv.AGENT_IDLE_TIMEOUT_SECONDS)
+    });
+  }
+
+  async onIdleTimeout() {
+    const destroyed = await destroyIfIdle(this as never);
+    if (destroyed) {
+      this.appendRuntimeEvent({
+        level: "info",
+        source: "system",
+        type: "idle_destroy",
+        message: "Agent destroyed after idle timeout."
+      });
+    }
+  }
+
   async onStart() {
-    // Initialize pre-configured servers
+    const preconfiguredServers: McpServerConnectionState["preconfiguredServers"] = {};
     for (const config of MCP_SERVERS) {
-      this.mcpServerState.preconfiguredServers[config.name] = {
+      preconfiguredServers[config.name] = {
         config,
         connected: false
       };
     }
+    this.setState({
+      ...this.state,
+      mcp: {
+        preconfiguredServers
+      },
+      runtime: {
+        ...this.state.runtime,
+        events: [
+          ...this.state.runtime.events,
+          {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            level: "info" as const,
+            source: "system" as const,
+            type: "agent_start",
+            message: "ChatAgentV2 started."
+          }
+        ].slice(-120),
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
   }
 
   private async ensureMcpConnections(): Promise<void> {
@@ -358,6 +630,14 @@ export class ChatAgent extends AIChatAgent<Env> {
           writer.write({ type: "text-end", id: textId });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Unknown generation error";
+          this.updateLastError(message);
+          this.appendRuntimeEvent({
+            level: "error",
+            source: "chat",
+            type: "generate_error",
+            message: "Assistant response generation failed.",
+            data: { error: message }
+          });
           emitProgress({
             phase: "error",
             status: "error",
@@ -500,6 +780,12 @@ IMPORTANT:
       status: "start",
       message: "Loading system prompt and tool context."
     });
+    this.appendRuntimeEvent({
+      level: "info",
+      source: "chat",
+      type: "generate_start",
+      message: "Assistant response generation started."
+    });
 
     const { tools, toolList } = await this.buildAiTools(emitProgress);
     const systemPrompt = this.buildSystemPrompt(toolList);
@@ -563,6 +849,12 @@ IMPORTANT:
       phase: "result",
       status: "success",
       message: "Final answer ready to stream."
+    });
+    this.appendRuntimeEvent({
+      level: "success",
+      source: "chat",
+      type: "generate_success",
+      message: "Assistant response generation completed."
     });
     return finalResponse;
   }
@@ -784,7 +1076,7 @@ IMPORTANT:
 
       const forkedHistory = currentMessages.slice(0, index + 1);
       const newSessionId = crypto.randomUUID().slice(0, 8);
-      const targetAgent = (await getAgentByName(this.runtimeEnv.ChatAgent, newSessionId)) as {
+      const targetAgent = (await getAgentByName(this.runtimeEnv.ChatAgentV2, newSessionId)) as {
         seedHistory: (
           messages: Array<{
             id: string;
@@ -814,15 +1106,21 @@ IMPORTANT:
   // ============ MCP Server Management (callable methods) ============
 
   @callable({ description: "Get list of pre-configured MCP servers" })
-  async getPreconfiguredServers(): Promise<McpServerState["preconfiguredServers"]> {
-    return this.mcpServerState.preconfiguredServers;
+  async getPreconfiguredServers(): Promise<McpServerConnectionState["preconfiguredServers"]> {
+    return this.state.mcp.preconfiguredServers;
   }
 
   @callable({ description: "Activate a pre-configured MCP server" })
-  async activateServer(name: string): Promise<{ success: boolean; error?: string }> {
-    const serverEntry = this.mcpServerState.preconfiguredServers[name];
+  async activateServer(
+    name: string
+  ): Promise<{ success: boolean; error?: string; stateVersion: number }> {
+    const serverEntry = this.state.mcp.preconfiguredServers[name];
     if (!serverEntry) {
-      return { success: false, error: `Server "${name}" not found` };
+      return {
+        success: false,
+        error: `Server "${name}" not found`,
+        stateVersion: this.state.runtime.stateVersion
+      };
     }
 
     const config = serverEntry.config;
@@ -849,58 +1147,86 @@ IMPORTANT:
       }
 
       const result = await this.addMcpServer(name, config.url, options);
-
-      this.mcpServerState.preconfiguredServers[name] = {
-        ...serverEntry,
+      this.setServerConnectionState(name, {
         serverId: result.id,
         connected: true,
         error: undefined
-      };
+      });
+      this.appendRuntimeEvent({
+        level: "success",
+        source: "mcp",
+        type: "activate_server",
+        message: `MCP server ${name} activated.`,
+        data: { serverId: result.id }
+      });
 
-      return { success: true };
+      return { success: true, stateVersion: this.state.runtime.stateVersion };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-
-      this.mcpServerState.preconfiguredServers[name] = {
-        ...serverEntry,
+      this.setServerConnectionState(name, {
         connected: false,
         error: message
-      };
-
-      return { success: false, error: message };
+      });
+      this.updateLastError(message);
+      this.appendRuntimeEvent({
+        level: "error",
+        source: "mcp",
+        type: "activate_server_error",
+        message: `MCP server ${name} activation failed.`,
+        data: { error: message }
+      });
+      return { success: false, error: message, stateVersion: this.state.runtime.stateVersion };
     }
   }
 
   @callable({ description: "Deactivate a pre-configured MCP server" })
-  async deactivateServer(name: string): Promise<{ success: boolean }> {
-    const serverEntry = this.mcpServerState.preconfiguredServers[name];
+  async deactivateServer(name: string): Promise<{ success: boolean; stateVersion: number }> {
+    const serverEntry = this.state.mcp.preconfiguredServers[name];
     if (!serverEntry || !serverEntry.serverId) {
-      return { success: false };
+      return { success: false, stateVersion: this.state.runtime.stateVersion };
     }
 
     try {
       await this.removeMcpServer(serverEntry.serverId);
-
-      this.mcpServerState.preconfiguredServers[name] = {
-        ...serverEntry,
+      this.setServerConnectionState(name, {
         serverId: undefined,
-        connected: false
-      };
-
-      return { success: true };
+        connected: false,
+        error: undefined
+      });
+      this.appendRuntimeEvent({
+        level: "info",
+        source: "mcp",
+        type: "deactivate_server",
+        message: `MCP server ${name} deactivated.`,
+        data: { serverId: serverEntry.serverId }
+      });
+      return { success: true, stateVersion: this.state.runtime.stateVersion };
     } catch (error) {
       console.error(`Failed to deactivate server ${name}:`, error);
-      return { success: false };
+      const message = error instanceof Error ? error.message : String(error);
+      this.updateLastError(message);
+      this.appendRuntimeEvent({
+        level: "error",
+        source: "mcp",
+        type: "deactivate_server_error",
+        message: `MCP server ${name} deactivation failed.`,
+        data: { error: message }
+      });
+      return { success: false, stateVersion: this.state.runtime.stateVersion };
     }
   }
 
   @callable({ description: "Toggle a pre-configured MCP server on/off" })
   async toggleServer(
     name: string
-  ): Promise<{ success: boolean; active?: boolean; error?: string }> {
-    const serverEntry = this.mcpServerState.preconfiguredServers[name];
+  ): Promise<{ success: boolean; active?: boolean; error?: string; stateVersion: number }> {
+    const serverEntry = this.state.mcp.preconfiguredServers[name];
     if (!serverEntry) {
-      return { success: false, error: `Server "${name}" not found` };
+      return {
+        success: false,
+        error: `Server "${name}" not found`,
+        stateVersion: this.state.runtime.stateVersion
+      };
     }
 
     if (serverEntry.connected) {
@@ -927,7 +1253,23 @@ IMPORTANT:
       }));
     } catch (error) {
       console.error("Failed to get MCP tools:", error);
+      this.updateLastError(error instanceof Error ? error.message : String(error));
       return [];
     }
+  }
+
+  @callable({ description: "Get runtime observability snapshot" })
+  async getRuntimeSnapshot(): Promise<{
+    toolRuns: ToolRunRecord[];
+    lastError?: string;
+    events: AgentRuntimeEvent[];
+    stateVersion: number;
+  }> {
+    return {
+      toolRuns: this.state.runtime.toolRuns,
+      lastError: this.state.runtime.lastError,
+      events: this.state.runtime.events,
+      stateVersion: this.state.runtime.stateVersion
+    };
   }
 }

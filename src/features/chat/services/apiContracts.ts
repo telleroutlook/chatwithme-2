@@ -2,6 +2,7 @@ export interface ToggleServerResult {
   success: boolean;
   active?: boolean;
   error?: string;
+  stateVersion?: number;
 }
 
 export interface DeleteMessageResult {
@@ -36,11 +37,13 @@ export function isToggleServerResult(value: unknown): value is ToggleServerResul
     success?: unknown;
     active?: unknown;
     error?: unknown;
+    stateVersion?: unknown;
   };
   return (
     typeof candidate.success === "boolean" &&
     (candidate.active === undefined || typeof candidate.active === "boolean") &&
-    (candidate.error === undefined || typeof candidate.error === "string")
+    (candidate.error === undefined || typeof candidate.error === "string") &&
+    (candidate.stateVersion === undefined || typeof candidate.stateVersion === "number")
   );
 }
 

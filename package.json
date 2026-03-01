@@ -28,6 +28,7 @@
     "@cloudflare/agents-ui": "*",
     "@cloudflare/ai-chat": "*",
     "@cloudflare/kumo": "^1.7.0",
+    "@hono/zod-validator": "^0.7.6",
     "@phosphor-icons/react": "^2.1.10",
     "agents": "*",
     "ai": "^6.0.0",

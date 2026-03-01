@@ -138,7 +138,10 @@ export const uiMessages = {
     inspector_live_empty: "No live events yet.",
     inspector_telemetry: "Telemetry",
     inspector_telemetry_events: "{count} events",
-    inspector_telemetry_empty: "No telemetry events yet."
+    inspector_telemetry_empty: "No telemetry events yet.",
+    inspector_event_log: "Event Log",
+    inspector_event_log_empty: "No events captured yet.",
+    inspector_event_log_clear: "Clear"
   },
   zh: {
     app_title: "ChatWithMe MCP",
@@ -273,7 +276,10 @@ export const uiMessages = {
     inspector_live_empty: "暂无实时事件。",
     inspector_telemetry: "遥测事件",
     inspector_telemetry_events: "{count} 条事件",
-    inspector_telemetry_empty: "暂无遥测事件。"
+    inspector_telemetry_empty: "暂无遥测事件。",
+    inspector_event_log: "事件日志",
+    inspector_event_log_empty: "暂无采集事件。",
+    inspector_event_log_clear: "清空"
   }
 } as const;
 

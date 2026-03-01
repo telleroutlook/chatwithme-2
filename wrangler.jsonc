@@ -12,8 +12,8 @@
   "durable_objects": {
     "bindings": [
       {
-        "class_name": "ChatAgent",
-        "name": "ChatAgent"
+        "class_name": "ChatAgentV2",
+        "name": "ChatAgentV2"
       }
     ]
   },
@@ -34,6 +34,11 @@
     {
       "tag": "v4",
       "deleted_classes": ["McpClientAgent"]
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": ["ChatAgentV2"],
+      "deleted_classes": ["ChatAgent"]
     }
   ],
 
@@ -49,6 +54,8 @@
     "CHAT_MODEL_THINKING": "disabled",
     "CHAT_MODEL_STREAM": "true",
     "CHAT_MODEL_ID": "GLM-4.7",
-    "CHAT_MODEL_MAX_TOKENS": "65536"
+    "CHAT_MODEL_MAX_TOKENS": "65536",
+    "CHAT_TOOL_TIMEOUT_MS": "25000",
+    "AGENT_IDLE_TIMEOUT_SECONDS": "900"
   }
 }

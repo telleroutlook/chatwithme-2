@@ -19,6 +19,15 @@ interface InspectorPaneProps {
   liveProgress: ProgressEntry[];
   telemetry: TelemetryEntry[];
   telemetrySummary: { totalEvents: number; eventCounts: Record<string, number> };
+  eventLogs: Array<{
+    id: string;
+    timestamp: string;
+    source: string;
+    level: "info" | "success" | "error";
+    type: string;
+    message: string;
+  }>;
+  onClearEventLogs: () => void;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
 
@@ -28,6 +37,8 @@ export function InspectorPane({
   liveProgress,
   telemetry,
   telemetrySummary,
+  eventLogs,
+  onClearEventLogs,
   t
 }: InspectorPaneProps) {
   const latest = liveProgress.slice(-4).reverse();
@@ -111,6 +122,49 @@ export function InspectorPane({
                   <span className="block">
                     <Text size="xs" variant="secondary">
                       {new Date(item.timestamp).toLocaleTimeString()}
+                    </Text>
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </Surface>
+
+        <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
+          <div className="flex items-center justify-between">
+            <Text size="sm" bold>
+              {t("inspector_event_log")}
+            </Text>
+            <button
+              type="button"
+              onClick={onClearEventLogs}
+              className="rounded border border-kumo-line px-2 py-0.5 text-[11px] text-kumo-subtle hover:bg-kumo-control"
+            >
+              {t("inspector_event_log_clear")}
+            </button>
+          </div>
+          <div className="mt-2 space-y-1.5">
+            {eventLogs.length === 0 ? (
+              <Text size="xs" variant="secondary">
+                {t("inspector_event_log_empty")}
+              </Text>
+            ) : (
+              eventLogs.slice(0, 6).map((entry) => (
+                <div
+                  key={entry.id}
+                  className="rounded-lg border border-kumo-line bg-kumo-base/70 px-2 py-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <Text size="xs" bold>
+                      {entry.type}
+                    </Text>
+                    <Badge variant={entry.level === "error" ? "secondary" : "primary"}>
+                      {entry.source}
+                    </Badge>
+                  </div>
+                  <span className="block">
+                    <Text size="xs" variant="secondary">
+                      {entry.message}
                     </Text>
                   </span>
                 </div>

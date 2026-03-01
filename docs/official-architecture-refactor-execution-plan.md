@@ -300,3 +300,146 @@
 - Version ID: `237a4b91-0b9d-40fb-a1ed-c324620a198c`
 - Post-deploy smoke test: `npm run test:e2e` passed
   - session id: `e2e-smoke-1772326426292`
+
+## Execution Notes (2026-03-01, Full Phase Implementation + Production Deploy)
+
+### Phase 0/1: Lifecycle + Observability Foundation
+
+- Added shared lifecycle utilities:
+  - `/home/dev/github/chatwithme-2/src/shared/agent-lifecycle.ts`
+- Upgraded base agent lifecycle behavior:
+  - `/home/dev/github/chatwithme-2/src/shared/base-agent.ts`
+- Applied idle-time cleanup and reconnect schedule cancellation on `ChatAgent`:
+  - `/home/dev/github/chatwithme-2/src/demos/chat/chat-agent.ts`
+
+### Phase 2: ChatAgent state single-source migration
+
+- Replaced private MCP runtime state with persisted `ChatAgentState` (`state.mcp`, `state.runtime`).
+- Added runtime observability models:
+  - `ToolRunRecord`
+  - `AgentRuntimeEvent`
+- Added callable runtime snapshot API (`getRuntimeSnapshot`) in `ChatAgent`.
+- Added tool policy guard + timeout controls:
+  - `CHAT_TOOL_TIMEOUT_MS`
+  - approval-policy block for high-risk tool names/oversized payloads.
+
+### Phase 3: Contract-first API hardening (Hono + Zod)
+
+- Added Zod request schemas:
+  - `/home/dev/github/chatwithme-2/src/schema/api.ts`
+- Added HTTP response helpers with unified error contract:
+  - `/home/dev/github/chatwithme-2/src/server/http.ts`
+- Rebuilt `/home/dev/github/chatwithme-2/src/server.ts` to use:
+  - `@hono/zod-validator`
+  - requestId middleware
+  - unified error envelope: `{ success: false, error: { code, message }, requestId }`
+  - new endpoint: `GET /api/runtime/snapshot`
+
+### Phase 4: Tool safety layer
+
+- Added in-agent tool execution governance:
+  - run record lifecycle (`running/success/error/blocked`)
+  - timeout guard (`Promise.race`)
+  - policy block path with runtime event emission
+
+### Phase 5: Testing matrix + new tests
+
+- Added testing matrix doc:
+  - `/home/dev/github/chatwithme-2/docs/testing-chat-agent.md`
+- Added tests:
+  - `/home/dev/github/chatwithme-2/src/shared/agent-lifecycle.test.ts`
+  - `/home/dev/github/chatwithme-2/src/schema/api.test.ts`
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useEventLog.test.tsx`
+
+### Frontend observability UX upgrades
+
+- Added event log hook:
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useEventLog.ts`
+- Wired unified event logging to client pipeline and connection lifecycle:
+  - `/home/dev/github/chatwithme-2/src/client.tsx`
+- Added inspector event log panel:
+  - `/home/dev/github/chatwithme-2/src/components/layout/InspectorPane.tsx`
+- Added i18n keys for event log labels:
+  - `/home/dev/github/chatwithme-2/src/i18n/ui.ts`
+
+### Config and env updates
+
+- Updated environment typing:
+  - `/home/dev/github/chatwithme-2/env.d.ts`
+- Updated worker vars:
+  - `/home/dev/github/chatwithme-2/wrangler.jsonc`
+
+### Validation results
+
+- `npm run typecheck` ✅
+- `npm run test:run` ✅
+- `npm run lint` ✅
+- `npm run build` ✅
+
+### Production deployment and verification
+
+- Deploy command: `npm run deploy` ✅
+- Production URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+- Version ID: `705fd7b8-9e20-4dbd-9dc8-3751f1926f0f`
+- Deploy verification script (`scripts/verify-deploy.mjs`) ✅
+
+### Production tests
+
+- `npm run test:e2e` ✅
+  - session id: `e2e-smoke-1772344971330`
+- `npm run test:e2e:scroll-lock` ✅
+  - result: `success: true`, `jumpDelta: 0`
+- `node test/e2e/bottom-growth.production.mjs` ✅
+  - result: `ok: true`, `growth: 0`, `topDelta: 0`
+
+## Execution Notes (2026-03-01, Hard Cutover / No-Compatibility Mode)
+
+- User-approved strategy: **hard delete old format/history and remove compatibility paths**.
+
+### Data and runtime cutover
+
+- Durable Object class was cut over from `ChatAgent` to `ChatAgentV2`.
+- Wrangler migration kept:
+  - `new_sqlite_classes: ["ChatAgentV2"]`
+  - `deleted_classes: ["ChatAgent"]`
+- Durable binding renamed to `ChatAgentV2` to satisfy Cloudflare deletion constraints.
+
+### Frontend/runtime protocol cutover
+
+- Agent WebSocket route switched from `chat-agent` to `chat-agent-v2` in client.
+- Old agent route (`/agents/chat-agent/...`) now intentionally invalid.
+- New agent route (`/agents/chat-agent-v2/...`) verified with HTTP 101 WebSocket upgrade.
+
+### Removed compatibility code and dead code
+
+- Removed old `conversationId` fallback and default session fallback in API contract.
+- API now strictly requires `sessionId` in request body/query schemas.
+- Deleted unused legacy files:
+  - `/home/dev/github/chatwithme-2/src/demos/mcp/mcp-client-agent.ts`
+  - `/home/dev/github/chatwithme-2/src/shared/base-agent.ts`
+
+### Local history hard reset
+
+- Added session storage versioning in `sessionMeta.ts`.
+- On version mismatch, old local keys are cleared:
+  - `chatwithme_sessions`
+  - `currentSessionId`
+
+### Validation
+
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm run test:run` ✅
+
+### Production deployment
+
+- Deploy command: `npm run deploy` ✅
+- Production URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+- Version ID: `e9a5ca1c-af5c-445c-be45-c127b1a37dd6`
+
+### Production verification
+
+- `npm run test:e2e` ✅
+- WebSocket handshake check:
+  - `wss://chat2.3we.org/agents/chat-agent-v2/...` -> `101 Switching Protocols` ✅
+  - `wss://chat2.3we.org/agents/chat-agent/...` -> `400 Invalid request` (expected) ✅
