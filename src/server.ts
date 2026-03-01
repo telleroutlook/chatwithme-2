@@ -81,6 +81,23 @@ app.get("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c) =>
   }
 });
 
+app.get("/api/chat/permissions", validateQuery(chatHistoryQuerySchema), async (c) => {
+  try {
+    const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
+    const sessionId = resolveSessionId(query);
+    const mode = c.req.query("mode");
+    const readonly = mode === "view";
+
+    return successJson(c, {
+      canEdit: !readonly,
+      readonly,
+      sessionId
+    });
+  } catch (error) {
+    return errorJson(c, 500, "CHAT_PERMISSIONS_FAILED", unknownErrorMessage(error));
+  }
+});
+
 app.delete("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c) => {
   try {
     const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;

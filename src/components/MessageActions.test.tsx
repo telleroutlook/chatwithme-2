@@ -81,6 +81,40 @@ describe("MessageActions", () => {
     expect(onRegenerate).not.toHaveBeenCalled();
   });
 
+  it("should disable mutating actions when disableMutations is true but keep copy enabled", async () => {
+    const onRegenerate = vi.fn();
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    const onFork = vi.fn();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+
+    render(
+      <MessageActions
+        content="Test content"
+        showRegenerate={true}
+        showEdit={true}
+        showDelete={true}
+        showFork={true}
+        disableMutations={true}
+        onRegenerate={onRegenerate}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onFork={onFork}
+      />
+    );
+
+    const copyButton = screen.getByLabelText("Copy message");
+    fireEvent.click(copyButton);
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("Test content");
+    });
+
+    expect(screen.getByLabelText("Regenerate response")).toBeDisabled();
+    expect(screen.getByLabelText("Edit message")).toBeDisabled();
+    expect(screen.getByLabelText("Delete message")).toBeDisabled();
+    expect(screen.getByLabelText("Fork session from message")).toBeDisabled();
+  });
+
   it("should show edit button when showEdit is true", () => {
     const onEdit = vi.fn();
     render(<MessageActions content="Test" showEdit={true} onEdit={onEdit} />);

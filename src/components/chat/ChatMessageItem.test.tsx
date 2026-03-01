@@ -35,6 +35,7 @@ describe("ChatMessageItem", () => {
       <ChatMessageItem
         message={createUserMessage("hello")}
         isStreaming={false}
+        canEdit={true}
         isLastMessage={false}
         onDelete={vi.fn()}
         onEdit={onEdit}
@@ -68,6 +69,7 @@ describe("ChatMessageItem", () => {
       <ChatMessageItem
         message={createUserMessage("hello")}
         isStreaming={false}
+        canEdit={true}
         isLastMessage={false}
         variant="docs"
         onDelete={vi.fn()}

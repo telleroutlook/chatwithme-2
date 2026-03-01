@@ -13,6 +13,7 @@ interface ChatInputProps {
   onStop?: () => void;
   isStreaming?: boolean;
   isConnected?: boolean;
+  isReadOnly?: boolean;
   placeholder?: string;
   maxLength?: number;
   showCharCount?: boolean;
@@ -29,6 +30,7 @@ export const ChatInput = memo(function ChatInput({
   onStop,
   isStreaming = false,
   isConnected = true,
+  isReadOnly = false,
   placeholder = "Type a message...",
   maxLength = 4000,
   showCharCount = true,
@@ -80,9 +82,9 @@ export const ChatInput = memo(function ChatInput({
   }, [setActiveIndex, filteredSuggestions.length]);
 
   const handleSubmit = useCallback(() => {
-    if (!value.trim() || isStreaming || !isConnected || isComposingRef.current) return;
+    if (!value.trim() || isStreaming || !isConnected || isReadOnly || isComposingRef.current) return;
     onSubmit();
-  }, [value, isStreaming, isConnected, onSubmit]);
+  }, [value, isStreaming, isConnected, isReadOnly, onSubmit]);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: CommandSuggestionItem) => {
@@ -155,11 +157,12 @@ export const ChatInput = memo(function ChatInput({
   const charCount = value.length;
   const isOverLimit = charCount > maxLength;
   const isEmpty = !value.trim();
-  const canSubmit = !isEmpty && !isStreaming && isConnected && !isOverLimit;
+  const canSubmit = !isEmpty && !isStreaming && isConnected && !isReadOnly && !isOverLimit;
   const helperTextId = "chat-input-helper-text";
 
   const getPlaceholder = () => {
     if (!isConnected) return t("chat_input_placeholder_connecting");
+    if (isReadOnly) return t("chat_input_placeholder_readonly");
     if (isStreaming) return t("chat_input_placeholder_streaming");
     return placeholder;
   };
@@ -224,7 +227,7 @@ export const ChatInput = memo(function ChatInput({
           onBlur={() => setIsFocused(false)}
           onSelect={(e) => setCaretIndex((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
           placeholder={getPlaceholder()}
-          disabled={!isConnected}
+          disabled={!isConnected || isReadOnly}
           maxLength={maxLength}
           rows={minRows}
           aria-describedby={helperTextId}
@@ -288,7 +291,8 @@ export const ChatInput = memo(function ChatInput({
         />
       )}
 
-      {(showCharCount || multiline) && (value || isFocused || isStreaming || !isConnected) && (
+      {(showCharCount || multiline) &&
+        (value || isFocused || isStreaming || !isConnected || isReadOnly) && (
         <div className="flex items-center justify-between px-3.5 pb-2.5">
           <span id={helperTextId} className="pr-2">
             <Text size="xs" variant="secondary">
@@ -313,6 +317,7 @@ interface SimpleChatInputProps {
   onStop?: () => void;
   isStreaming?: boolean;
   isConnected?: boolean;
+  isReadOnly?: boolean;
   placeholder?: string;
 }
 
@@ -323,16 +328,17 @@ export function SimpleChatInput({
   onStop,
   isStreaming = false,
   isConnected = true,
+  isReadOnly = false,
   placeholder = "Type a message..."
 }: SimpleChatInputProps) {
   const { t } = useI18n();
   const isComposingRef = useRef(false);
 
   const handleSubmit = useCallback(() => {
-    if (value.trim() && !isStreaming && isConnected && !isComposingRef.current) {
+    if (value.trim() && !isStreaming && isConnected && !isReadOnly && !isComposingRef.current) {
       onSubmit();
     }
-  }, [value, isStreaming, isConnected, onSubmit]);
+  }, [value, isStreaming, isConnected, isReadOnly, onSubmit]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -357,8 +363,14 @@ export function SimpleChatInput({
           isComposingRef.current = false;
         }}
         onKeyDown={handleKeyDown}
-        placeholder={isConnected ? placeholder : t("chat_input_placeholder_connecting")}
-        disabled={!isConnected}
+        placeholder={
+          !isConnected
+            ? t("chat_input_placeholder_connecting")
+            : isReadOnly
+              ? t("chat_input_placeholder_readonly")
+              : placeholder
+        }
+        disabled={!isConnected || isReadOnly}
         className="flex-1 rounded-xl border border-kumo-line bg-kumo-base px-4 py-2 text-sm text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:opacity-50"
       />
       {isStreaming ? (
@@ -376,7 +388,7 @@ export function SimpleChatInput({
           type="submit"
           variant="primary"
           onClick={handleSubmit}
-          disabled={!value.trim() || !isConnected}
+          disabled={!value.trim() || !isConnected || isReadOnly}
           icon={<PaperPlaneTiltIcon size={16} />}
           className="text-white hover:text-white"
           style={{ color: "#fff" }}

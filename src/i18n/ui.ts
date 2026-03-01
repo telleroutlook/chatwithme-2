@@ -54,6 +54,8 @@ export const uiMessages = {
     chat_empty_no_tools: "Connect MCP servers in the MCP tab to enable tool access.",
     chat_placeholder_tools: "Ask anything... (AI can search web & read pages)",
     chat_placeholder_default: "Type a message...",
+    readonly_badge: "Read-only",
+    readonly_action_blocked: "This session is read-only.",
     live_feed_title: "Live execution feed",
     live_feed_sent: "Message sent. Waiting for agent pipeline...",
     live_feed_phase_context: "context",
@@ -85,6 +87,7 @@ export const uiMessages = {
     server_toggle_failed: "Failed to toggle server: {reason}",
 
     chat_input_placeholder_connecting: "Connecting...",
+    chat_input_placeholder_readonly: "Read-only mode",
     chat_input_placeholder_streaming: "Waiting for response...",
     chat_input_action_send: "Send",
     chat_input_action_stop: "Stop",
@@ -193,6 +196,8 @@ export const uiMessages = {
     chat_empty_no_tools: "请在 MCP 标签页连接服务后再使用工具能力。",
     chat_placeholder_tools: "直接提问...（AI 可搜索网页并读取页面）",
     chat_placeholder_default: "输入消息...",
+    readonly_badge: "只读",
+    readonly_action_blocked: "当前会话为只读模式，无法执行该操作。",
     live_feed_title: "实时执行反馈",
     live_feed_sent: "消息已发送，等待 Agent 开始处理...",
     live_feed_phase_context: "上下文",
@@ -223,6 +228,7 @@ export const uiMessages = {
     server_toggle_failed: "切换服务失败：{reason}",
 
     chat_input_placeholder_connecting: "连接中...",
+    chat_input_placeholder_readonly: "只读模式",
     chat_input_placeholder_streaming: "正在等待回复...",
     chat_input_action_send: "发送",
     chat_input_action_stop: "停止",

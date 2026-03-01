@@ -14,6 +14,7 @@ const RENDERABLE_BLOCK_PATTERN = /```[\s\S]*?```/;
 interface ChatMessageItemProps {
   message: UIMessage;
   isStreaming: boolean;
+  canEdit: boolean;
   isLastMessage: boolean;
   variant?: "bubble" | "docs";
   markdownPrefs?: {
@@ -32,6 +33,7 @@ interface ChatMessageItemProps {
 export const ChatMessageItem = memo(function ChatMessageItem({
   message,
   isStreaming,
+  canEdit,
   isLastMessage,
   variant = "bubble",
   markdownPrefs,
@@ -179,6 +181,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             <Button
               size="xs"
               variant="secondary"
+              disabled={!canEdit}
               onClick={() => {
                 trackChatEvent("message_regenerate", { messageId: message.id, source: "error-card" });
                 void onRegenerate(message.id);
@@ -219,6 +222,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           onDelete={() => onDelete(message.id)}
           onFork={() => onFork(message.id)}
           disabled={isStreaming}
+          disableMutations={!canEdit}
           compact={actionsLayout !== "stack"}
         />
       </div>

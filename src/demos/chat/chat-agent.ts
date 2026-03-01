@@ -1,5 +1,11 @@
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
-import { callable, getAgentByName, type Connection, type ConnectionContext } from "agents";
+import {
+  callable,
+  getAgentByName,
+  getCurrentAgent,
+  type Connection,
+  type ConnectionContext
+} from "agents";
 import {
   generateText,
   streamText,
@@ -98,6 +104,10 @@ type ProgressEmitter = (event: LiveProgressEvent) => void;
  * - Dynamic tool execution
  */
 export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
+  static options = {
+    retry: { maxAttempts: 2, baseDelayMs: 150, maxDelayMs: 1500 }
+  };
+
   // Keep last 100 messages in SQLite storage
   maxPersistedMessages = 100;
 
@@ -269,6 +279,86 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 25000;
   }
 
+  private getToolMaxAttempts(): number {
+    const raw = this.runtimeEnv.CHAT_TOOL_MAX_ATTEMPTS;
+    if (!raw) return 2;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
+  }
+
+  private isRetryableToolError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const lowered = message.toLowerCase();
+    return (
+      lowered.includes("timeout") ||
+      lowered.includes("network") ||
+      lowered.includes("fetch") ||
+      lowered.includes("econnreset") ||
+      lowered.includes("temporar") ||
+      lowered.includes("503") ||
+      lowered.includes("429")
+    );
+  }
+
+  private isRetryableMcpConnectionError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const lowered = message.toLowerCase();
+    return (
+      lowered.includes("timeout") ||
+      lowered.includes("network") ||
+      lowered.includes("fetch") ||
+      lowered.includes("econnreset") ||
+      lowered.includes("temporar") ||
+      lowered.includes("503") ||
+      lowered.includes("429") ||
+      lowered.includes("connection")
+    );
+  }
+
+  private async callMcpToolWithRetry(params: {
+    name: string;
+    serverId: string;
+    arguments: Record<string, unknown>;
+    emitProgress?: ProgressEmitter;
+  }): Promise<unknown> {
+    const timeoutMs = this.getToolTimeoutMs();
+    const maxAttempts = this.getToolMaxAttempts();
+    const retryEnabled = maxAttempts > 1;
+
+    const runner = async (attempt: number) => {
+      if (attempt > 1) {
+        params.emitProgress?.({
+          phase: "tool",
+          status: "info",
+          toolName: params.name,
+          message: `Retrying "${params.name}" (attempt ${attempt}/${maxAttempts})`
+        });
+      }
+
+      return await Promise.race([
+        this.mcp.callTool({
+          name: params.name,
+          serverId: params.serverId,
+          arguments: params.arguments
+        }),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Tool timeout after ${timeoutMs}ms`));
+          }, timeoutMs);
+        })
+      ]);
+    };
+
+    if (!retryEnabled) {
+      return await runner(1);
+    }
+
+    return await this.retry(runner, {
+      maxAttempts,
+      shouldRetry: (error) => this.isRetryableToolError(error)
+    });
+  }
+
   private requiresApprovalPolicy(toolName: string, args: Record<string, unknown>): boolean {
     const lowered = toolName.toLowerCase();
     const dangerousTokens = ["delete", "remove", "drop", "write", "update", "create", "patch"];
@@ -423,19 +513,12 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
                 });
                 return { error };
               }
-              const timeoutMs = this.getToolTimeoutMs();
-              const result = await Promise.race([
-                this.mcp.callTool({
-                  name: rawName,
-                  serverId,
-                  arguments: normalizedArgs
-                }),
-                new Promise<never>((_, reject) => {
-                  setTimeout(() => {
-                    reject(new Error(`Tool timeout after ${timeoutMs}ms`));
-                  }, timeoutMs);
-                })
-              ]);
+              const result = await this.callMcpToolWithRetry({
+                name: rawName,
+                serverId,
+                arguments: normalizedArgs,
+                emitProgress
+              });
               const resultSnippet =
                 typeof result === "string" ? result : JSON.stringify(result, null, 2);
               this.upsertToolRun({
@@ -501,6 +584,11 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     cancelIdleSchedules(this as never);
   }
 
+  shouldConnectionBeReadonly(_connection: Connection, ctx: ConnectionContext): boolean {
+    const url = new URL(ctx.request.url);
+    return url.searchParams.get("mode") === "view";
+  }
+
   onClose(_connection: Connection) {
     scheduleIdleDestroy(this as never, {
       idleTimeoutSeconds: resolveIdleTimeoutSeconds(this.runtimeEnv.AGENT_IDLE_TIMEOUT_SECONDS)
@@ -520,6 +608,22 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   }
 
   async onStart() {
+    this.mcp.configureOAuthCallback({
+      customHandler: (result) => {
+        if (result.authSuccess) {
+          return new Response("<script>window.close();</script>", {
+            headers: { "content-type": "text/html" },
+            status: 200
+          });
+        }
+        const error = result.authError || "Unknown OAuth error";
+        return new Response(`OAuth failed: ${error}`, {
+          headers: { "content-type": "text/plain" },
+          status: 400
+        });
+      }
+    });
+
     const preconfiguredServers: McpServerConnectionState["preconfiguredServers"] = {};
     for (const config of MCP_SERVERS) {
       preconfiguredServers[config.name] = {
@@ -1146,7 +1250,13 @@ IMPORTANT:
         };
       }
 
-      const result = await this.addMcpServer(name, config.url, options);
+      const result = await this.retry(
+        async () => await this.addMcpServer(name, config.url, options),
+        {
+          maxAttempts: this.getToolMaxAttempts(),
+          shouldRetry: (error) => this.isRetryableMcpConnectionError(error)
+        }
+      );
       this.setServerConnectionState(name, {
         serverId: result.id,
         connected: true,
@@ -1187,7 +1297,10 @@ IMPORTANT:
     }
 
     try {
-      await this.removeMcpServer(serverEntry.serverId);
+      await this.retry(async () => await this.removeMcpServer(serverEntry.serverId as string), {
+        maxAttempts: this.getToolMaxAttempts(),
+        shouldRetry: (error) => this.isRetryableMcpConnectionError(error)
+      });
       this.setServerConnectionState(name, {
         serverId: undefined,
         connected: false,
@@ -1271,5 +1384,15 @@ IMPORTANT:
       events: this.state.runtime.events,
       stateVersion: this.state.runtime.stateVersion
     };
+  }
+
+  @callable({ description: "Get current connection permissions" })
+  getPermissions(): { canEdit: boolean; readonly: boolean } {
+    const { connection } = getCurrentAgent();
+    if (!connection) {
+      return { canEdit: false, readonly: true };
+    }
+    const readonly = this.isConnectionReadonly(connection);
+    return { canEdit: !readonly, readonly };
   }
 }

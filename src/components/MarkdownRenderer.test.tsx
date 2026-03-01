@@ -69,6 +69,11 @@ describe("MarkdownRenderer", () => {
 
     expect(screen.getByText("HTML Preview")).toBeInTheDocument();
     expect(screen.getByText("SVG Preview")).toBeInTheDocument();
+    const frame = screen.getByTitle("HTML Preview");
+    const srcDoc = frame.getAttribute("srcdoc") || "";
+    expect(srcDoc).toContain("<!DOCTYPE html>");
+    expect(srcDoc).not.toContain("font-family:ui-sans-serif");
+    expect(frame.className).not.toContain("pointer-events-none");
   });
 
   it("supports markdown feature toggles", () => {

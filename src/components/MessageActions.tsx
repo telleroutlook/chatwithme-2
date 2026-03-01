@@ -31,6 +31,8 @@ interface MessageActionsProps {
   showFork?: boolean;
   /** Whether actions are disabled */
   disabled?: boolean;
+  /** Disable mutating actions while keeping non-mutating actions available */
+  disableMutations?: boolean;
   /** Compact mode for smaller buttons */
   compact?: boolean;
   /** Called when user requests session fork from this message */
@@ -57,6 +59,7 @@ export const MessageActions = memo(function MessageActions({
   showDelete = false,
   showFork = false,
   disabled = false,
+  disableMutations = false,
   compact = true,
   onFork
 }: MessageActionsProps) {
@@ -97,24 +100,24 @@ export const MessageActions = memo(function MessageActions({
   }, [content, disabled, t]);
 
   const handleRegenerate = useCallback(() => {
-    if (disabled || !onRegenerate) return;
+    if (disabled || disableMutations || !onRegenerate) return;
     onRegenerate();
-  }, [onRegenerate, disabled]);
+  }, [onRegenerate, disabled, disableMutations]);
 
   const handleEdit = useCallback(() => {
-    if (disabled || !onEdit) return;
+    if (disabled || disableMutations || !onEdit) return;
     onEdit();
-  }, [onEdit, disabled]);
+  }, [onEdit, disabled, disableMutations]);
 
   const handleDelete = useCallback(() => {
-    if (disabled || !onDelete) return;
+    if (disabled || disableMutations || !onDelete) return;
     onDelete();
-  }, [onDelete, disabled]);
+  }, [onDelete, disabled, disableMutations]);
 
   const handleFork = useCallback(() => {
-    if (disabled || !onFork) return;
+    if (disabled || disableMutations || !onFork) return;
     onFork();
-  }, [disabled, onFork]);
+  }, [disabled, disableMutations, onFork]);
 
   const buttonSize = compact ? "xs" : "sm";
   const iconSize = compact ? 12 : 14;
@@ -144,7 +147,7 @@ export const MessageActions = memo(function MessageActions({
           variant="secondary"
           size={buttonSize}
           onClick={handleRegenerate}
-          disabled={disabled}
+          disabled={disabled || disableMutations}
           icon={<ArrowClockwiseIcon size={iconSize} />}
           aria-label={t("message_actions_regenerate_response")}
         >
@@ -158,7 +161,7 @@ export const MessageActions = memo(function MessageActions({
           variant="secondary"
           size={buttonSize}
           onClick={handleEdit}
-          disabled={disabled}
+          disabled={disabled || disableMutations}
           icon={<PencilSimpleIcon size={iconSize} />}
           aria-label={t("message_actions_edit_message")}
         >
@@ -172,7 +175,7 @@ export const MessageActions = memo(function MessageActions({
           variant="secondary"
           size={buttonSize}
           onClick={handleDelete}
-          disabled={disabled || !onDelete}
+          disabled={disabled || disableMutations || !onDelete}
           icon={<TrashIcon size={iconSize} />}
           aria-label={t("message_actions_delete_message")}
           className="hover:!bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:!text-[var(--app-color-danger)] focus-visible:!ring-[color-mix(in_oklab,var(--app-color-danger)_45%,transparent)]"
@@ -186,7 +189,7 @@ export const MessageActions = memo(function MessageActions({
           variant="secondary"
           size={buttonSize}
           onClick={handleFork}
-          disabled={disabled}
+          disabled={disabled || disableMutations}
           icon={<GitBranchIcon size={iconSize} />}
           aria-label={t("message_actions_fork_message")}
         >

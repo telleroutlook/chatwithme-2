@@ -92,6 +92,27 @@ describe("ChatInput", () => {
     expect(input).toBeDisabled();
   });
 
+  it("should disable input and send in readonly mode", () => {
+    const onSubmit = vi.fn();
+    render(
+      <ChatInput
+        {...defaultProps}
+        isReadOnly={true}
+        value="readonly message"
+        onSubmit={onSubmit}
+      />
+    );
+
+    const input = screen.getByRole("textbox");
+    expect(input).toBeDisabled();
+    expect(screen.getByPlaceholderText("Read-only mode")).toBeInTheDocument();
+
+    const sendButton = screen.getByLabelText("Send");
+    expect(sendButton).toBeDisabled();
+    fireEvent.click(sendButton);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("should show character count when showCharCount is true", () => {
     render(<ChatInput {...defaultProps} value="Hello" showCharCount={true} />);
 
@@ -145,5 +166,19 @@ describe("SimpleChatInput", () => {
     render(<SimpleChatInput {...defaultProps} isStreaming={true} onStop={onStop} />);
 
     expect(screen.getByText("Stop")).toBeInTheDocument();
+  });
+
+  it("should disable simple input in readonly mode", () => {
+    const onSubmit = vi.fn();
+    render(<SimpleChatInput {...defaultProps} isReadOnly={true} value="readonly" onSubmit={onSubmit} />);
+
+    const input = screen.getByRole("textbox");
+    expect(input).toBeDisabled();
+    expect(screen.getByPlaceholderText("Read-only mode")).toBeInTheDocument();
+
+    const sendButton = screen.getByLabelText("Send");
+    expect(sendButton).toBeDisabled();
+    fireEvent.click(sendButton);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

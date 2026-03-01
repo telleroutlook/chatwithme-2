@@ -20,6 +20,8 @@ interface ChatPaneProps {
   messages: UIMessage[];
   isStreaming: boolean;
   isConnected: boolean;
+  canEdit: boolean;
+  isReadonly: boolean;
   activeToolsCount: number;
   mcpConnectedServers: number;
   mcpTotalServers: number;
@@ -44,6 +46,8 @@ export function ChatPane({
   messages,
   isStreaming,
   isConnected,
+  canEdit,
+  isReadonly,
   activeToolsCount,
   mcpConnectedServers,
   mcpTotalServers,
@@ -91,6 +95,7 @@ export function ChatPane({
                 MCP {mcpConnectedServers}/{mcpTotalServers}
               </Badge>
               <Badge variant="secondary">{t("tabs_tools_count", { count: String(activeToolsCount) })}</Badge>
+              {isReadonly && <Badge variant="secondary">{t("readonly_badge")}</Badge>}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -167,6 +172,7 @@ export function ChatPane({
           <ChatMessageList
             messages={messages}
             isStreaming={isStreaming}
+            canEdit={canEdit}
             variant={messageVariant}
             markdownPrefs={markdownPrefs}
             activeToolsCount={activeToolsCount}
@@ -244,6 +250,7 @@ export function ChatPane({
           commandSuggestions={commandSuggestions}
           isStreaming={isStreaming}
           isConnected={isConnected}
+          isReadOnly={isReadonly}
           placeholder={
             activeToolsCount > 0 ? t("chat_placeholder_tools") : t("chat_placeholder_default")
           }

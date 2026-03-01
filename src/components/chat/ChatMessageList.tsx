@@ -6,6 +6,7 @@ import { ChatMessageItem } from "./ChatMessageItem";
 interface ChatMessageListProps {
   messages: UIMessage[];
   isStreaming: boolean;
+  canEdit: boolean;
   variant?: "bubble" | "docs";
   markdownPrefs?: {
     enableAlerts: boolean;
@@ -24,6 +25,7 @@ interface ChatMessageListProps {
 export function ChatMessageList({
   messages,
   isStreaming,
+  canEdit,
   variant = "bubble",
   markdownPrefs,
   activeToolsCount,
@@ -57,6 +59,7 @@ export function ChatMessageList({
           key={message.id}
           message={message}
           isStreaming={isStreaming}
+          canEdit={canEdit}
           isLastMessage={index === messages.length - 1}
           variant={variant}
           markdownPrefs={markdownPrefs}

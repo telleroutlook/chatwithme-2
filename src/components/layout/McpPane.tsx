@@ -24,6 +24,7 @@ interface McpPaneProps {
   preconfiguredServerList: Array<[string, PreconfiguredServer]>;
   togglingServer: string | null;
   onToggleServer: (name: string) => void;
+  canEdit: boolean;
   mcpTools: Array<{ name: string; serverId?: string; [key: string]: unknown }>;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
@@ -33,6 +34,7 @@ export function McpPane({
   preconfiguredServerList,
   togglingServer,
   onToggleServer,
+  canEdit,
   mcpTools,
   t
 }: McpPaneProps) {
@@ -113,6 +115,7 @@ export function McpPane({
                       ) : (
                         <Switch
                           checked={server.connected}
+                          disabled={!canEdit}
                           onChange={() => onToggleServer(name)}
                           aria-label={t("mcp_toggle_server", { name })}
                         />

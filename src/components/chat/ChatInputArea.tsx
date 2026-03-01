@@ -11,6 +11,7 @@ interface ChatInputAreaProps {
   onStop: () => void;
   isStreaming: boolean;
   isConnected: boolean;
+  isReadOnly?: boolean;
   placeholder: string;
   commandSuggestions: CommandSuggestionItem[];
   topAddons?: ReactNode;
@@ -24,6 +25,7 @@ export function ChatInputArea({
   onStop,
   isStreaming,
   isConnected,
+  isReadOnly = false,
   placeholder,
   commandSuggestions,
   topAddons,
@@ -61,6 +63,7 @@ export function ChatInputArea({
         commandSuggestions={commandSuggestions}
         isStreaming={isStreaming}
         isConnected={isConnected}
+        isReadOnly={isReadOnly}
         placeholder={placeholder}
         multiline={true}
         minRows={expanded ? 6 : 3}
