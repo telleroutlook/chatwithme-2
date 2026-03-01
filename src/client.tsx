@@ -126,6 +126,7 @@ function App() {
   const [liveProgress, setLiveProgress] = useState<LiveProgressEntry[]>([]);
   const [awaitingFirstAssistant, setAwaitingFirstAssistant] = useState(false);
   const historyLoadMarkerRef = useRef<string>("");
+  const activeSessionRef = useRef<string>(currentSessionId);
   const [preferRestFallback] = useState(() => {
     if (typeof navigator === "undefined") return false;
     return /firefox/i.test(navigator.userAgent);
@@ -144,6 +145,7 @@ function App() {
   // Save current session ID when changed
   useEffect(() => {
     localStorage.setItem("currentSessionId", currentSessionId);
+    activeSessionRef.current = currentSessionId;
   }, [currentSessionId]);
 
   // Agent connection
@@ -163,6 +165,8 @@ function App() {
   // useAgentChat hook for AIChatAgent integration
   const { messages, sendMessage, status, stop, setMessages } = useAgentChat({
     agent,
+    getInitialMessages: null,
+    resume: false,
     onToolCall: async ({ toolCall }) => {
       // Handle client-side tools if needed
       console.log("Tool call:", toolCall);
@@ -177,6 +181,18 @@ function App() {
   const isStreaming = status === "streaming";
   const isConnected = connectionStatus === "connected";
   const shouldUseRestFallback = preferRestFallback || !isConnected;
+  const [restMessages, setRestMessages] = useState<UIMessage[]>([]);
+  const chatMessages = shouldUseRestFallback ? restMessages : messages;
+  const setChatMessages = useCallback(
+    (next: UIMessage[] | ((prev: UIMessage[]) => UIMessage[])) => {
+      if (shouldUseRestFallback) {
+        setRestMessages((prev) => (typeof next === "function" ? next(prev) : next));
+        return;
+      }
+      setMessages((prev) => (typeof next === "function" ? next(prev) : next));
+    },
+    [setMessages, shouldUseRestFallback]
+  );
 
   const requestJson = useCallback(
     async <T,>(input: RequestInfo | URL, init?: RequestInit): Promise<T> => {
@@ -227,9 +243,6 @@ function App() {
   }, [connectionStatus, loadPreconfiguredServers, shouldUseRestFallback]);
 
   useEffect(() => {
-    if (!shouldUseRestFallback) {
-      return;
-    }
     const loadingKey = `loading:${currentSessionId}`;
     const doneKey = `done:${currentSessionId}`;
     if (historyLoadMarkerRef.current === loadingKey || historyLoadMarkerRef.current === doneKey) {
@@ -244,16 +257,16 @@ function App() {
           success: boolean;
           history: Array<{ id?: string; role: string; content: string }>;
         }>(`/api/chat/history?sessionId=${encodeURIComponent(currentSessionId)}`);
-        if (cancelled) return;
+        if (cancelled || activeSessionRef.current !== currentSessionId) return;
         const nextMessages = data.history.map((item, index) => ({
           id: item.id ?? `${item.role}-${index}`,
           role: item.role as "user" | "assistant" | "system",
           parts: [{ type: "text", text: item.content }]
         })) as UIMessage[];
-        setMessages(nextMessages);
+        setChatMessages(nextMessages);
         historyLoadMarkerRef.current = doneKey;
       } catch (error) {
-        console.error("Failed to load history via REST fallback:", error);
+        console.error("Failed to load session history:", error);
         historyLoadMarkerRef.current = "";
       }
     };
@@ -261,12 +274,12 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId, requestJson, setMessages, shouldUseRestFallback]);
+  }, [currentSessionId, requestJson, setChatMessages]);
 
   // Hide live progress panel once assistant content starts arriving.
   useEffect(() => {
     if (!awaitingFirstAssistant) return;
-    const hasAssistantContent = messages.some(
+    const hasAssistantContent = chatMessages.some(
       (msg) =>
         msg.role === "assistant" &&
         getMessageText(msg)
@@ -278,17 +291,17 @@ function App() {
       setAwaitingFirstAssistant(false);
       setLiveProgress([]);
     }
-  }, [messages, awaitingFirstAssistant]);
+  }, [chatMessages, awaitingFirstAssistant]);
 
   // Update session meta when messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
+    if (chatMessages.length > 0) {
+      const lastMsg = chatMessages[chatMessages.length - 1];
       const text = getMessageText(lastMsg);
 
       // Only update on assistant messages
       if (lastMsg.role === "assistant" && text) {
-        const firstUserMsg = messages.find((m) => m.role === "user");
+        const firstUserMsg = chatMessages.find((m) => m.role === "user");
         const title = firstUserMsg
           ? getMessageText(firstUserMsg).slice(0, 30) +
             (getMessageText(firstUserMsg).length > 30 ? "..." : "")
@@ -298,32 +311,45 @@ function App() {
           title,
           lastMessage: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
           timestamp: new Date().toISOString(),
-          messageCount: messages.length
+          messageCount: chatMessages.length
         });
         setSessions(loadSessions());
       }
     }
-  }, [messages, currentSessionId]);
+  }, [chatMessages, currentSessionId]);
 
   // Create new session
   const handleNewSession = useCallback(() => {
     const newId = nanoid(8);
+    stop();
+    historyLoadMarkerRef.current = "";
+    setChatMessages([]);
+    updateSessionMeta(newId, {
+      title: t("session_new"),
+      lastMessage: "",
+      timestamp: new Date().toISOString(),
+      messageCount: 0
+    });
+    setSessions(loadSessions());
     setCurrentSessionId(newId);
     setConnectionStatus("connecting");
     setAwaitingFirstAssistant(false);
     setLiveProgress([]);
-  }, []);
+  }, [setChatMessages, stop, t]);
 
   // Switch session
   const handleSelectSession = useCallback(
     (sessionId: string) => {
       if (sessionId === currentSessionId) return;
+      stop();
+      historyLoadMarkerRef.current = "";
+      setChatMessages([]);
       setCurrentSessionId(sessionId);
       setConnectionStatus("connecting");
       setAwaitingFirstAssistant(false);
       setLiveProgress([]);
     },
-    [currentSessionId]
+    [currentSessionId, setChatMessages, stop]
   );
 
   // Delete session
@@ -364,8 +390,8 @@ function App() {
           return;
         }
 
-        const nextMessages = messages.filter((msg) => msg.id !== messageId);
-        setMessages(nextMessages);
+        const nextMessages = chatMessages.filter((msg) => msg.id !== messageId);
+        setChatMessages(nextMessages);
 
         const lastMsg = nextMessages[nextMessages.length - 1];
         const lastText = lastMsg ? getMessageText(lastMsg) : "";
@@ -390,7 +416,7 @@ function App() {
         );
       }
     },
-    [agent, addToast, currentSessionId, messages, requestJson, setMessages, shouldUseRestFallback, t]
+    [agent, addToast, chatMessages, currentSessionId, requestJson, setChatMessages, shouldUseRestFallback, t]
   );
 
   const handleEditMessage = useCallback(
@@ -414,7 +440,7 @@ function App() {
           return;
         }
 
-        const nextMessages = messages.map((message) => {
+        const nextMessages = chatMessages.map((message) => {
           if (message.id !== messageId || message.role !== "user" || !Array.isArray(message.parts)) {
             return message;
           }
@@ -425,7 +451,7 @@ function App() {
           return { ...message, parts: nextParts };
         });
 
-        setMessages(nextMessages);
+        setChatMessages(nextMessages);
         addToast(t("message_edit_success"), "success");
       } catch (error) {
         console.error("Failed to edit message:", error);
@@ -437,7 +463,7 @@ function App() {
         );
       }
     },
-    [agent, addToast, currentSessionId, messages, requestJson, setMessages, shouldUseRestFallback, t]
+    [agent, addToast, chatMessages, currentSessionId, requestJson, setChatMessages, shouldUseRestFallback, t]
   );
 
   const handleRegenerateMessage = useCallback(
@@ -459,8 +485,8 @@ function App() {
         }
 
         if (result.response) {
-          setMessages([
-            ...messages,
+          setChatMessages((prev) => [
+            ...prev,
             {
               id: nanoid(),
               role: "assistant",
@@ -480,7 +506,7 @@ function App() {
         );
       }
     },
-    [agent, addToast, currentSessionId, messages, requestJson, setMessages, shouldUseRestFallback, t]
+    [agent, addToast, currentSessionId, requestJson, setChatMessages, shouldUseRestFallback, t]
   );
 
   const handleForkSession = useCallback(
@@ -619,8 +645,8 @@ function App() {
         role: "user",
         parts: [{ type: "text", text }]
       };
-      const historyWithUser = [...messages, userMessage];
-      setMessages(historyWithUser);
+      const historyWithUser = [...chatMessages, userMessage];
+      setChatMessages(historyWithUser);
       void (async () => {
         try {
           const data = await requestJson<{ success: boolean; response: string }>("/api/chat", {
@@ -633,7 +659,7 @@ function App() {
             role: "assistant",
             parts: [{ type: "text", text: data.response }]
           };
-          setMessages([...historyWithUser, assistantMessage]);
+          setChatMessages([...historyWithUser, assistantMessage]);
         } catch (error) {
           addToast(
             t("server_toggle_failed", {
@@ -657,10 +683,10 @@ function App() {
     input,
     isStreaming,
     currentSessionId,
-    messages,
+    chatMessages,
     requestJson,
     sendMessage,
-    setMessages,
+    setChatMessages,
     sessions,
     shouldUseRestFallback,
     stop,
@@ -713,10 +739,10 @@ function App() {
 
   const sourceGroupsCount = useMemo(
     () =>
-      messages.reduce((sum, message) => {
+      chatMessages.reduce((sum, message) => {
         return sum + extractMessageSources(message.parts).length;
       }, 0),
-    [messages]
+    [chatMessages]
   );
 
   // Format relative time
@@ -818,7 +844,7 @@ function App() {
           <main className="min-h-0 min-w-0 flex-1">
             {activeTab === "chat" ? (
               <ChatPane
-                messages={messages}
+                messages={chatMessages}
                 isStreaming={isStreaming}
                 isConnected={isConnected}
                 activeToolsCount={activeToolsCount}
