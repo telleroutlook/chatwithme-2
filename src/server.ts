@@ -6,6 +6,7 @@ import { routeAgentRequest, getAgentByName } from "agents";
 import {
   chatBodySchema,
   chatHistoryQuerySchema,
+  chatSessionsQuerySchema,
   deleteSessionQuerySchema,
   deleteMessageQuerySchema,
   editBodySchema,
@@ -35,6 +36,16 @@ app.use("*", async (c, next) => {
 
 function resolveSessionId(input: { sessionId: string }): string {
   return input.sessionId.trim();
+}
+
+function parseSessionIds(raw: string | undefined): string[] {
+  if (!raw) return [];
+  const ids = raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 120);
+  return ids.filter((id) => /^[a-zA-Z0-9_-]{1,128}$/.test(id));
 }
 
 const validateJson = (schema: z.ZodTypeAny) =>
@@ -67,6 +78,7 @@ app.post("/api/chat", validateJson(chatBodySchema), async (c) => {
 });
 
 app.get("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c) => {
+  const start = Date.now();
   try {
     const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
     const sessionId = resolveSessionId(query);
@@ -76,10 +88,59 @@ app.get("/api/chat/history", validateQuery(chatHistoryQuerySchema), async (c) =>
 
     return successJson(c, {
       history,
-      sessionId
+      sessionId,
+      traceId: c.get("requestId"),
+      tookMs: Date.now() - start
     });
   } catch (error) {
     return errorJson(c, 500, "CHAT_HISTORY_FAILED", unknownErrorMessage(error));
+  }
+});
+
+app.get("/api/chat/sessions", validateQuery(chatSessionsQuerySchema), async (c) => {
+  const start = Date.now();
+  try {
+    const query = c.req.valid("query") as z.infer<typeof chatSessionsQuerySchema>;
+    const requestedSessionIds = parseSessionIds(query.sessionIds);
+
+    const sessions = await Promise.all(
+      requestedSessionIds.map(async (sessionId) => {
+        try {
+          const agent = await getAgentByName(c.env.ChatAgentV2, sessionId);
+          const history = await agent.getHistory();
+          const normalized = Array.isArray(history) ? history : [];
+          const last = normalized[normalized.length - 1];
+          const now = new Date().toISOString();
+          return {
+            sessionId,
+            title:
+              normalized.find((item) => item.role === "user")?.content?.slice(0, 30) ||
+              "New Chat",
+            lastMessage: last?.content?.slice(0, 200) || "",
+            messageCount: normalized.length,
+            updatedAt: now,
+            health: normalized.length > 0 ? ("healthy" as const) : ("stale" as const)
+          };
+        } catch {
+          return {
+            sessionId,
+            title: "New Chat",
+            lastMessage: "",
+            messageCount: 0,
+            updatedAt: new Date().toISOString(),
+            health: "stale" as const
+          };
+        }
+      })
+    );
+
+    return successJson(c, {
+      sessions,
+      traceId: c.get("requestId"),
+      tookMs: Date.now() - start
+    });
+  } catch (error) {
+    return errorJson(c, 500, "CHAT_SESSIONS_FAILED", unknownErrorMessage(error));
   }
 });
 

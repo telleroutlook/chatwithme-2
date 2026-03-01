@@ -4,12 +4,16 @@ export interface SessionMeta {
   lastMessage: string;
   timestamp: string;
   messageCount: number;
+  health?: "healthy" | "stale" | "orphaned";
+  mismatchCount?: number;
+  lastSyncedAt?: string;
+  source?: "server" | "local-fallback";
 }
 
 const SESSIONS_KEY = "chatwithme_sessions";
 const CURRENT_SESSION_KEY = "currentSessionId";
 const SESSION_STORAGE_VERSION_KEY = "chatwithme_session_storage_version";
-const SESSION_STORAGE_VERSION = "v2";
+const SESSION_STORAGE_VERSION = "v3";
 
 function migrateSessionStorageIfNeeded(): void {
   const current = localStorage.getItem(SESSION_STORAGE_VERSION_KEY);
@@ -36,7 +40,16 @@ export function loadSessions(): SessionMeta[] {
   migrateSessionStorageIfNeeded();
   try {
     const data = localStorage.getItem(SESSIONS_KEY);
-    return data ? (JSON.parse(data) as SessionMeta[]) : [];
+    if (!data) return [];
+    const raw = JSON.parse(data) as SessionMeta[];
+    return Array.isArray(raw)
+      ? raw.map((session) => ({
+          ...session,
+          health: session.health ?? "healthy",
+          mismatchCount: Number.isFinite(session.mismatchCount) ? session.mismatchCount : 0,
+          source: session.source ?? "local-fallback"
+        }))
+      : [];
   } catch {
     return [];
   }
@@ -61,6 +74,9 @@ export function updateSessionMeta(sessionId: string, updates: Partial<SessionMet
       lastMessage: "",
       timestamp: new Date().toISOString(),
       messageCount: 0,
+      health: "healthy",
+      mismatchCount: 0,
+      source: "local-fallback",
       ...updates
     });
   }

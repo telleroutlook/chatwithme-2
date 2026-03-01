@@ -42,6 +42,14 @@ export const chatHistoryQuerySchema = z.object({
   sessionId: sessionIdSchema
 });
 
+export const chatSessionsQuerySchema = z.object({
+  sessionIds: z
+    .string()
+    .trim()
+    .max(4000, "sessionIds too long")
+    .optional()
+});
+
 export const deleteSessionQuerySchema = chatHistoryQuerySchema;
 
 export const deleteMessageQuerySchema = chatHistoryQuerySchema.extend({
@@ -54,6 +62,7 @@ export type RegenerateBody = z.infer<typeof regenerateBodySchema>;
 export type ForkBody = z.infer<typeof forkBodySchema>;
 export type McpServerBody = z.infer<typeof mcpServerBodySchema>;
 export type ChatHistoryQuery = z.infer<typeof chatHistoryQuerySchema>;
+export type ChatSessionsQuery = z.infer<typeof chatSessionsQuerySchema>;
 export type DeleteSessionQuery = z.infer<typeof deleteSessionQuerySchema>;
 export type DeleteMessageQuery = z.infer<typeof deleteMessageQuerySchema>;
 export type ToolApprovalDecisionBody = z.infer<typeof toolApprovalDecisionBodySchema>;

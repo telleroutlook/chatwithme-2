@@ -33,10 +33,8 @@ import {
   saveSessions,
   updateSessionMeta,
   deleteSessionMeta,
-  remapSessionMeta,
   type SessionMeta
 } from "./features/chat/services/sessionMeta";
-import { callApi } from "./features/chat/services/apiClient";
 import {
   appendLiveProgressEntry,
   parseLiveProgressPart,
@@ -60,6 +58,7 @@ import { buildObservabilitySnapshot } from "./features/chat/services/observabili
 import {
   createChatTransport,
   type ChatHistoryItem,
+  type ChatSessionSummary,
   type ConnectionPermissions,
   type PreconfiguredServer
 } from "./features/chat/services/chatTransport";
@@ -120,6 +119,50 @@ function buildHistorySignature(history: ChatHistoryItem[]): string {
   return history
     .map((item) => `${item.id ?? ""}|${item.role}|${item.content ?? ""}`)
     .join("\u001f");
+}
+
+function mergeSessionsWithServer(
+  localSessions: SessionMeta[],
+  serverSessions: ChatSessionSummary[],
+  nowIso: string
+): SessionMeta[] {
+  const serverById = new Map(serverSessions.map((item) => [item.sessionId, item]));
+  return localSessions.map((local) => {
+    const remote = serverById.get(local.id);
+    if (!remote) {
+      const nextMismatch = (local.mismatchCount ?? 0) + 1;
+      return {
+        ...local,
+        health: nextMismatch >= 3 ? "orphaned" : "stale",
+        mismatchCount: nextMismatch,
+        lastSyncedAt: nowIso,
+        source: "local-fallback"
+      };
+    }
+
+    if (remote.messageCount === 0 && (local.messageCount > 0 || local.lastMessage.trim().length > 0)) {
+      const nextMismatch = (local.mismatchCount ?? 0) + 1;
+      return {
+        ...local,
+        health: nextMismatch >= 3 ? "orphaned" : "stale",
+        mismatchCount: nextMismatch,
+        lastSyncedAt: nowIso,
+        source: "server"
+      };
+    }
+
+    return {
+      ...local,
+      title: remote.title || local.title,
+      lastMessage: remote.lastMessage || local.lastMessage,
+      timestamp: remote.updatedAt || local.timestamp,
+      messageCount: remote.messageCount,
+      health: remote.health,
+      mismatchCount: 0,
+      lastSyncedAt: nowIso,
+      source: "server"
+    };
+  });
 }
 
 interface RuntimeApprovalItem {
@@ -194,7 +237,15 @@ function App() {
   const [liveProgress, setLiveProgress] = useState<LiveProgressEntry[]>([]);
   const [awaitingFirstAssistant, setAwaitingFirstAssistant] = useState(false);
   const [awaitingAssistantFromIndex, setAwaitingAssistantFromIndex] = useState<number | null>(null);
-  const hasReconciledSessionsRef = useRef(false);
+  const syncSessionsRef = useRef<((reason: string, delayMs?: number) => void) | null>(null);
+  const syncSessionsInFlightRef = useRef<Promise<void> | null>(null);
+  const syncDebounceTimerRef = useRef<number | null>(null);
+  const syncLastStartRef = useRef(0);
+  const identityBypassRef = useRef<string | null>(null);
+  const recentCloseAtRef = useRef<number[]>([]);
+  const degradeUntilRef = useRef(0);
+  const isHydratingRef = useRef(false);
+  const isResumingRef = useRef(false);
   const loadHistoryRef = useRef<() => Promise<ChatHistoryItem[]>>(async () => []);
   const hydrateCooldownRef = useRef<{ sessionId: string; at: number } | null>(null);
   const lastHydratedSignatureRef = useRef<{ sessionId: string; signature: string } | null>(null);
@@ -213,40 +264,74 @@ function App() {
       (resolvedSessionId: string) => {
         const normalized = resolvedSessionId.trim();
         if (!normalized || normalized === currentSessionId) return;
-
-        remapSessionMeta(currentSessionId, normalized);
-        setSessions(loadSessions());
-        setCurrentSessionId(normalized);
-        saveCurrentSessionId(normalized);
-        setConnectionStatus("connecting");
-        setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
-        setIsLoading(true);
-        setPendingApprovals([]);
-        setAwaitingFirstAssistant(false);
-        setAwaitingAssistantFromIndex(null);
-        setLiveProgress([]);
+        if (identityBypassRef.current && identityBypassRef.current === normalized) {
+          identityBypassRef.current = null;
+          return;
+        }
         addEventLog({
-          level: "info",
+          level: "error",
           source: "system",
-          type: "session_identity_remap",
-          message: `Session identity remapped from ${currentSessionId} to ${normalized}.`,
+          type: "session_identity_drift",
+          message: "Unexpected identity mismatch detected. Keeping local session binding.",
           data: {
-            previousSessionId: currentSessionId,
+            currentSessionId,
             resolvedSessionId: normalized
           }
         });
       },
-      [addEventLog, currentSessionId, readonlyMode]
+      [addEventLog, currentSessionId]
     ),
-    onClose: useCallback(() => {
+    onClose: useCallback((event: CloseEvent) => {
+      const now = Date.now();
+      recentCloseAtRef.current = recentCloseAtRef.current
+        .filter((time) => now - time < 60_000)
+        .concat(now);
+      if (recentCloseAtRef.current.length >= 3) {
+        degradeUntilRef.current = now + 60_000;
+      }
       setConnectionStatus("disconnected");
+      trackChatEvent("connection_close", {
+        sessionId: currentSessionId,
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean
+      });
       addEventLog({
         level: "error",
         source: "system",
         type: "connection_closed",
-        message: "Agent connection closed."
+        message: "Agent connection closed.",
+        data: {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        }
       });
-    }, [addEventLog]),
+    }, [addEventLog, currentSessionId]),
+    onIdentityChange: useCallback(
+      (oldName: string, newName: string) => {
+        addEventLog({
+          level: "error",
+          source: "system",
+          type: "session_identity_change",
+          message: `Identity changed on reconnect: ${oldName} -> ${newName}`,
+          data: { oldName, newName }
+        });
+        const stale = loadSessions().map((session) =>
+          session.id === oldName
+            ? {
+                ...session,
+                health: "stale" as const,
+                mismatchCount: (session.mismatchCount ?? 0) + 1,
+                lastSyncedAt: new Date().toISOString()
+              }
+            : session
+        );
+        saveSessions(stale);
+        setSessions(stale);
+      },
+      [addEventLog]
+    ),
     onMcpUpdate: useCallback((mcpServers: MCPServersState) => {
       setMcpState(mcpServers);
     }, []),
@@ -263,13 +348,33 @@ function App() {
     }, []),
     onOpen: useCallback(() => {
       setConnectionStatus("connected");
+      trackChatEvent("connection_open", { sessionId: currentSessionId });
       addEventLog({
         level: "success",
         source: "system",
         type: "connection_open",
         message: "Agent connection established."
       });
-    }, [addEventLog])
+      if (Date.now() < degradeUntilRef.current) {
+        return;
+      }
+      syncSessionsRef.current?.("reconnect", 0);
+    }, [addEventLog, currentSessionId]),
+    onError: useCallback(
+      (event: Event) => {
+        trackChatEvent("connection_error", { sessionId: currentSessionId });
+        addEventLog({
+          level: "error",
+          source: "system",
+          type: "connection_error",
+          message: "Agent connection error.",
+          data: {
+            eventType: event.type
+          }
+        });
+      },
+      [addEventLog, currentSessionId]
+    )
   });
 
   // useAgentChat hook for AIChatAgent integration
@@ -305,6 +410,10 @@ function App() {
     [setMessages]
   );
 
+  useEffect(() => {
+    isResumingRef.current = status !== "ready";
+  }, [status]);
+
   const chatTransport = useMemo(
     () =>
       createChatTransport({
@@ -332,112 +441,118 @@ function App() {
     return await chatTransport.getHistory();
   }, [chatTransport]);
 
+  const syncSessions = useCallback(
+    async (reason = "manual") => {
+      if (syncSessionsInFlightRef.current) {
+        trackChatEvent("history_fetch_deduped", { reason });
+        return await syncSessionsInFlightRef.current;
+      }
+
+      const run = async () => {
+        const currentLocal = loadSessions();
+        if (currentLocal.length === 0) {
+          setSessions([]);
+          return;
+        }
+        const ids = Array.from(new Set(currentLocal.map((session) => session.id)));
+        try {
+          const remote = await chatTransport.getSessions(ids);
+          const nowIso = new Date().toISOString();
+          const merged = mergeSessionsWithServer(currentLocal, remote, nowIso);
+          saveSessions(merged);
+          setSessions(merged);
+          trackChatEvent("sessions_sync", { reason, count: merged.length, source: "server" });
+        } catch (error) {
+          const stale = currentLocal.map((session) => ({
+            ...session,
+            health: "stale" as const,
+            mismatchCount: (session.mismatchCount ?? 0) + 1,
+            lastSyncedAt: new Date().toISOString(),
+            source: "local-fallback" as const
+          }));
+          saveSessions(stale);
+          setSessions(stale);
+          trackChatEvent("sessions_sync", {
+            reason,
+            count: stale.length,
+            source: "local-fallback",
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      };
+
+      syncSessionsInFlightRef.current = run();
+      try {
+        await syncSessionsInFlightRef.current;
+      } finally {
+        syncSessionsInFlightRef.current = null;
+      }
+    },
+    [chatTransport]
+  );
+
+  const enqueueSessionSync = useCallback(
+    (reason: string, delayMs = 1500) => {
+      const now = Date.now();
+      if (syncSessionsInFlightRef.current) {
+        return;
+      }
+      const minInterval = 5000;
+      const elapsed = now - syncLastStartRef.current;
+      const appliedDelay = elapsed < minInterval ? Math.max(delayMs, minInterval - elapsed) : delayMs;
+      if (syncDebounceTimerRef.current !== null) {
+        window.clearTimeout(syncDebounceTimerRef.current);
+      }
+      syncDebounceTimerRef.current = window.setTimeout(() => {
+        syncDebounceTimerRef.current = null;
+        syncLastStartRef.current = Date.now();
+        void syncSessions(reason);
+      }, appliedDelay);
+    },
+    [syncSessions]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (syncDebounceTimerRef.current !== null) {
+        window.clearTimeout(syncDebounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    syncSessionsRef.current = enqueueSessionSync;
+    return () => {
+      syncSessionsRef.current = null;
+    };
+  }, [enqueueSessionSync]);
+
   useEffect(() => {
     loadHistoryRef.current = loadHistory;
   }, [loadHistory]);
 
-  // Reconcile local session metadata with server history on startup.
   useEffect(() => {
-    if (hasReconciledSessionsRef.current) return;
-    hasReconciledSessionsRef.current = true;
-
-    let cancelled = false;
-
-    const fetchHistoryForSession = async (sessionId: string): Promise<ChatHistoryItem[]> => {
-      const response = await callApi<{ history: ChatHistoryItem[] }>(
-        `/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`
-      );
-      return Array.isArray(response.history) ? response.history : [];
-    };
-
-    const reconcileSessions = async () => {
-      const stored = loadSessions();
-      setSessions(stored);
-      if (stored.length === 0) return;
-
-      const validSessionIds = new Set<string>();
-      const workers = Array.from({ length: 3 }, async (_, workerIndex) => {
-        for (let i = workerIndex; i < stored.length; i += 3) {
-          const session = stored[i];
-          try {
-            const history = await fetchHistoryForSession(session.id);
-            const hasLocalSnapshot =
-              session.messageCount > 0 || session.lastMessage.trim().length > 0;
-            const invalid = hasLocalSnapshot && history.length === 0;
-            if (!invalid) {
-              validSessionIds.add(session.id);
-            }
-          } catch {
-            // Keep session when verification fails to avoid destructive false positives.
-            validSessionIds.add(session.id);
-          }
-        }
-      });
-
-      await Promise.all(workers);
-      if (cancelled) return;
-
-      const filtered = stored.filter((session) => validSessionIds.has(session.id));
-      if (filtered.length === stored.length) return;
-
-      saveSessions(filtered);
-      setSessions(filtered);
-
-      const currentStillValid = filtered.some((session) => session.id === currentSessionId);
-      if (currentStillValid) return;
-
-      if (filtered.length > 0) {
-        stop();
-        setChatMessages([]);
-        setCurrentSessionId(filtered[0].id);
-        setConnectionStatus("connecting");
-        setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
-        setIsLoading(true);
-        setPreconfiguredServers({});
-        setPendingApprovals([]);
-        setAwaitingFirstAssistant(false);
-        setAwaitingAssistantFromIndex(null);
-        setLiveProgress([]);
-        return;
-      }
-
-      const newId = nanoid(8);
-      updateSessionMeta(newId, {
-        title: t("session_new"),
-        lastMessage: "",
-        timestamp: new Date().toISOString(),
-        messageCount: 0
-      });
-      setSessions(loadSessions());
-      setCurrentSessionId(newId);
-      setConnectionStatus("connecting");
-      setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
-      setIsLoading(true);
-      setPreconfiguredServers({});
-      setPendingApprovals([]);
-      setAwaitingFirstAssistant(false);
-      setAwaitingAssistantFromIndex(null);
-      setLiveProgress([]);
-    };
-
-    void reconcileSessions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentSessionId, readonlyMode, setChatMessages, stop, t]);
+    const stored = loadSessions();
+    setSessions(stored);
+    if (stored.length === 0) return;
+    enqueueSessionSync("startup", 0);
+  }, [enqueueSessionSync]);
 
   // Hydrate session history on session switch even when websocket reconnect is unstable.
   useEffect(() => {
     let cancelled = false;
 
     const hydrateHistory = async () => {
+      if (isHydratingRef.current) return;
+      if (isResumingRef.current) return;
+      if (connectionStatus === "disconnected") return;
       const now = Date.now();
       const cooldown = hydrateCooldownRef.current;
-      if (cooldown && cooldown.sessionId === currentSessionId && now - cooldown.at < 1200) {
+      if (cooldown && cooldown.sessionId === currentSessionId && now - cooldown.at < 3000) {
         return;
       }
       hydrateCooldownRef.current = { sessionId: currentSessionId, at: now };
+      isHydratingRef.current = true;
 
       try {
         const history = await loadHistoryRef.current();
@@ -462,6 +577,8 @@ function App() {
       } catch (error) {
         if (cancelled) return;
         console.error("Failed to hydrate chat history:", error);
+      } finally {
+        isHydratingRef.current = false;
       }
     };
 
@@ -470,12 +587,34 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId, setChatMessages]);
+  }, [connectionStatus, currentSessionId, setChatMessages]);
 
   useEffect(() => {
     if (connectionStatus !== "connected") return;
     void loadPermissions();
   }, [connectionStatus, loadPermissions]);
+
+  useEffect(() => {
+    enqueueSessionSync("session_switch");
+  }, [currentSessionId, enqueueSessionSync]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      enqueueSessionSync("interval", 0);
+    }, 45000);
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      enqueueSessionSync("visibility", 0);
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [enqueueSessionSync]);
 
   // Hide live progress panel once assistant content starts arriving.
   useEffect(() => {
@@ -520,9 +659,10 @@ function App() {
           messageCount: chatMessages.length
         });
         setSessions(loadSessions());
+        enqueueSessionSync("assistant_message");
       }
     }
-  }, [chatMessages, currentSessionId]);
+  }, [chatMessages, currentSessionId, enqueueSessionSync]);
 
   // Create new session
   const handleNewSession = useCallback(() => {
@@ -594,6 +734,7 @@ function App() {
           addToast(t("session_delete_pending_destroy"), "info");
         }
         addToast(t("session_deleted"), "success");
+        enqueueSessionSync("delete_session");
       } catch (error) {
         console.error("Failed to delete session:", error);
         addToast(
@@ -611,6 +752,7 @@ function App() {
       handleNewSession,
       handleSelectSession,
       permissions.canEdit,
+      enqueueSessionSync,
       sessions,
       t
     ]
@@ -649,6 +791,7 @@ function App() {
           messageCount: nextMessages.length
         });
         setSessions(loadSessions());
+        enqueueSessionSync("delete_message");
 
         addToast(
           result.deleted ? t("message_delete_success") : t("message_already_deleted"),
@@ -664,7 +807,16 @@ function App() {
         );
       }
     },
-    [addToast, chatMessages, chatTransport, currentSessionId, permissions.canEdit, setChatMessages, t]
+    [
+      addToast,
+      chatMessages,
+      chatTransport,
+      currentSessionId,
+      permissions.canEdit,
+      enqueueSessionSync,
+      setChatMessages,
+      t
+    ]
   );
 
   const handleEditMessage = useCallback(
@@ -794,6 +946,7 @@ function App() {
           messageCount: 0
         });
         setSessions(loadSessions());
+        enqueueSessionSync("fork_session");
         setCurrentSessionId(result.newSessionId);
         setConnectionStatus("connecting");
         setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
@@ -811,7 +964,7 @@ function App() {
         );
       }
     },
-    [addToast, chatTransport, permissions.canEdit, readonlyMode, t]
+    [addToast, chatTransport, permissions.canEdit, readonlyMode, enqueueSessionSync, t]
   );
 
   const handleToggleServer = useCallback(

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
@@ -53,7 +53,7 @@ describe("MarkdownRenderer", () => {
     expect(screen.getByAltText("SVG Preview")).toBeInTheDocument();
   });
 
-  it("renders html preview and svg preview for full html documents containing svg", () => {
+  it("renders html preview and svg preview for full html documents containing svg", async () => {
     const content = [
       "```html",
       "<!DOCTYPE html>",
@@ -69,6 +69,9 @@ describe("MarkdownRenderer", () => {
 
     expect(screen.getByText("HTML Preview")).toBeInTheDocument();
     expect(screen.getByText("SVG Preview")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    });
     const frame = screen.getByTitle("HTML Preview");
     const srcDoc = frame.getAttribute("srcdoc") || "";
     expect(srcDoc).toContain("<!DOCTYPE html>");
@@ -105,7 +108,7 @@ describe("MarkdownRenderer", () => {
     expect(screen.getByText("html")).toBeInTheDocument();
   });
 
-  it("strips empty sourceMappingURL directives in html preview srcdoc", () => {
+  it("strips empty sourceMappingURL directives in html preview srcdoc", async () => {
     const content = [
       "```html",
       "<!DOCTYPE html>",
@@ -122,18 +125,64 @@ describe("MarkdownRenderer", () => {
 
     render(<MarkdownRenderer content={content} />);
 
+    await waitFor(() => {
+      expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    });
     const frame = screen.getByTitle("HTML Preview");
     const srcDoc = frame.getAttribute("srcdoc") || "";
     expect(srcDoc).not.toContain("sourceMappingURL=");
     expect(srcDoc).toContain("console.log('ok')");
   });
 
-  it("can hide html preview by toggle", () => {
+  it("strips null and undefined sourceMappingURL directives", async () => {
+    const content = [
+      "```html",
+      "<script>",
+      "//# sourceMappingURL=null",
+      "/*# sourceMappingURL=undefined */",
+      "console.log('ok')",
+      "</script>",
+      "```"
+    ].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    await waitFor(() => {
+      expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    });
+    const frame = screen.getByTitle("HTML Preview");
+    const srcDoc = frame.getAttribute("srcdoc") || "";
+    expect(srcDoc).not.toContain("sourceMappingURL=");
+    expect(srcDoc).toContain("console.log('ok')");
+  });
+
+  it("sanitizes invalid svg stroke-width and height declarations", () => {
+    const content = [
+      "```xml",
+      '<svg width="80" height="" xmlns="http://www.w3.org/2000/svg">',
+      '  <path d="M0 0L10 10" stroke="#000" stroke-width="" style="stroke-width: ; height: undefined;" />',
+      "</svg>",
+      "```"
+    ].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    const preview = screen.getByAltText("SVG Preview") as HTMLImageElement;
+    const decoded = decodeURIComponent(preview.src);
+    expect(decoded).not.toContain('stroke-width=""');
+    expect(decoded).not.toContain("stroke-width: ;");
+    expect(decoded).not.toContain('height=""');
+    expect(decoded).not.toContain("height: undefined");
+  });
+
+  it("can hide html preview by toggle", async () => {
     const content = ["```html", "<!DOCTYPE html><html><body><h1>Hi</h1></body></html>", "```"].join("\n");
 
     render(<MarkdownRenderer content={content} />);
 
-    expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole("button", { name: "Code" }));
     expect(screen.queryByTitle("HTML Preview")).not.toBeInTheDocument();
     expect(screen.getByText("<!DOCTYPE html><html><body><h1>Hi</h1></body></html>")).toBeInTheDocument();

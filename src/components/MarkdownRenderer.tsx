@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -64,9 +64,37 @@ function extractFirstSvgMarkup(code: string): string | null {
 function stripEmptySourceMapDirectives(code: string): string {
   if (!code || !code.includes("sourceMappingURL")) return code;
   return code
-    .replace(/^[\t ]*\/\/[#@]\s*sourceMappingURL=\s*$/gm, "")
-    .replace(/\/\*[#@]\s*sourceMappingURL=\s*\*\//g, "")
-    .replace(/<!--\s*[#@]?\s*sourceMappingURL=\s*-->/g, "");
+    .replace(/^[\t ]*\/\/[#@]\s*sourceMappingURL=.*$/gim, "")
+    .replace(/\/\*[#@]\s*sourceMappingURL=[\s\S]*?\*\//gi, "")
+    .replace(/<!--\s*[#@]?\s*sourceMappingURL=.*?-->/gim, "");
+}
+
+function sanitizeSvgMarkup(raw: string): string {
+  if (!raw) return raw;
+  let output = raw;
+  output = output.replace(
+    /\s(stroke-width|height)\s*=\s*["']\s*(?:undefined|null|NaN)?\s*["']/gi,
+    ""
+  );
+  output = output.replace(
+    /\sstyle\s*=\s*["']([^"']*)["']/gi,
+    (_match, styleContent: string) => {
+      const cleaned = styleContent
+        .split(";")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .filter((entry) => {
+          if (!/^(stroke-width|height)\s*:/i.test(entry)) return true;
+          const value = entry.split(":").slice(1).join(":").trim();
+          if (!value) return false;
+          if (/^(undefined|null|NaN)$/i.test(value)) return false;
+          return true;
+        })
+        .join("; ");
+      return cleaned ? ` style="${cleaned}"` : "";
+    }
+  );
+  return output;
 }
 
 function createPreviewSrcDoc(code: string): string {
@@ -79,7 +107,27 @@ function createPreviewSrcDoc(code: string): string {
 
 const HtmlPreviewRenderer = memo(function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
   const [activeTab, setActiveTab] = useState<HtmlPreviewTab>("preview");
+  const [previewReady, setPreviewReady] = useState(false);
   const srcDoc = createPreviewSrcDoc(code);
+
+  useEffect(() => {
+    if (activeTab !== "preview") {
+      setPreviewReady(false);
+      return;
+    }
+
+    let timeoutId = 0;
+    const rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(() => {
+        setPreviewReady(true);
+      }, 0);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [activeTab, srcDoc]);
 
   return (
     <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
@@ -107,14 +155,21 @@ const HtmlPreviewRenderer = memo(function HtmlPreviewRenderer({ code }: HtmlPrev
         </div>
       </div>
       {activeTab === "preview" ? (
-        <iframe
-          title="HTML Preview"
-          srcDoc={srcDoc}
-          sandbox="allow-scripts"
-          scrolling="auto"
-          className="block w-full border-0 bg-[var(--surface-1)]"
-          style={{ height: HTML_PREVIEW_HEIGHT }}
-        />
+        previewReady ? (
+          <iframe
+            title="HTML Preview"
+            srcDoc={srcDoc}
+            sandbox="allow-scripts"
+            scrolling="auto"
+            className="block w-full border-0 bg-[var(--surface-1)]"
+            style={{ height: HTML_PREVIEW_HEIGHT }}
+          />
+        ) : (
+          <div
+            className="block w-full bg-[var(--surface-1)]"
+            style={{ height: HTML_PREVIEW_HEIGHT }}
+          />
+        )
       ) : (
         <pre className="!m-0 max-h-[560px] overflow-auto bg-[var(--surface-1)] p-3 text-xs text-kumo-default">
           <code>{code}</code>
@@ -125,9 +180,10 @@ const HtmlPreviewRenderer = memo(function HtmlPreviewRenderer({ code }: HtmlPrev
 });
 
 function SvgPreviewRenderer({ code }: SvgPreviewRendererProps) {
+  const sanitizedSvg = useMemo(() => sanitizeSvgMarkup(code), [code]);
   const svgDataUrl = useMemo(
-    () => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(code)}`,
-    [code]
+    () => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sanitizedSvg)}`,
+    [sanitizedSvg]
   );
 
   return (

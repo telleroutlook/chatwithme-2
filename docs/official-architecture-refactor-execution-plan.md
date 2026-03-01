@@ -460,3 +460,54 @@
   - approval id edge cases (empty, malformed, overlong, nested parentheses)
   - approval buttons disabled/busy states
   - invalid approval request hint rendering
+
+## Execution Notes (2026-03-01, REST-first sessions + WS resilience)
+
+### Implemented
+
+- Added session reconciliation endpoint:
+  - `GET /api/chat/sessions?sessionIds=<comma-separated ids>` in `/home/dev/github/chatwithme-2/src/server.ts`
+  - schema: `chatSessionsQuerySchema` in `/home/dev/github/chatwithme-2/src/schema/api.ts`
+- Extended client-side session metadata for long-lived consistency:
+  - `health` (`healthy|stale|orphaned`), `mismatchCount`, `lastSyncedAt`, `source`
+  - file: `/home/dev/github/chatwithme-2/src/features/chat/services/sessionMeta.ts`
+- Switched sidebar session sync to REST-first in `/home/dev/github/chatwithme-2/src/client.tsx`:
+  - startup sync + reconnect sync
+  - event-triggered sync
+  - low-frequency fallback sync (`45s`)
+  - in-flight dedupe + `800ms` debounce
+- Added `getHistory()` in-flight dedupe and `getSessions()` transport API in `/home/dev/github/chatwithme-2/src/features/chat/services/chatTransport.ts`.
+- Improved WS observability:
+  - frontend tracks `connection_open/close/error`
+  - agent logs `onClose(code/reason/wasClean)` and `onError`
+  - added callable `heartbeat()` in `/home/dev/github/chatwithme-2/src/demos/chat/chat-agent.ts`
+- Reduced console noise:
+  - expanded empty `sourceMappingURL` stripping (`null|undefined|empty`) in `/home/dev/github/chatwithme-2/src/components/MarkdownRenderer.tsx`
+  - sanitized invalid SVG `stroke-width`/`height` declarations before preview rendering.
+- Optimized highlight loading path in `/home/dev/github/chatwithme-2/src/hooks/useHighlight.ts`:
+  - base languages/themes only at bootstrap
+  - dynamic `loadLanguage/loadTheme` on demand.
+
+### Test updates
+
+- Added `/home/dev/github/chatwithme-2/src/features/chat/services/chatTransport.test.ts` (concurrent history dedupe).
+- Extended `/home/dev/github/chatwithme-2/src/components/MarkdownRenderer.test.tsx` for:
+  - `sourceMappingURL=null/undefined` stripping
+  - SVG invalid style sanitization.
+
+### Validation
+
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm run test:run` ✅
+- `npm run build` ✅
+
+### Production deployment and checks
+
+- `npm run deploy` ✅
+- Production URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+- Version ID: `0cd41b34-1f93-4065-88de-3aaea47491c0`
+- Production tests:
+  - `npm run test:e2e` ✅
+  - `npm run test:e2e:session-delete` ✅
+  - `npm run test:e2e:scroll-lock` ✅

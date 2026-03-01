@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Surface, Button } from "@cloudflare/kumo";
 import { CopyIcon, CheckIcon, CodeIcon } from "@phosphor-icons/react";
-import { useHighlight, preloadHighlighter } from "../hooks/useHighlight";
+import { useHighlight } from "../hooks/useHighlight";
 
 interface CodeBlockProps {
   language: string;
@@ -60,11 +60,6 @@ export function CodeBlock({
   const [copied, setCopied] = useState(false);
   const isDark = useIsDarkMode();
   const theme = isDark ? "github-dark" : "github-light";
-
-  // Preload highlighter on mount
-  useEffect(() => {
-    preloadHighlighter();
-  }, []);
 
   const { html, isLoading, error } = useHighlight(code, {
     language,

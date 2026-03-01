@@ -1,30 +1,37 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-// ============ Types ============
-
-type BundledLanguage = string;
-type BundledTheme = string;
-type Highlighter = Awaited<ReturnType<typeof import("shiki").createHighlighter>>;
-
-// ============ Cache Management ============
+type HighlightEngine = typeof import("highlight.js/lib/common");
 
 interface CacheEntry {
   html: string;
   timestamp: number;
 }
 
+interface UseHighlightOptions {
+  language?: string;
+  theme?: string;
+  enabled?: boolean;
+}
+
+interface UseHighlightResult {
+  html: string | null;
+  isLoading: boolean;
+  error: Error | null;
+}
+
 const highlightCache = new Map<string, CacheEntry>();
 const MAX_CACHE_SIZE = 100;
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 30 * 60 * 1000;
+
+let engineInstance: HighlightEngine["default"] | null = null;
+let enginePromise: Promise<HighlightEngine["default"]> | null = null;
 
 function getCacheKey(code: string, lang: string, theme: string): string {
-  // Simple hash function for cache key
   let hash = 0;
   const str = `${lang}:${theme}:${code}`;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
   }
   return hash.toString(36);
 }
@@ -36,132 +43,56 @@ function cleanupCache(): void {
       highlightCache.delete(key);
     }
   }
-
-  // If still over limit, remove oldest entries
   if (highlightCache.size > MAX_CACHE_SIZE) {
-    const entries = Array.from(highlightCache.entries()).sort(
+    const sorted = Array.from(highlightCache.entries()).sort(
       (a, b) => a[1].timestamp - b[1].timestamp
     );
-
-    const toRemove = entries.slice(0, highlightCache.size - MAX_CACHE_SIZE);
+    const toRemove = sorted.slice(0, highlightCache.size - MAX_CACHE_SIZE);
     for (const [key] of toRemove) {
       highlightCache.delete(key);
     }
   }
 }
 
-// ============ Singleton Highlighter (Lazy Load) ============
-
-let highlighterInstance: Highlighter | null = null;
-let highlighterPromise: Promise<Highlighter> | null = null;
-
-async function getHighlighter(): Promise<Highlighter> {
-  // Only run in browser environment
+async function getHighlighter(): Promise<HighlightEngine["default"]> {
   if (typeof window === "undefined") {
-    throw new Error("Shiki can only be used in browser environment");
+    throw new Error("Highlight engine is only available in browser.");
   }
+  if (engineInstance) return engineInstance;
+  if (enginePromise) return enginePromise;
 
-  if (highlighterInstance) {
-    return highlighterInstance;
-  }
-
-  if (highlighterPromise) {
-    return highlighterPromise;
-  }
-
-  // Dynamic import to avoid bundling shiki in SSR/Worker
-  highlighterPromise = import("shiki")
-    .then(({ createHighlighter }) =>
-      createHighlighter({
-        themes: ["github-dark", "github-light"],
-        langs: [
-          "javascript",
-          "typescript",
-          "jsx",
-          "tsx",
-          "python",
-          "rust",
-          "go",
-          "java",
-          "c",
-          "cpp",
-          "csharp",
-          "ruby",
-          "php",
-          "swift",
-          "kotlin",
-          "scala",
-          "html",
-          "css",
-          "scss",
-          "json",
-          "yaml",
-          "markdown",
-          "bash",
-          "shell",
-          "sql",
-          "graphql",
-          "docker",
-          "toml",
-          "ini",
-          "diff"
-        ]
-      })
-    )
-    .then((highlighter) => {
-      highlighterInstance = highlighter;
-      return highlighter;
-    });
-
-  return highlighterPromise;
+  enginePromise = import("highlight.js/lib/common").then((module) => {
+    engineInstance = module.default;
+    return module.default;
+  });
+  return enginePromise;
 }
 
-// ============ Hook ============
-
-interface UseHighlightOptions {
-  language?: string;
-  theme?: BundledTheme;
-  enabled?: boolean;
+function normalizeLanguage(language: string): string {
+  const lang = language.trim().toLowerCase();
+  if (!lang) return "plaintext";
+  const map: Record<string, string> = {
+    js: "javascript",
+    ts: "typescript",
+    py: "python",
+    rb: "ruby",
+    yml: "yaml",
+    md: "markdown",
+    sh: "bash",
+    csharp: "cs",
+    shell: "bash"
+  };
+  return map[lang] ?? lang;
 }
 
-interface UseHighlightResult {
-  html: string | null;
-  isLoading: boolean;
-  error: Error | null;
-}
-
-/**
- * Hook for syntax highlighting using Shiki with caching
- *
- * Features:
- * - LRU cache with TTL for highlighted code
- * - Singleton highlighter instance for performance
- * - Automatic language detection fallback
- * - Theme support (dark/light)
- */
 export function useHighlight(code: string, options: UseHighlightOptions = {}): UseHighlightResult {
-  const { language = "text", theme = "github-dark", enabled = true } = options;
-
+  const { language = "plaintext", theme = "github-dark", enabled = true } = options;
   const [html, setHtml] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const currentCodeRef = useRef(code);
 
-  // Normalize language name
-  const normalizedLang = useMemo(() => {
-    const langMap: Record<string, BundledLanguage> = {
-      js: "javascript",
-      ts: "typescript",
-      py: "python",
-      rb: "ruby",
-      sh: "shell",
-      yml: "yaml",
-      md: "markdown",
-      csharp: "c#",
-      cs: "c#"
-    };
-    return langMap[language.toLowerCase()] || (language.toLowerCase() as BundledLanguage);
-  }, [language]);
+  const normalizedLang = useMemo(() => normalizeLanguage(language), [language]);
 
   useEffect(() => {
     if (!enabled || !code) {
@@ -169,12 +100,9 @@ export function useHighlight(code: string, options: UseHighlightOptions = {}): U
       return;
     }
 
-    // Track current code to avoid stale updates
     currentCodeRef.current = code;
-
     const cacheKey = getCacheKey(code, normalizedLang, theme);
     const cached = highlightCache.get(cacheKey);
-
     if (cached) {
       setHtml(cached.html);
       return;
@@ -184,44 +112,25 @@ export function useHighlight(code: string, options: UseHighlightOptions = {}): U
     setError(null);
 
     getHighlighter()
-      .then((highlighter) => {
-        // Check if code has changed while we were loading
-        if (currentCodeRef.current !== code) {
-          return;
+      .then((hljs) => {
+        if (currentCodeRef.current !== code) return;
+
+        let highlighted: string;
+        if (hljs.getLanguage(normalizedLang)) {
+          highlighted = hljs.highlight(code, {
+            language: normalizedLang,
+            ignoreIllegals: true
+          }).value;
+        } else {
+          highlighted = hljs.highlightAuto(code).value;
         }
 
-        let result: string;
-
-        try {
-          // Try with the specified language
-          result = highlighter.codeToHtml(code, {
-            lang: normalizedLang as BundledLanguage,
-            theme
-          });
-        } catch {
-          // Fallback to text if language not supported
-          try {
-            result = highlighter.codeToHtml(code, {
-              lang: "text",
-              theme
-            });
-          } catch (e) {
-            throw new Error(`Failed to highlight code: ${e}`);
-          }
-        }
-
-        // Cache the result
-        highlightCache.set(cacheKey, {
-          html: result,
-          timestamp: Date.now()
-        });
-
-        // Periodic cleanup
+        const wrapped = `<pre class="shiki"><code class="hljs language-${normalizedLang}">${highlighted}</code></pre>`;
+        highlightCache.set(cacheKey, { html: wrapped, timestamp: Date.now() });
         if (highlightCache.size > MAX_CACHE_SIZE / 2) {
           cleanupCache();
         }
-
-        setHtml(result);
+        setHtml(wrapped);
       })
       .catch((err) => {
         if (currentCodeRef.current === code) {
@@ -233,33 +142,20 @@ export function useHighlight(code: string, options: UseHighlightOptions = {}): U
           setIsLoading(false);
         }
       });
-  }, [code, normalizedLang, theme, enabled]);
+  }, [code, enabled, normalizedLang, theme]);
 
   return { html, isLoading, error };
 }
 
-// ============ Utility Functions ============
-
-/**
- * Preload the highlighter for faster first render
- */
-export function preloadHighlighter(): Promise<void> {
-  return getHighlighter().then(() => {});
+export async function preloadHighlighter(): Promise<void> {
+  await getHighlighter();
 }
 
-/**
- * Clear the highlight cache
- */
 export function clearHighlightCache(): void {
   highlightCache.clear();
 }
 
-/**
- * Get cache statistics
- */
 export function getHighlightCacheStats(): { size: number; maxSize: number } {
-  return {
-    size: highlightCache.size,
-    maxSize: MAX_CACHE_SIZE
-  };
+  return { size: highlightCache.size, maxSize: MAX_CACHE_SIZE };
 }
+

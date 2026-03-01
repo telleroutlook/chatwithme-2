@@ -712,7 +712,27 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     return url.searchParams.get("mode") === "view";
   }
 
-  onClose(_connection: Connection) {
+  onError(connectionOrError: Connection | unknown, maybeError?: unknown) {
+    const error = maybeError === undefined ? connectionOrError : maybeError;
+    const message = error instanceof Error ? error.message : String(error);
+    this.updateLastError(message);
+    this.appendRuntimeEvent({
+      level: "error",
+      source: "system",
+      type: "connection_error",
+      message: "Agent connection error.",
+      data: { error: message }
+    });
+  }
+
+  onClose(_connection: Connection, code?: number, reason?: string, wasClean?: boolean) {
+    this.appendRuntimeEvent({
+      level: "info",
+      source: "system",
+      type: "connection_closed",
+      message: "Agent connection closed.",
+      data: { code, reason, wasClean: Boolean(wasClean) }
+    });
     if (this.pendingSessionDeletion) {
       void (async () => {
         const destroyed = await destroyIfIdle(this as never);
@@ -1024,6 +1044,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       role: msg.role,
       content: this.getMessageText(msg)
     }));
+  }
+
+  @callable({ description: "Heartbeat probe for connection health checks" })
+  heartbeat(): { success: true; serverTime: string } {
+    return {
+      success: true,
+      serverTime: new Date().toISOString()
+    };
   }
 
   @callable({ description: "Clear chat history" })

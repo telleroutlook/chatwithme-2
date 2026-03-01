@@ -34,9 +34,19 @@ export interface ChatHistoryItem {
   id?: string;
 }
 
+export interface ChatSessionSummary {
+  sessionId: string;
+  title: string;
+  lastMessage: string;
+  messageCount: number;
+  updatedAt: string;
+  health: "healthy" | "stale" | "orphaned";
+}
+
 export interface ChatTransport {
   getPermissions: () => Promise<ConnectionPermissions>;
   getHistory: () => Promise<ChatHistoryItem[]>;
+  getSessions: (sessionIds: string[]) => Promise<ChatSessionSummary[]>;
   getPreconfiguredServers: () => Promise<Record<string, PreconfiguredServer>>;
   deleteSession: (targetSessionId: string) => Promise<DeleteSessionResult>;
   deleteMessage: (messageId: string) => Promise<DeleteMessageResult>;
@@ -71,6 +81,8 @@ export function createChatTransport({
   readonlyMode
 }: ChatTransportParams): ChatTransport {
   const encodedSessionId = encodeURIComponent(sessionId);
+  let historyInFlight: Promise<ChatHistoryItem[]> | null = null;
+  let historyCache: { at: number; value: ChatHistoryItem[] } | null = null;
 
   return {
     async getPermissions() {
@@ -89,7 +101,13 @@ export function createChatTransport({
     },
 
     async getHistory() {
-      return await withAgentFallback(
+      if (historyCache && Date.now() - historyCache.at < 2000) {
+        return historyCache.value;
+      }
+      if (historyInFlight) {
+        return await historyInFlight;
+      }
+      historyInFlight = withAgentFallback(
         async () => (await agent.call("getHistory", [])) as ChatHistoryItem[],
         async () => {
           const response = await callApi<{ history: ChatHistoryItem[] }>(
@@ -98,6 +116,25 @@ export function createChatTransport({
           return Array.isArray(response.history) ? response.history : [];
         }
       );
+      try {
+        const history = await historyInFlight;
+        historyCache = {
+          at: Date.now(),
+          value: history
+        };
+        return history;
+      } finally {
+        historyInFlight = null;
+      }
+    },
+
+    async getSessions(sessionIds: string[]) {
+      const deduped = Array.from(new Set(sessionIds.map((item) => item.trim()).filter(Boolean)));
+      if (deduped.length === 0) return [];
+      const response = await callApi<{ sessions: ChatSessionSummary[] }>(
+        `/api/chat/sessions?sessionIds=${encodeURIComponent(deduped.join(","))}`
+      );
+      return Array.isArray(response.sessions) ? response.sessions : [];
     },
 
     async getPreconfiguredServers() {
