@@ -336,7 +336,7 @@ export class ChatAgent extends AIChatAgent<Env> {
           emitProgress({
             phase: "heartbeat",
             status: "info",
-            message: "Still working..."
+            message: "Still thinking..."
           });
         }, 1200);
 
@@ -447,6 +447,17 @@ Use G2 JSON format in a code block:
   "encode": {"x": "month", "y": "sales"}
 }
 \`\`\`
+
+G2 output contract (MUST follow):
+- G2 blocks must be strict RFC 8259 JSON.
+- Do not output comments, trailing commas, undefined, NaN, Infinity, or functions.
+- All keys must use double quotes; all string values must use double quotes.
+- Never output callback expressions such as \`(d) => ...\` or \`function (...)\`.
+- For constant colors, use string literals like \`"#4E79A7"\`.
+- For categorical color mapping, use \`"encode": { "color": "<field>" }\`.
+- \`scale.color.range\` must contain only valid CSS color strings (hex/rgb/hsl), never category labels.
+- \`encode.x\`/\`encode.y\`/\`encode.color\` referenced fields must exist in \`data\`.
+- If you output a G2 code block, self-check that it can pass \`JSON.parse\`.
 
 G2 chart types:
 - "interval" : bar/column charts
@@ -724,7 +735,11 @@ IMPORTANT:
       const preservedMessages = currentMessages.slice(0, anchorIndex + 1);
       await this.persistMessages(preservedMessages);
 
-      const regenerated = await this.generateAssistantResponse(userText, true);
+      // Regeneration can race with in-memory history updates after persistence.
+      // If history does not currently end with a user message, inject the prompt again.
+      const latestMessages = Array.isArray(this.messages) ? this.messages : [];
+      const historyEndsWithUser = latestMessages[latestMessages.length - 1]?.role === "user";
+      const regenerated = await this.generateAssistantResponse(userText, historyEndsWithUser);
       const assistantMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant" as const,

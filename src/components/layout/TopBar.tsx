@@ -1,15 +1,25 @@
 import { Text } from "@cloudflare/kumo";
-import { ListIcon, PlugsConnectedIcon } from "@phosphor-icons/react";
-import { ConnectionIndicator, type ConnectionStatus } from "../AgentsUiCompat";
+import { ListIcon, MoonIcon, PlusIcon, PlugsConnectedIcon, SunIcon } from "@phosphor-icons/react";
+import { ConnectionIndicator, type ConnectionStatus, useThemeMode } from "../AgentsUiCompat";
 
 interface TopBarProps {
   mobile: boolean;
   onToggleSidebar: () => void;
+  onNewSession: () => void;
   connectionStatus: ConnectionStatus;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
 
-export function TopBar({ mobile, onToggleSidebar, connectionStatus, t }: TopBarProps) {
+export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus, t }: TopBarProps) {
+  const { mode, setMode } = useThemeMode();
+  const resolvedMode =
+    mode === "system" ? (document.documentElement.getAttribute("data-mode") ?? "light") : mode;
+  const isDark = resolvedMode === "dark";
+
+  const handleToggleTheme = () => {
+    setMode(isDark ? "light" : "dark");
+  };
+
   return (
     <header className="app-glass border-b border-kumo-line/80 bg-kumo-base/70 px-3 py-3 sm:px-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -36,6 +46,25 @@ export function TopBar({ mobile, onToggleSidebar, connectionStatus, t }: TopBarP
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={onNewSession}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-kumo-line px-2.5 py-2 text-xs font-medium text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40"
+            aria-label={t("session_new")}
+            title={t("session_new")}
+          >
+            <PlusIcon size={16} />
+            <span className="hidden sm:inline">{t("session_new")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleTheme}
+            className="rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40"
+            aria-label={t("theme_toggle")}
+            title={t("theme_toggle")}
+          >
+            {isDark ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+          </button>
           <ConnectionIndicator
             status={connectionStatus}
             labels={{

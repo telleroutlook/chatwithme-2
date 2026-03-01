@@ -16,10 +16,14 @@ export const uiMessages = {
     theme_dark: "Dark mode",
     theme_system: "System mode",
     theme_group: "Theme mode",
+    theme_toggle: "Toggle theme",
 
     lang_en: "EN",
     lang_zh: "中",
     lang_group: "Language",
+    settings_section_advanced: "Advanced",
+    settings_section_advanced_desc: "Debug and observability panels",
+    settings_panel_observability: "Workspace Observability",
 
     sidebar_sessions: "Sessions",
     sidebar_workspace: "Workspace",
@@ -149,10 +153,14 @@ export const uiMessages = {
     theme_dark: "深色模式",
     theme_system: "跟随系统",
     theme_group: "主题模式",
+    theme_toggle: "切换主题",
 
     lang_en: "EN",
     lang_zh: "中",
     lang_group: "语言",
+    settings_section_advanced: "高级",
+    settings_section_advanced_desc: "调试与可观测面板",
+    settings_panel_observability: "工作台观测",
 
     sidebar_sessions: "会话",
     sidebar_workspace: "工作台",

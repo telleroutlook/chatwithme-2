@@ -1,10 +1,10 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { CodeBlock } from "./CodeBlock";
-import { MermaidRenderer, G2ChartRenderer } from "./ChartRenderer";
+import { MermaidRenderer, G2ChartRenderer, parseG2SpecFromCode } from "./ChartRenderer";
 import { CitationCards, type CitationCardItem } from "./CitationCards";
 
 interface MarkdownRendererProps {
@@ -19,6 +19,12 @@ interface MarkdownRendererProps {
 interface HtmlPreviewRendererProps {
   code: string;
 }
+interface SvgPreviewRendererProps {
+  code: string;
+}
+
+const MIN_PREVIEW_HEIGHT = 240;
+const MAX_PREVIEW_HEIGHT = 12000;
 
 function looksLikeSvgMarkup(code: string): boolean {
   const normalized = code.trim().toLowerCase();
@@ -54,17 +60,17 @@ function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
         return;
       }
 
-      const nextHeight = Math.max(220, Math.min(1400, Math.ceil(data.height)));
-      setFrameHeight((prev) => (Math.abs(prev - nextHeight) >= 2 ? nextHeight : prev));
+      const nextHeight = Math.max(MIN_PREVIEW_HEIGHT, Math.min(MAX_PREVIEW_HEIGHT, Math.ceil(data.height)));
+      setFrameHeight((prev) => (Math.abs(prev - nextHeight) >= 4 ? nextHeight : prev));
     };
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [frameId]);
 
-  const srcDoc = `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><style>html,body{margin:0;padding:8px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}</style></head><body>${code}<script>(function(){var frameId=${JSON.stringify(
+  const srcDoc = `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><style>html,body{margin:0;padding:8px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;}</style></head><body>${code}<script>(function(){var frameId=${JSON.stringify(
     frameId
-  )};function height(){var b=document.body;var d=document.documentElement;return Math.max(b?b.scrollHeight:0,b?b.offsetHeight:0,d?d.scrollHeight:0,d?d.offsetHeight:0,220);}function report(){parent.postMessage({type:"chatwithme-html-preview-resize",frameId:frameId,height:height()},"*");}window.addEventListener("load",report);window.addEventListener("resize",report);var observer=new MutationObserver(report);observer.observe(document.documentElement,{attributes:true,childList:true,subtree:true,characterData:true});setInterval(report,500);report();})();</script></body></html>`;
+  )};var lastHeight=0;var rafId=0;function height(){var b=document.body;var d=document.documentElement;return Math.max(b?b.scrollHeight:0,b?b.offsetHeight:0,d?d.scrollHeight:0,d?d.offsetHeight:0,220);}function post(){var next=Math.ceil(height());if(Math.abs(next-lastHeight)<2){return;}lastHeight=next;parent.postMessage({type:"chatwithme-html-preview-resize",frameId:frameId,height:next},"*");}function report(){if(rafId){cancelAnimationFrame(rafId);}rafId=requestAnimationFrame(post);}window.addEventListener("load",report);window.addEventListener("resize",report);window.addEventListener("beforeunload",function(){if(rafId){cancelAnimationFrame(rafId);}});var observer=new MutationObserver(report);observer.observe(document.documentElement,{attributes:true,childList:true,subtree:true,characterData:true});if(document.fonts&&document.fonts.ready){document.fonts.ready.then(report).catch(function(){});}setTimeout(report,180);setTimeout(report,700);setTimeout(report,1400);report();})();</script></body></html>`;
 
   return (
     <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
@@ -75,9 +81,35 @@ function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
         title="HTML Preview"
         srcDoc={srcDoc}
         sandbox="allow-scripts"
-        className="w-full border-0 bg-[var(--surface-1)]"
+        scrolling="no"
+        className="pointer-events-none block w-full border-0 bg-[var(--surface-1)]"
         style={{ height: frameHeight }}
       />
+    </div>
+  );
+}
+
+function SvgPreviewRenderer({ code }: SvgPreviewRendererProps) {
+  const svgDataUrl = useMemo(
+    () => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(code)}`,
+    [code]
+  );
+
+  return (
+    <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
+      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line">
+        SVG Preview
+      </div>
+      <div className="bg-[var(--surface-1)] p-2">
+        <img
+          src={svgDataUrl}
+          alt="SVG Preview"
+          className="block h-auto w-full"
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+        />
+      </div>
     </div>
   );
 }
@@ -95,7 +127,7 @@ function stripFootnotes(content: string): string {
     .replace(/^\[\^[^\]]+\]:.*$/gim, "");
 }
 
-export function MarkdownRenderer({
+export const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
   isStreaming,
   enableAlerts = true,
@@ -162,12 +194,11 @@ export function MarkdownRenderer({
             }
 
             if (language === "g2") {
-              try {
-                const spec = JSON.parse(codeString);
+              const spec = parseG2SpecFromCode(codeString);
+              if (spec) {
                 return <G2ChartRenderer spec={spec} />;
-              } catch {
-                return <span className="text-xs app-text-danger">Invalid G2 spec</span>;
               }
+              return <span className="text-xs app-text-danger">Invalid G2 spec</span>;
             }
 
             const decodedCodeString = decodeHtmlEntities(codeString);
@@ -179,8 +210,12 @@ export function MarkdownRenderer({
             const isSvgXmlBlock =
               (language === "xml" || language === "xhtml" || language === "html") && !!svgLikeCode;
             const isRawSvgBlock = language === "svg" || (!language && !!svgLikeCode);
-            if (language === "html" || isSvgXmlBlock || isRawSvgBlock) {
-              return <HtmlPreviewRenderer code={svgLikeCode || codeString} />;
+            if (isSvgXmlBlock || isRawSvgBlock) {
+              return <SvgPreviewRenderer code={svgLikeCode} />;
+            }
+
+            if (language === "html") {
+              return <HtmlPreviewRenderer code={codeString} />;
             }
 
             if (language === "markdown" || language === "md") {
@@ -298,4 +333,4 @@ export function MarkdownRenderer({
       <CitationCards items={citations} />
     </div>
   );
-}
+});

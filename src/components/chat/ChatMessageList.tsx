@@ -51,7 +51,7 @@ export function ChatMessageList({
   }
 
   return (
-    <div className="space-y-4 px-1 py-1">
+    <div className="space-y-4 px-1 py-1 pb-4">
       {messages.map((message, index) => (
         <ChatMessageItem
           key={message.id}

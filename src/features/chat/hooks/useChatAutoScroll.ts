@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 export type AutoScrollMode = "follow" | "pause";
 
@@ -25,6 +25,7 @@ export function useChatAutoScroll({
 }: UseChatAutoScrollOptions): UseChatAutoScrollResult {
   const [mode, setMode] = useState<AutoScrollMode>("follow");
   const [unreadCount, setUnreadCount] = useState(0);
+  const lastManualScrollAtRef = useRef(0);
 
   const isNearBottom = useCallback(() => {
     const element = scrollRef.current;
@@ -40,6 +41,7 @@ export function useChatAutoScroll({
       return;
     }
     element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+    lastManualScrollAtRef.current = 0;
     setMode("follow");
     setUnreadCount(0);
   }, [scrollRef]);
@@ -50,15 +52,57 @@ export function useChatAutoScroll({
       return;
     }
 
-    if (mode === "follow" || isNearBottom()) {
-      element.scrollTop = element.scrollHeight;
+    if (isNearBottom()) {
       setMode("follow");
       setUnreadCount(0);
       return;
     }
 
+    setMode("pause");
     setUnreadCount((count) => count + 1);
-  }, [isNearBottom, messagesLength, mode, scrollRef]);
+  }, [isNearBottom, messagesLength, scrollRef]);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element || mode !== "follow" || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    let rafId = 0;
+    const keepBottom = () => {
+      const hiddenHeight = element.scrollHeight - element.scrollTop - element.clientHeight;
+      if (hiddenHeight <= 1) {
+        return;
+      }
+      // Respect recent manual upward scrolls and avoid snapping user back.
+      if (Date.now() - lastManualScrollAtRef.current < 280) {
+        return;
+      }
+      element.scrollTop = element.scrollHeight;
+    };
+
+    const observer = new ResizeObserver(() => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(keepBottom);
+    });
+
+    observer.observe(element);
+    if (element.firstElementChild instanceof HTMLElement) {
+      observer.observe(element.firstElementChild);
+    }
+
+    // Handle already queued late height changes (e.g. iframe postMessage).
+    keepBottom();
+
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      observer.disconnect();
+    };
+  }, [messagesLength, mode, scrollRef]);
 
   const onScroll = useCallback(() => {
     const element = scrollRef.current;
@@ -66,15 +110,18 @@ export function useChatAutoScroll({
       return;
     }
 
-    const nearBottom = isNearBottom();
-    if (nearBottom) {
+    const hiddenHeight = element.scrollHeight - element.scrollTop - element.clientHeight;
+    // Only resume follow mode when user is effectively at the very bottom.
+    if (hiddenHeight <= 4) {
+      lastManualScrollAtRef.current = 0;
       setMode("follow");
       setUnreadCount(0);
       return;
     }
 
+    lastManualScrollAtRef.current = Date.now();
     setMode("pause");
-  }, [isNearBottom, scrollRef]);
+  }, [scrollRef]);
 
   const showBackToBottom = (() => {
     const element = scrollRef.current;

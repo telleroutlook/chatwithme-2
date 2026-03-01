@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import { Dialog } from "../ui";
@@ -29,7 +29,7 @@ interface ChatMessageItemProps {
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
 
-export function ChatMessageItem({
+export const ChatMessageItem = memo(function ChatMessageItem({
   message,
   isStreaming,
   isLastMessage,
@@ -257,4 +257,4 @@ export function ChatMessageItem({
       </Dialog>
     </div>
   );
-}
+});

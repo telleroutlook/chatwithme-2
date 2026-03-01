@@ -2,7 +2,6 @@ import { Toaster } from "./components/Toaster";
 import { ModalHost } from "./components/modal";
 import {
   ChatPane,
-  InspectorPane,
   McpPane,
   MobileTabBar,
   TopBar,
@@ -34,6 +33,7 @@ import {
   type SessionMeta
 } from "./features/chat/services/sessionMeta";
 import {
+  appendLiveProgressEntry,
   parseLiveProgressPart,
   type LiveProgressEntry,
   type ProgressPhase
@@ -125,6 +125,7 @@ function App() {
   const [input, setInput] = useState("");
   const [liveProgress, setLiveProgress] = useState<LiveProgressEntry[]>([]);
   const [awaitingFirstAssistant, setAwaitingFirstAssistant] = useState(false);
+  const [awaitingAssistantFromIndex, setAwaitingAssistantFromIndex] = useState<number | null>(null);
 
   // Load sessions on mount
   useEffect(() => {
@@ -160,7 +161,7 @@ function App() {
     onData: (part) => {
       const progress = parseLiveProgressPart(part);
       if (!progress) return;
-      setLiveProgress((prev) => [...prev, progress].slice(-12));
+      setLiveProgress((prev) => appendLiveProgressEntry(prev, progress, 2));
     }
   });
 
@@ -210,19 +211,24 @@ function App() {
   // Hide live progress panel once assistant content starts arriving.
   useEffect(() => {
     if (!awaitingFirstAssistant) return;
+    if (awaitingAssistantFromIndex === null) return;
     const hasAssistantContent = chatMessages.some(
-      (msg) =>
+      (msg, index) =>
+        index >= awaitingAssistantFromIndex &&
         msg.role === "assistant" &&
         getMessageText(msg)
           // Ignore invisible keepalive/control characters.
           .replace(/[\u200b\u200c\u200d\ufeff]/g, "")
           .trim().length > 0
     );
-    if (hasAssistantContent) {
+    // Keep live feed visible while the current reply is still streaming,
+    // then close it after stream completion.
+    if (hasAssistantContent && status !== "streaming") {
       setAwaitingFirstAssistant(false);
+      setAwaitingAssistantFromIndex(null);
       setLiveProgress([]);
     }
-  }, [chatMessages, awaitingFirstAssistant]);
+  }, [chatMessages, awaitingFirstAssistant, awaitingAssistantFromIndex, status]);
 
   // Update session meta when messages change
   useEffect(() => {
@@ -264,6 +270,7 @@ function App() {
     setCurrentSessionId(newId);
     setConnectionStatus("connecting");
     setAwaitingFirstAssistant(false);
+    setAwaitingAssistantFromIndex(null);
     setLiveProgress([]);
   }, [setChatMessages, stop, t]);
 
@@ -276,6 +283,7 @@ function App() {
       setCurrentSessionId(sessionId);
       setConnectionStatus("connecting");
       setAwaitingFirstAssistant(false);
+      setAwaitingAssistantFromIndex(null);
       setLiveProgress([]);
     },
     [currentSessionId, setChatMessages, stop]
@@ -396,7 +404,23 @@ function App() {
           throw new Error(result.error || "Regenerate failed");
         }
 
-        if (result.response) {
+        const history = (await agent.call("getHistory", [])) as Array<{
+          role: string;
+          content: string;
+          id?: string;
+        }>;
+        if (Array.isArray(history)) {
+          setChatMessages(
+            history.map((item, index) => ({
+              id: item.id ?? `history-${index}-${Date.now()}`,
+              role:
+                item.role === "user" || item.role === "assistant" || item.role === "system"
+                  ? item.role
+                  : "assistant",
+              parts: [{ type: "text", text: item.content ?? "" }]
+            })) as UIMessage[]
+          );
+        } else if (result.response !== undefined) {
           setChatMessages((prev) => [
             ...prev,
             {
@@ -512,6 +536,7 @@ function App() {
       stop();
       setInput("");
       setAwaitingFirstAssistant(false);
+      setAwaitingAssistantFromIndex(null);
       addToast(t("chat_input_action_stop"), "success");
       return;
     }
@@ -528,6 +553,7 @@ function App() {
 
     setInput("");
     setAwaitingFirstAssistant(true);
+    setAwaitingAssistantFromIndex(chatMessages.length);
     setLiveProgress([
       {
         id: nanoid(10),
@@ -549,6 +575,7 @@ function App() {
     currentSessionId,
     sendMessage,
     sessions,
+    chatMessages.length,
     stop,
     t
   ]);
@@ -556,6 +583,7 @@ function App() {
   const handleStop = useCallback(() => {
     stop();
     setAwaitingFirstAssistant(false);
+    setAwaitingAssistantFromIndex(null);
     trackChatEvent("composer_stop", { sessionId: currentSessionId });
   }, [currentSessionId, stop]);
 
@@ -655,6 +683,13 @@ function App() {
         formatTime={formatTime}
         toolsCount={mcpState.tools.length}
         resourcesCount={mcpState.resources.length}
+        observability={{
+          toolsCount: mcpState.tools.length,
+          sourcesCount: sourceGroupsCount,
+          liveProgress,
+          telemetry,
+          telemetrySummary
+        }}
         lang={lang}
         setLang={setLang}
         t={t}
@@ -664,6 +699,7 @@ function App() {
         <TopBar
           mobile={mobile}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onNewSession={handleNewSession}
           connectionStatus={connectionStatus}
           t={t}
         />
@@ -740,15 +776,6 @@ function App() {
               />
             )}
           </main>
-
-          <InspectorPane
-            toolsCount={mcpState.tools.length}
-            sourcesCount={sourceGroupsCount}
-            liveProgress={liveProgress}
-            telemetry={telemetry}
-            telemetrySummary={telemetrySummary}
-            t={t}
-          />
         </div>
 
         <footer className={`app-glass shrink-0 border-t border-kumo-line/80 bg-kumo-base/55 py-3 ${mobile ? "pb-16" : ""}`}>

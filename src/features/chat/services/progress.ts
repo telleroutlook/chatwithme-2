@@ -72,3 +72,36 @@ export function parseLiveProgressPart(part: unknown): LiveProgressEntry | null {
         : String(data.phase)
   };
 }
+
+function isAdjacentDuplicate(a: LiveProgressEntry, b: LiveProgressEntry): boolean {
+  return (
+    a.phase === b.phase &&
+    a.message === b.message &&
+    a.status === b.status &&
+    a.toolName === b.toolName &&
+    a.snippet === b.snippet
+  );
+}
+
+export function appendLiveProgressEntry(
+  entries: LiveProgressEntry[],
+  incoming: LiveProgressEntry,
+  maxEntries = 12
+): LiveProgressEntry[] {
+  if (entries.length === 0) return [incoming];
+
+  const last = entries[entries.length - 1];
+  if (!last) return [incoming];
+
+  if (isAdjacentDuplicate(last, incoming)) {
+    const merged = {
+      ...last,
+      timestamp: incoming.timestamp,
+      severity: incoming.severity,
+      groupKey: incoming.groupKey
+    };
+    return [...entries.slice(0, -1), merged];
+  }
+
+  return [...entries, incoming].slice(-maxEntries);
+}

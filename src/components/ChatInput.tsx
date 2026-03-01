@@ -270,7 +270,8 @@ export const ChatInput = memo(function ChatInput({
             onClick={handleSubmit}
             disabled={!canSubmit}
             icon={<PaperPlaneTiltIcon size={16} />}
-            className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4"
+            className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4 text-white hover:text-white"
+            style={{ color: "#fff" }}
             aria-label={t("chat_input_action_send")}
           >
             <span className="hidden sm:inline">{t("chat_input_action_send")}</span>
@@ -377,6 +378,8 @@ export function SimpleChatInput({
           onClick={handleSubmit}
           disabled={!value.trim() || !isConnected}
           icon={<PaperPlaneTiltIcon size={16} />}
+          className="text-white hover:text-white"
+          style={{ color: "#fff" }}
           aria-label={t("chat_input_action_send")}
         >
           {t("chat_input_action_send")}

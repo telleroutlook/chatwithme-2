@@ -14,8 +14,8 @@ describe("MarkdownRenderer", () => {
 
     render(<MarkdownRenderer content={content} />);
 
-    expect(screen.getByText("HTML Preview")).toBeInTheDocument();
-    expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    expect(screen.getByText("SVG Preview")).toBeInTheDocument();
+    expect(screen.getByAltText("SVG Preview")).toBeInTheDocument();
   });
 
   it("renders svg preview from a realistic assistant reply block", () => {
@@ -34,8 +34,8 @@ describe("MarkdownRenderer", () => {
 
     render(<MarkdownRenderer content={content} />);
 
-    expect(screen.getByText("HTML Preview")).toBeInTheDocument();
-    expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    expect(screen.getByText("SVG Preview")).toBeInTheDocument();
+    expect(screen.getByAltText("SVG Preview")).toBeInTheDocument();
   });
 
   it("renders svg preview when svg tags are html-escaped in xml block", () => {
@@ -49,8 +49,8 @@ describe("MarkdownRenderer", () => {
 
     render(<MarkdownRenderer content={content} />);
 
-    expect(screen.getByText("HTML Preview")).toBeInTheDocument();
-    expect(screen.getByTitle("HTML Preview")).toBeInTheDocument();
+    expect(screen.getByText("SVG Preview")).toBeInTheDocument();
+    expect(screen.getByAltText("SVG Preview")).toBeInTheDocument();
   });
 
   it("supports markdown feature toggles", () => {

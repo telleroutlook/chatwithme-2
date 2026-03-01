@@ -34,7 +34,8 @@ export function ChatSendButton({ disabled, isStreaming, onSend, onStop }: ChatSe
       onClick={onSend}
       disabled={disabled}
       icon={<PaperPlaneTiltIcon size={16} />}
-      className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4"
+      className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4 text-white hover:text-white"
+      style={{ color: "#fff" }}
       aria-label={t("chat_input_action_send")}
     >
       <span className="hidden sm:inline">{t("chat_input_action_send")}</span>

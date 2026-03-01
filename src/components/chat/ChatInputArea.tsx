@@ -63,6 +63,7 @@ export function ChatInputArea({
         isConnected={isConnected}
         placeholder={placeholder}
         multiline={true}
+        minRows={expanded ? 6 : 3}
         maxRows={expanded ? 12 : 6}
         showCharCount={true}
       />

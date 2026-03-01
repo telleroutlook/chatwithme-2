@@ -7,12 +7,8 @@ import {
   FolderOpenIcon,
   GearSixIcon,
   XIcon,
-  GlobeHemisphereWestIcon,
-  MonitorIcon,
-  MoonIcon,
-  SunIcon
+  GlobeHemisphereWestIcon
 } from "@phosphor-icons/react";
-import { useThemeMode, type ThemeMode } from "../AgentsUiCompat";
 import type { UiLang } from "../../i18n/ui";
 
 export type WorkspaceSection = "chats" | "tools" | "resources" | "settings";
@@ -39,6 +35,21 @@ interface WorkspaceSidebarProps {
   formatTime: (timestamp: string) => string;
   toolsCount: number;
   resourcesCount: number;
+  observability: {
+    toolsCount: number;
+    sourcesCount: number;
+    liveProgress: Array<{
+      id: string;
+      phase: string;
+      message: string;
+    }>;
+    telemetry: Array<{
+      id: string;
+      name: string;
+      timestamp: string;
+    }>;
+    telemetrySummary: { totalEvents: number; eventCounts: Record<string, number> };
+  };
   lang: UiLang;
   setLang: (lang: UiLang) => void;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
@@ -58,12 +69,11 @@ export function WorkspaceSidebar({
   formatTime,
   toolsCount,
   resourcesCount,
+  observability,
   lang,
   setLang,
   t
 }: WorkspaceSidebarProps) {
-  const { mode, setMode } = useThemeMode();
-
   const sections: Array<{
     id: WorkspaceSection;
     label: string;
@@ -86,16 +96,17 @@ export function WorkspaceSidebar({
     { id: "settings", label: t("sidebar_domain_settings"), icon: <GearSixIcon size={14} /> }
   ];
 
-  const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.ReactNode }> = [
-    { value: "system", label: t("theme_system"), icon: <MonitorIcon size={14} /> },
-    { value: "light", label: t("theme_light"), icon: <SunIcon size={14} /> },
-    { value: "dark", label: t("theme_dark"), icon: <MoonIcon size={14} /> }
-  ];
-
   const langOptions: Array<{ value: UiLang; label: string }> = [
     { value: "en", label: t("lang_en") },
     { value: "zh", label: t("lang_zh") }
   ];
+  const hasLiveEvents = observability.liveProgress.length > 0;
+  const hasTelemetryEvents =
+    observability.telemetrySummary.totalEvents > 0 || observability.telemetry.length > 0;
+  const hasSourceGroups = observability.sourcesCount > 0;
+  const hasTools = observability.toolsCount > 0;
+  const observabilityEventCount =
+    observability.liveProgress.length + observability.telemetrySummary.totalEvents;
 
   return (
     <aside
@@ -233,35 +244,6 @@ export function WorkspaceSidebar({
         <div className="flex-1 space-y-2 overflow-y-auto p-2.5">
           <div className="rounded-xl border border-kumo-line bg-kumo-control/50 p-3">
             <Text size="sm" bold>
-              {t("theme_group")}
-            </Text>
-            <div className="mt-2 space-y-1">
-              {themeOptions.map((option) => {
-                const active = option.value === mode;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setMode(option.value)}
-                    className={`flex w-full items-center rounded-lg border px-2 py-1.5 text-left text-xs transition-colors ${
-                      active
-                        ? "border-kumo-accent bg-kumo-accent/12 text-kumo-accent"
-                        : "border-kumo-line text-kumo-subtle hover:bg-kumo-control"
-                    }`}
-                    aria-pressed={active}
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      {option.icon}
-                      {option.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-kumo-line bg-kumo-control/50 p-3">
-            <Text size="sm" bold>
               {t("lang_group")}
             </Text>
             <div className="mt-2 space-y-1">
@@ -287,6 +269,108 @@ export function WorkspaceSidebar({
                 );
               })}
             </div>
+          </div>
+
+          <div className="rounded-xl border border-kumo-line bg-kumo-control/50 p-3">
+            <Text size="sm" bold>
+              {t("settings_section_advanced")}
+            </Text>
+            <Text size="xs" variant="secondary">
+              {t("settings_section_advanced_desc")}
+            </Text>
+
+            <details className="mt-2 rounded-lg border border-kumo-line bg-kumo-base/60 p-2">
+              <summary className="flex cursor-pointer items-center justify-between text-xs font-medium text-kumo-default">
+                <span>{t("settings_panel_observability")}</span>
+                {observabilityEventCount > 0 ? (
+                  <Badge variant="primary">{observabilityEventCount}</Badge>
+                ) : null}
+              </summary>
+              <div className="mt-2 space-y-2">
+                {hasTools || hasSourceGroups ? (
+                  <div className="rounded-lg border border-kumo-line bg-kumo-base/70 p-2">
+                    <Text size="xs" bold>
+                      {t("inspector_overview")}
+                    </Text>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {hasTools ? (
+                        <Badge variant="primary">
+                          {t("tabs_tools_count", { count: String(observability.toolsCount) })}
+                        </Badge>
+                      ) : null}
+                      {hasSourceGroups ? (
+                        <Badge variant="secondary">
+                          {t("inspector_sources", { count: String(observability.sourcesCount) })}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {hasLiveEvents ? (
+                  <div className="rounded-lg border border-kumo-line bg-kumo-base/70 p-2">
+                    <Text size="xs" bold>
+                      {t("inspector_live")}
+                    </Text>
+                    <div className="mt-1 space-y-1">
+                      {observability.liveProgress
+                        .slice(-4)
+                        .reverse()
+                        .map((entry) => (
+                          <div
+                            key={entry.id}
+                            className="rounded border border-kumo-line bg-kumo-base/70 px-2 py-1"
+                          >
+                            <Text size="xs" bold>
+                              {entry.phase}
+                            </Text>
+                            <Text size="xs" variant="secondary">
+                              {entry.message}
+                            </Text>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {hasTelemetryEvents ? (
+                  <div className="rounded-lg border border-kumo-line bg-kumo-base/70 p-2">
+                    <Text size="xs" bold>
+                      {t("inspector_telemetry")}
+                    </Text>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <Badge variant="secondary">
+                        {t("inspector_telemetry_events", {
+                          count: String(observability.telemetrySummary.totalEvents)
+                        })}
+                      </Badge>
+                      {Object.entries(observability.telemetrySummary.eventCounts)
+                        .slice(0, 3)
+                        .map(([name, count]) => (
+                          <Badge key={name} variant="secondary">
+                            {name}: {count}
+                          </Badge>
+                        ))}
+                    </div>
+                    <div className="mt-1 space-y-1">
+                      {observability.telemetry.slice(0, 4).map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded border border-kumo-line bg-kumo-base/70 px-2 py-1"
+                        >
+                          <Text size="xs" bold>
+                            {item.name}
+                          </Text>
+                          <Text size="xs" variant="secondary">
+                            {new Date(item.timestamp).toLocaleTimeString()}
+                          </Text>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </details>
           </div>
         </div>
       ) : (

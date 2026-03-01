@@ -99,22 +99,218 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
 interface G2ChartRendererProps {
   spec: {
     type?: string;
-    data: Record<string, unknown>[];
+    data?: Record<string, unknown>[] | Record<string, unknown>;
     encode?: Record<string, string>;
+    children?: unknown[];
+    marks?: unknown[];
     [key: string]: unknown;
   };
 }
 
+const DEFAULT_G2_COLOR_PALETTE = [
+  "#4E79A7",
+  "#F28E2B",
+  "#E15759",
+  "#76B7B2",
+  "#59A14F",
+  "#EDC948",
+  "#B07AA1",
+  "#FF9DA7",
+  "#9C755F",
+  "#BAB0AC"
+];
+
+function isLikelyValidCssColor(value: string): boolean {
+  const normalized = value.trim();
+  if (!normalized) return false;
+  if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(normalized)) return true;
+  if (/^(rgb|hsl)a?\(\s*[^)]+\)$/i.test(normalized)) return true;
+  if (/^(transparent|currentColor|inherit)$/i.test(normalized)) return true;
+  return false;
+}
+
+function sanitizeFunctionLikeProps(input: string): string {
+  let output = input;
+  const functionLikePropPatterns = [
+    // "formatter": (d) => ...
+    /,\s*"formatter"\s*:\s*\([^)]*\)\s*=>[\s\S]*?(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
+    /"formatter"\s*:\s*\([^)]*\)\s*=>[\s\S]*?(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
+    // "formatter": function (...) { ... }
+    /,\s*"formatter"\s*:\s*function\s*\([^)]*\)\s*\{[\s\S]*?\}(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
+    /"formatter"\s*:\s*function\s*\([^)]*\)\s*\{[\s\S]*?\}(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g
+  ];
+
+  for (const pattern of functionLikePropPatterns) {
+    output = output.replace(pattern, "");
+  }
+  return output;
+}
+
+function sanitizeG2JsonLikeText(raw: string): string {
+  return sanitizeFunctionLikeProps(raw)
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1")
+    .replace(/,\s*([}\]])/g, "$1")
+    .trim();
+}
+
+function normalizeColorScaleRange(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  const obj = value as Record<string, unknown>;
+  const color = obj.color;
+  if (!color || typeof color !== "object") return value;
+
+  const colorObj = color as Record<string, unknown>;
+  const range = colorObj.range;
+  if (!Array.isArray(range) || range.length === 0) return value;
+
+  const normalizedRange = range.map((entry, index) => {
+    if (typeof entry === "string" && isLikelyValidCssColor(entry)) {
+      return entry;
+    }
+    return DEFAULT_G2_COLOR_PALETTE[index % DEFAULT_G2_COLOR_PALETTE.length];
+  });
+
+  return {
+    ...obj,
+    color: {
+      ...colorObj,
+      range: normalizedRange
+    }
+  };
+}
+
+export function parseG2SpecFromCode(code: string): Record<string, unknown> | null {
+  const raw = code.trim();
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    // Fall through to permissive parsing path.
+  }
+
+  try {
+    const sanitized = sanitizeG2JsonLikeText(raw);
+    const reparsed = JSON.parse(sanitized);
+    if (!reparsed || typeof reparsed !== "object") return null;
+    return reparsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 interface G2ChartInstance {
   mark: (type: "interval" | "line" | "point" | "area" | "cell" | "rect") => void;
-  data: (data: Record<string, unknown>[]) => void;
+  data: (data: Record<string, unknown>[] | Record<string, unknown>) => void;
   encode: (encode: Record<string, string | number>) => void;
   axis: (axis: Record<string, unknown>) => void;
   legend: (legend: Record<string, unknown>) => void;
   scale: (scale: Record<string, unknown>) => void;
   style: (style: Record<string, unknown>) => void;
+  options: (options: Record<string, unknown>) => void;
   render: () => Promise<void>;
   destroy: () => void;
+}
+
+const SIMPLE_MARK_TYPES = new Set(["interval", "line", "point", "area", "cell", "rect"]);
+const COMPOSITION_TYPES = new Set([
+  "view",
+  "spaceLayer",
+  "spaceFlex",
+  "facetRect",
+  "facetCircle",
+  "repeatMatrix",
+  "timingKeyframe",
+  "geoPath",
+  "getView"
+]);
+const DATA_TRANSFORM_TYPES = new Set([
+  "sortBy",
+  "sort",
+  "pick",
+  "rename",
+  "fold",
+  "join",
+  "filter",
+  "map",
+  "slice",
+  "kde",
+  "venn",
+  "log",
+  "custom",
+  "ema"
+]);
+
+function normalizeComponentType(type: string): string {
+  const prefixes = ["transform.", "data.", "mark.", "composition."];
+  for (const prefix of prefixes) {
+    if (type.startsWith(prefix)) return type.slice(prefix.length);
+  }
+  return type;
+}
+
+function normalizeG2Spec(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeG2Spec(item));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const input = value as Record<string, unknown>;
+  const output: Record<string, unknown> = {};
+
+  for (const [key, raw] of Object.entries(input)) {
+    let normalized = normalizeG2Spec(raw);
+
+    if (key === "type" && typeof normalized === "string") {
+      normalized = normalizeComponentType(normalized);
+    }
+
+    output[key] = normalized;
+  }
+
+  const transforms = Array.isArray(output.transform) ? output.transform : [];
+  if (transforms.length > 0) {
+    const dataTransforms: Record<string, unknown>[] = [];
+    const viewTransforms: unknown[] = [];
+
+    for (const item of transforms) {
+      const itemType =
+        item && typeof item === "object" && typeof (item as Record<string, unknown>).type === "string"
+          ? ((item as Record<string, unknown>).type as string)
+          : "";
+      if (itemType && DATA_TRANSFORM_TYPES.has(itemType)) {
+        dataTransforms.push(item as Record<string, unknown>);
+      } else {
+        viewTransforms.push(item);
+      }
+    }
+
+    if (dataTransforms.length > 0) {
+      const rawData = output.data;
+      if (Array.isArray(rawData)) {
+        output.data = { type: "inline", value: rawData, transform: dataTransforms };
+      } else if (rawData && typeof rawData === "object") {
+        const dataObj = { ...(rawData as Record<string, unknown>) };
+        const existing = Array.isArray(dataObj.transform) ? dataObj.transform : [];
+        dataObj.transform = [...existing, ...dataTransforms];
+        output.data = dataObj;
+      }
+    }
+
+    if (viewTransforms.length > 0) {
+      output.transform = viewTransforms;
+    } else {
+      delete output.transform;
+    }
+  }
+
+  return normalizeColorScaleRange(output);
 }
 
 export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
@@ -160,22 +356,33 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
           height: 300
         }) as unknown as G2ChartInstance;
 
-        if (spec.type) {
-          chart.mark(spec.type as "interval" | "line" | "point" | "area" | "cell" | "rect");
-        }
+        const normalizedSpec = normalizeG2Spec(spec) as G2ChartRendererProps["spec"];
+        const specType = typeof normalizedSpec.type === "string" ? normalizedSpec.type : "";
+        const hasCompositionChildren =
+          (Array.isArray(normalizedSpec.children) && normalizedSpec.children.length > 0) ||
+          (Array.isArray(normalizedSpec.marks) && normalizedSpec.marks.length > 0);
+        const shouldUseOptions = hasCompositionChildren || COMPOSITION_TYPES.has(specType);
 
-        if (spec.data) {
-          chart.data(spec.data);
-        }
+        if (shouldUseOptions) {
+          chart.options(normalizedSpec as Record<string, unknown>);
+        } else {
+          if (SIMPLE_MARK_TYPES.has(specType)) {
+            chart.mark(specType as "interval" | "line" | "point" | "area" | "cell" | "rect");
+          }
 
-        if (spec.encode) {
-          chart.encode(spec.encode as Record<string, string | number>);
-        }
+          if (normalizedSpec.data) {
+            chart.data(normalizedSpec.data);
+          }
 
-        if (spec.axis) chart.axis(spec.axis as Record<string, unknown>);
-        if (spec.legend) chart.legend(spec.legend as Record<string, unknown>);
-        if (spec.scale) chart.scale(spec.scale as Record<string, unknown>);
-        if (spec.style) chart.style(spec.style as Record<string, unknown>);
+          if (normalizedSpec.encode) {
+            chart.encode(normalizedSpec.encode as Record<string, string | number>);
+          }
+
+          if (normalizedSpec.axis) chart.axis(normalizedSpec.axis as Record<string, unknown>);
+          if (normalizedSpec.legend) chart.legend(normalizedSpec.legend as Record<string, unknown>);
+          if (normalizedSpec.scale) chart.scale(normalizedSpec.scale as Record<string, unknown>);
+          if (normalizedSpec.style) chart.style(normalizedSpec.style as Record<string, unknown>);
+        }
 
         await chart.render();
         if (!mounted) {
@@ -249,14 +456,12 @@ export function parseChartFromText(text: string): ChartContent | null {
 
   const g2Match = text.match(/```g2\s*([\s\S]*?)```/);
   if (g2Match) {
-    try {
-      const spec = JSON.parse(g2Match[1].trim());
+    const spec = parseG2SpecFromCode(g2Match[1]);
+    if (spec) {
       return {
         type: "g2",
         content: spec
       };
-    } catch {
-      // Invalid JSON, ignore
     }
   }
 
@@ -318,14 +523,12 @@ function extractAllCharts(text: string): ChartContent[] {
 
   const g2Regex = /```g2\s*([\s\S]*?)```/g;
   while ((match = g2Regex.exec(text)) !== null) {
-    try {
-      const spec = JSON.parse(match[1].trim());
+    const spec = parseG2SpecFromCode(match[1]);
+    if (spec) {
       charts.push({
         type: "g2",
         content: spec
       });
-    } catch {
-      // Invalid JSON, skip
     }
   }
 
