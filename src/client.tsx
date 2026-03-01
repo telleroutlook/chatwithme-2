@@ -55,6 +55,7 @@ import { getNextSessionAfterDelete } from "./features/chat/services/sessionSelec
 import { buildCommandSuggestions } from "./features/chat/services/commandSuggestions";
 import { useChatTelemetry } from "./features/chat/hooks/useChatTelemetry";
 import { useEventLog } from "./features/chat/hooks/useEventLog";
+import { ApprovalContext } from "./features/chat/context/ApprovalContext";
 import { buildObservabilitySnapshot } from "./features/chat/services/observability";
 import {
   createChatTransport,
@@ -67,6 +68,7 @@ import "./styles.css";
 // ============ Main App ============
 
 type Tab = "chat" | "mcp";
+const DEFAULT_APPROVAL_REJECTION_REASON = "Rejected in chat message card";
 
 function readPreconfiguredServersFromState(
   state: unknown
@@ -881,14 +883,33 @@ function App() {
       try {
         const success = await chatTransport.decideApproval(approvalId, "approve");
         if (!success) {
-          addToast(t("server_toggle_failed", { reason: "Approval failed" }), "error");
+          addEventLog({
+            level: "error",
+            source: "client",
+            type: "tool_approval_failed",
+            message: `Approval failed for ${approvalId}`
+          });
+          addToast(t("approval_failed", { reason: "Approval failed" }), "error");
           return;
         }
         setPendingApprovals((prev) => prev.filter((item) => item.id !== approvalId));
+        addEventLog({
+          level: "success",
+          source: "client",
+          type: "tool_approval_succeeded",
+          message: `Approval succeeded for ${approvalId}`
+        });
         addToast(t("inspector_approvals_approve"), "success");
       } catch (error) {
+        addEventLog({
+          level: "error",
+          source: "client",
+          type: "tool_approval_failed",
+          message: error instanceof Error ? error.message : "Unknown error",
+          data: { approvalId }
+        });
         addToast(
-          t("server_toggle_failed", {
+          t("approval_failed", {
             reason: error instanceof Error ? error.message : "Unknown error"
           }),
           "error"
@@ -897,7 +918,7 @@ function App() {
         setApprovingApprovalId((prev) => (prev === approvalId ? null : prev));
       }
     },
-    [addToast, chatTransport, pendingApprovals, t]
+    [addEventLog, addToast, chatTransport, pendingApprovals, t]
   );
 
   const handleRejectToolCall = useCallback(
@@ -908,17 +929,36 @@ function App() {
         const success = await chatTransport.decideApproval(
           approvalId,
           "reject",
-          "Rejected in chat message card"
+          DEFAULT_APPROVAL_REJECTION_REASON
         );
         if (!success) {
-          addToast(t("server_toggle_failed", { reason: "Rejection failed" }), "error");
+          addEventLog({
+            level: "error",
+            source: "client",
+            type: "tool_rejection_failed",
+            message: `Rejection failed for ${approvalId}`
+          });
+          addToast(t("approval_failed", { reason: "Rejection failed" }), "error");
           return;
         }
         setPendingApprovals((prev) => prev.filter((item) => item.id !== approvalId));
+        addEventLog({
+          level: "success",
+          source: "client",
+          type: "tool_rejection_succeeded",
+          message: `Rejection succeeded for ${approvalId}`
+        });
         addToast(t("inspector_approvals_reject"), "success");
       } catch (error) {
+        addEventLog({
+          level: "error",
+          source: "client",
+          type: "tool_rejection_failed",
+          message: error instanceof Error ? error.message : "Unknown error",
+          data: { approvalId }
+        });
         addToast(
-          t("server_toggle_failed", {
+          t("approval_failed", {
             reason: error instanceof Error ? error.message : "Unknown error"
           }),
           "error"
@@ -927,7 +967,7 @@ function App() {
         setApprovingApprovalId((prev) => (prev === approvalId ? null : prev));
       }
     },
-    [addToast, chatTransport, pendingApprovals, t]
+    [addEventLog, addToast, chatTransport, pendingApprovals, t]
   );
 
   const handleSend = useCallback(() => {
@@ -1027,6 +1067,15 @@ function App() {
   const pendingApprovalIds = useMemo(
     () => new Set(pendingApprovals.map((item) => item.id)),
     [pendingApprovals]
+  );
+  const approvalContextValue = useMemo(
+    () => ({
+      pendingApprovalIds,
+      approvingApprovalId,
+      onApproveToolCall: handleApproveToolCall,
+      onRejectToolCall: handleRejectToolCall
+    }),
+    [pendingApprovalIds, approvingApprovalId, handleApproveToolCall, handleRejectToolCall]
   );
 
   const preconfiguredServerList = useMemo(
@@ -1169,38 +1218,36 @@ function App() {
         <div className="flex min-h-0 flex-1">
           <main className="min-h-0 min-w-0 flex-1">
             {activeTab === "chat" ? (
-              <ChatPane
-                messages={chatMessages}
-                isStreaming={isStreaming}
-                isConnected={isConnected}
-                canEdit={permissions.canEdit}
-                isReadonly={permissions.readonly}
-                activeToolsCount={activeToolsCount}
-                mcpConnectedServers={connectedServerCount}
-                mcpTotalServers={totalServerCount}
-                awaitingFirstAssistant={awaitingFirstAssistant}
-                liveProgress={liveProgress}
-                phaseLabels={phaseLabels}
-                input={input}
-                setInput={setInput}
-                commandSuggestions={commandSuggestions}
-                onSend={handleSend}
-                onStop={handleStop}
-                onRetryConnection={() => {
-                  setConnectionStatus("connecting");
-                  setIsLoading(true);
-                }}
-                onDeleteMessage={handleDeleteMessage}
-                onEditMessage={handleEditMessage}
-                onRegenerateMessage={handleRegenerateMessage}
-                onForkMessage={handleForkSession}
-                pendingApprovalIds={pendingApprovalIds}
-                approvingApprovalId={approvingApprovalId}
-                onApproveToolCall={handleApproveToolCall}
-                onRejectToolCall={handleRejectToolCall}
-                t={t}
-                getMessageText={getMessageText}
-              />
+              <ApprovalContext.Provider value={approvalContextValue}>
+                <ChatPane
+                  messages={chatMessages}
+                  isStreaming={isStreaming}
+                  isConnected={isConnected}
+                  canEdit={permissions.canEdit}
+                  isReadonly={permissions.readonly}
+                  activeToolsCount={activeToolsCount}
+                  mcpConnectedServers={connectedServerCount}
+                  mcpTotalServers={totalServerCount}
+                  awaitingFirstAssistant={awaitingFirstAssistant}
+                  liveProgress={liveProgress}
+                  phaseLabels={phaseLabels}
+                  input={input}
+                  setInput={setInput}
+                  commandSuggestions={commandSuggestions}
+                  onSend={handleSend}
+                  onStop={handleStop}
+                  onRetryConnection={() => {
+                    setConnectionStatus("connecting");
+                    setIsLoading(true);
+                  }}
+                  onDeleteMessage={handleDeleteMessage}
+                  onEditMessage={handleEditMessage}
+                  onRegenerateMessage={handleRegenerateMessage}
+                  onForkMessage={handleForkSession}
+                  t={t}
+                  getMessageText={getMessageText}
+                />
+              </ApprovalContext.Provider>
             ) : (
               <McpPane
                 isLoading={isLoading}

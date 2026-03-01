@@ -26,6 +26,75 @@ function isToolCallState(value: unknown): value is ToolCallState {
   );
 }
 
+const APPROVAL_ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/;
+const APPROVAL_ID_FROM_ERROR_REGEX = /\(id:\s*([A-Za-z0-9_-]{1,64})\)/i;
+
+interface BaseToolPart {
+  toolCallId?: unknown;
+  state?: unknown;
+  input?: unknown;
+  output?: unknown;
+  errorText?: unknown;
+}
+
+type RawToolPart = { type: string; [key: string]: unknown };
+
+interface DynamicToolPart extends BaseToolPart, RawToolPart {
+  type: "dynamic-tool";
+  toolName: unknown;
+}
+
+interface TypedToolPart extends BaseToolPart, RawToolPart {
+  type: `tool-${string}`;
+}
+
+type ToolPart = DynamicToolPart | TypedToolPart;
+
+function isToolInput(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isDynamicToolPart(part: RawToolPart): part is DynamicToolPart {
+  return part.type === "dynamic-tool";
+}
+
+function isTypedToolPart(part: RawToolPart): part is TypedToolPart {
+  return part.type.startsWith("tool-") && part.type !== "dynamic-tool";
+}
+
+function getToolState(part: BaseToolPart): ToolCallState {
+  return isToolCallState(part.state) ? part.state : "error";
+}
+
+function parseApprovalId(candidate: unknown): string | undefined {
+  if (typeof candidate !== "string") {
+    return undefined;
+  }
+  const value = candidate.trim();
+  if (!APPROVAL_ID_REGEX.test(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+function parseApprovalIdFromOutput(candidate: unknown): string | undefined {
+  if (!candidate || typeof candidate !== "object") {
+    return undefined;
+  }
+  return parseApprovalId((candidate as { approvalId?: unknown }).approvalId);
+}
+
+function parseApprovalIdFromError(candidate: unknown): string | undefined {
+  if (typeof candidate !== "string") {
+    return undefined;
+  }
+  const match = candidate.match(APPROVAL_ID_FROM_ERROR_REGEX);
+  if (!match) {
+    return undefined;
+  }
+  return parseApprovalId(match[1]);
+}
+
 interface ToolCallCardProps {
   toolName: string;
   state: ToolCallState;
@@ -209,12 +278,20 @@ export function ToolCallCard({
           </button>
         </div>
       )}
+
+      {state === "approval-requested" && !approvalId && (
+        <div className="border-t border-kumo-line/50 px-4 py-2">
+          <div className="text-xs app-text-danger">
+            Approval request is invalid: missing or malformed approval ID.
+          </div>
+        </div>
+      )}
     </Surface>
   );
 }
 
 // Helper to extract tool calls from message parts
-export function extractToolCalls(parts: Array<{ type: string; [key: string]: unknown }>): Array<{
+export function extractToolCalls(parts: RawToolPart[]): Array<{
   toolName: string;
   state: ToolCallState;
   input?: Record<string, unknown>;
@@ -222,32 +299,6 @@ export function extractToolCalls(parts: Array<{ type: string; [key: string]: unk
   errorText?: string;
   approvalId?: string;
 }> {
-  const parseApprovalId = (candidate: unknown): string | undefined => {
-    if (typeof candidate !== "string" || !candidate.trim()) {
-      return undefined;
-    }
-    return candidate.trim();
-  };
-
-  const parseApprovalIdFromOutput = (candidate: unknown): string | undefined => {
-    if (!candidate || typeof candidate !== "object") {
-      return undefined;
-    }
-    const maybeApprovalId = (candidate as { approvalId?: unknown }).approvalId;
-    return parseApprovalId(maybeApprovalId);
-  };
-
-  const parseApprovalIdFromError = (candidate: unknown): string | undefined => {
-    if (typeof candidate !== "string") {
-      return undefined;
-    }
-    const match = candidate.match(/\(id:\s*([^)]+)\)/i);
-    if (!match) {
-      return undefined;
-    }
-    return parseApprovalId(match[1]);
-  };
-
   const toolCalls: Array<{
     toolName: string;
     state: ToolCallState;
@@ -258,25 +309,17 @@ export function extractToolCalls(parts: Array<{ type: string; [key: string]: unk
   }> = [];
 
   for (const part of parts) {
-    // Handle dynamic-tool type
-    if (part.type === "dynamic-tool") {
-      const dynamicPart = part as unknown as {
-        toolName?: unknown;
-        toolCallId?: unknown;
-        state?: unknown;
-        input?: unknown;
-        output?: unknown;
-        errorText?: unknown;
-      };
-      if (typeof dynamicPart.toolName !== "string") {
+    if (isDynamicToolPart(part)) {
+      if (typeof part.toolName !== "string") {
         continue;
       }
-      const state = isToolCallState(dynamicPart.state) ? dynamicPart.state : "error";
+      const dynamicPart: ToolPart = part;
+      const state = getToolState(dynamicPart);
 
       toolCalls.push({
-        toolName: dynamicPart.toolName,
+        toolName: part.toolName,
         state,
-        input: dynamicPart.input as Record<string, unknown> | undefined,
+        input: isToolInput(dynamicPart.input) ? dynamicPart.input : undefined,
         output: dynamicPart.output,
         errorText: typeof dynamicPart.errorText === "string" ? dynamicPart.errorText : undefined,
         approvalId:
@@ -286,23 +329,14 @@ export function extractToolCalls(parts: Array<{ type: string; [key: string]: unk
       });
     }
 
-    // Handle typed tool (tool-xxx pattern)
-    if (part.type.startsWith("tool-") && part.type !== "dynamic-tool") {
-      const toolPart = part as {
-        type: string;
-        toolCallId?: string;
-        state: unknown;
-        input?: unknown;
-        output?: unknown;
-        errorText?: unknown;
-      };
-
-      const toolName = part.type.replace("tool-", "");
-      const state = isToolCallState(toolPart.state) ? toolPart.state : "error";
+    if (isTypedToolPart(part)) {
+      const toolPart: ToolPart = part;
+      const toolName = toolPart.type.replace("tool-", "");
+      const state = getToolState(toolPart);
       toolCalls.push({
         toolName,
         state,
-        input: toolPart.input as Record<string, unknown> | undefined,
+        input: isToolInput(toolPart.input) ? toolPart.input : undefined,
         output: toolPart.output,
         errorText: typeof toolPart.errorText === "string" ? toolPart.errorText : undefined,
         approvalId:

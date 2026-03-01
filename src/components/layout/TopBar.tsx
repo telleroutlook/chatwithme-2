@@ -65,16 +65,14 @@ export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus
           >
             {isDark ? <SunIcon size={18} /> : <MoonIcon size={18} />}
           </button>
-          {connectionStatus === "disconnected" && (
-            <ConnectionIndicator
-              status={connectionStatus}
-              labels={{
-                connecting: t("connection_connecting"),
-                connected: t("connection_connected"),
-                disconnected: t("connection_disconnected")
-              }}
-            />
-          )}
+          <ConnectionIndicator
+            status={connectionStatus}
+            labels={{
+              connecting: t("connection_connecting"),
+              connected: t("connection_connected"),
+              disconnected: t("connection_disconnected")
+            }}
+          />
         </div>
       </div>
     </header>

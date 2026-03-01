@@ -443,3 +443,20 @@
 - WebSocket handshake check:
   - `wss://chat2.3we.org/agents/chat-agent-v2/...` -> `101 Switching Protocols` ✅
   - `wss://chat2.3we.org/agents/chat-agent/...` -> `400 Invalid request` (expected) ✅
+
+## Execution Notes (2026-03-01, approval-card hardening + UX consistency)
+
+- Hardened tool approval extraction and typing in `/home/dev/github/chatwithme-2/src/components/ToolCallCard.tsx`:
+  - Removed `as unknown as` casts.
+  - Added discriminated parsing for `dynamic-tool` and `tool-*` parts.
+  - Restricted `approvalId` to `[A-Za-z0-9_-]{1,64}` and added malformed-id fallback message in UI.
+- Added dedicated approval failure i18n key (`approval_failed`) in `/home/dev/github/chatwithme-2/src/i18n/ui.ts` and migrated approval toast errors in `/home/dev/github/chatwithme-2/src/client.tsx`.
+- Replaced approval prop drilling with `ApprovalContext`:
+  - Added `/home/dev/github/chatwithme-2/src/features/chat/context/ApprovalContext.tsx`.
+  - Removed approval props forwarding in `ChatPane`, `ChatMessageList`, `ChatMessageItem`.
+- Improved connection-state feedback in `/home/dev/github/chatwithme-2/src/components/layout/TopBar.tsx` by rendering `ConnectionIndicator` for connecting/connected/disconnected states.
+- Documented markdown preferences behavior: chat markdown rendering remains enabled by default via `DEFAULT_MARKDOWN_PREFS` in `/home/dev/github/chatwithme-2/src/components/layout/ChatPane.tsx`; user-facing toggle controls are intentionally removed from the chat toolbar to keep the main flow focused.
+- Expanded tests in `/home/dev/github/chatwithme-2/src/components/ToolCallCard.test.ts`:
+  - approval id edge cases (empty, malformed, overlong, nested parentheses)
+  - approval buttons disabled/busy states
+  - invalid approval request hint rendering

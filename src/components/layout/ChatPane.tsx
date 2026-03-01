@@ -44,10 +44,6 @@ interface ChatPaneProps {
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
   onForkMessage: (messageId: UIMessage["id"]) => Promise<void>;
-  pendingApprovalIds?: Set<string>;
-  approvingApprovalId?: string | null;
-  onApproveToolCall?: (approvalId: string) => void;
-  onRejectToolCall?: (approvalId: string) => void;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
   getMessageText: (message: UIMessage) => string;
 }
@@ -74,10 +70,6 @@ export function ChatPane({
   onEditMessage,
   onRegenerateMessage,
   onForkMessage,
-  pendingApprovalIds,
-  approvingApprovalId,
-  onApproveToolCall,
-  onRejectToolCall,
   t,
   getMessageText
 }: ChatPaneProps) {
@@ -157,10 +149,6 @@ export function ChatPane({
             onEditMessage={onEditMessage}
             onRegenerateMessage={onRegenerateMessage}
             onForkMessage={onForkMessage}
-            pendingApprovalIds={pendingApprovalIds}
-            approvingApprovalId={approvingApprovalId}
-            onApproveToolCall={onApproveToolCall}
-            onRejectToolCall={onRejectToolCall}
             getMessageText={getMessageText}
             t={t}
           />

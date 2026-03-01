@@ -91,6 +91,7 @@ export const uiMessages = {
     server_toggle_active: "activated",
     server_toggle_inactive: "deactivated",
     server_toggle_failed: "Failed to toggle server: {reason}",
+    approval_failed: "Approval action failed: {reason}",
 
     chat_input_placeholder_connecting: "Connecting...",
     chat_input_placeholder_readonly: "Read-only mode",
@@ -242,6 +243,7 @@ export const uiMessages = {
     server_toggle_active: "启用",
     server_toggle_inactive: "停用",
     server_toggle_failed: "切换服务失败：{reason}",
+    approval_failed: "审批操作失败：{reason}",
 
     chat_input_placeholder_connecting: "连接中...",
     chat_input_placeholder_readonly: "只读模式",
