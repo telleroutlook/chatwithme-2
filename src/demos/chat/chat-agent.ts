@@ -4,14 +4,24 @@ import {
   generateText,
   streamText,
   convertToModelMessages,
+  pruneMessages,
+  tool,
+  stepCountIs,
   createUIMessageStream,
   createUIMessageStreamResponse,
   type LanguageModel,
   type ModelMessage,
+  type ToolSet,
   type UIMessageStreamWriter
 } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { z } from "zod";
 import { MCP_SERVERS, getApiKey, type McpServerConfig } from "../../mcp-config";
+import {
+  getMessageText,
+  normalizeToolArguments as normalizeArgs,
+  toFallbackModelMessages
+} from "./model-utils";
 
 // MCP Server state (separate from chat messages)
 export interface McpServerState {
@@ -24,14 +34,6 @@ export interface McpServerState {
       error?: string;
     }
   >;
-}
-
-interface ToolExecutionResult {
-  detected: boolean;
-  executed: boolean;
-  toolName?: string;
-  result?: string;
-  error?: string;
 }
 
 type ProgressPhase = "context" | "model" | "thinking" | "tool" | "heartbeat" | "result" | "error";
@@ -104,6 +106,7 @@ export class ChatAgent extends AIChatAgent<Env> {
     system: string;
     messages: ModelMessage[];
     temperature: number;
+    tools?: ToolSet;
     abortSignal?: AbortSignal;
   }): Promise<string> {
     const maxOutputTokens = this.getMaxOutputTokens();
@@ -112,6 +115,8 @@ export class ChatAgent extends AIChatAgent<Env> {
       system: params.system,
       messages: params.messages,
       temperature: params.temperature,
+      tools: params.tools,
+      stopWhen: stepCountIs(6),
       abortSignal: params.abortSignal,
       ...(maxOutputTokens ? { maxOutputTokens } : {}),
       providerOptions: {
@@ -156,65 +161,111 @@ export class ChatAgent extends AIChatAgent<Env> {
   }
 
   private getMessageText(message: { parts: Array<{ type: string; text?: string }> }): string {
-    return message.parts
-      .filter((part) => part.type === "text" && typeof part.text === "string")
-      .map((part) => part.text)
-      .join("\n");
-  }
-
-  private extractToolCallJson(message: string): string | null {
-    const jsonMatch = message.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch?.[1]) {
-      return jsonMatch[1].trim();
-    }
-
-    const objectMatch = message.match(/\{[\s\S]*"tool_call"[\s\S]*\}/);
-    return objectMatch?.[0]?.trim() ?? null;
+    return getMessageText(message.parts);
   }
 
   private normalizeToolArguments(
     toolName: string,
     args: Record<string, unknown>
   ): Record<string, unknown> {
-    const normalized = { ...args };
-
-    if (toolName === "webSearchPrime") {
-      const queryValue =
-        typeof normalized.search_query === "string"
-          ? normalized.search_query
-          : typeof normalized.query === "string"
-            ? normalized.query
-            : "";
-      if (queryValue) {
-        normalized.search_query = queryValue;
-      }
-      delete normalized.query;
-    }
-
-    if (toolName === "webReader") {
-      const urlValue =
-        typeof normalized.url === "string"
-          ? normalized.url
-          : typeof normalized.link === "string"
-            ? normalized.link
-            : "";
-      if (urlValue) {
-        normalized.url = urlValue;
-      }
-      delete normalized.link;
-    }
-
-    return normalized;
+    return normalizeArgs(toolName, args);
   }
 
-  private async reconnectActiveServersIfNeeded(): Promise<void> {
-    const reconnectTargets = Object.values(this.mcpServerState.preconfiguredServers)
-      .filter((entry) => entry.config.active && !entry.connected)
-      .map((entry) => entry.config.name);
+  private async convertMessagesWithFallback(
+    emitProgress?: ProgressEmitter
+  ): Promise<{ modelMessages: ModelMessage[]; source: "converted" | "fallback" }> {
+    const currentMessages = Array.isArray(this.messages) ? this.messages : [];
+    try {
+      const converted = await convertToModelMessages(currentMessages);
+      return { modelMessages: converted, source: "converted" };
+    } catch (error) {
+      const fallbackMessages = toFallbackModelMessages(currentMessages);
 
-    for (const serverName of reconnectTargets) {
-      await this.activateServer(serverName);
+      emitProgress?.({
+        phase: "context",
+        status: "error",
+        message: "Message conversion failed. Using text-only fallback history.",
+        snippet: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240)
+      });
+      return { modelMessages: fallbackMessages, source: "fallback" };
     }
+  }
+
+  private async buildAiTools(emitProgress?: ProgressEmitter): Promise<{
+    tools: ToolSet;
+    toolList: string[];
+  }> {
+    await this.ensureMcpConnections();
+    if (!this.mcp) return { tools: {}, toolList: [] };
+
+    const availableTools = this.mcp.listTools();
+    const shortNameCounts = new Map<string, number>();
+
+    for (const item of availableTools) {
+      const shortName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
+      shortNameCounts.set(shortName, (shortNameCounts.get(shortName) || 0) + 1);
+    }
+
+    const tools: ToolSet = {};
+    const toolList: string[] = [];
+
+    for (const item of availableTools) {
+      const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
+      const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
+      const shortName = rawName;
+
+      const aliases = shortNameCounts.get(shortName) === 1 ? [shortName, item.name] : [item.name];
+      for (const alias of aliases) {
+        if (tools[alias]) continue;
+        tools[alias] = tool({
+          description: item.description || `MCP tool ${rawName}`,
+          inputSchema: z.object({}).passthrough(),
+          execute: async (args: Record<string, unknown>) => {
+            const normalizedArgs = this.normalizeToolArguments(rawName, args);
+            emitProgress?.({
+              phase: "tool",
+              status: "start",
+              toolName: alias,
+              message: `Executing tool "${alias}"`,
+              snippet: JSON.stringify(normalizedArgs).slice(0, 240)
+            });
+            try {
+              if (!this.mcp) {
+                return { error: "MCP unavailable" };
+              }
+              const result = await this.mcp.callTool({
+                name: rawName,
+                serverId,
+                arguments: normalizedArgs
+              });
+              const resultSnippet =
+                typeof result === "string" ? result : JSON.stringify(result, null, 2);
+              emitProgress?.({
+                phase: "tool",
+                status: "success",
+                toolName: alias,
+                message: `Tool "${alias}" completed`,
+                snippet: resultSnippet.slice(0, 320)
+              });
+              return result;
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              emitProgress?.({
+                phase: "tool",
+                status: "error",
+                toolName: alias,
+                message: `Tool "${alias}" failed`,
+                snippet: message.slice(0, 240)
+              });
+              return { error: message };
+            }
+          }
+        });
+      }
+      toolList.push(`${item.name}: ${item.description || "No description"}`);
+    }
+
+    return { tools, toolList };
   }
 
   async onStart() {
@@ -331,33 +382,13 @@ export class ChatAgent extends AIChatAgent<Env> {
   /**
    * Build system prompt with available MCP tools and chart generation instructions
    */
-  private async buildSystemPrompt(): Promise<string> {
-    let toolList = "";
-    try {
-      await this.ensureMcpConnections();
-      if (this.mcp) {
-        const tools = this.mcp.listTools();
-        toolList = tools.map((t) => `- ${t.name}: ${t.description || "No description"}`).join("\n");
-      }
-    } catch (error) {
-      console.error("Failed to get MCP tools:", error);
-    }
-
+  private buildSystemPrompt(toolList: string[]): string {
     return `You are a helpful AI assistant with the following capabilities:
 
 ## 1. Web Tools (MCP)
-${toolList || "No tools available."}
+${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
 
-To use a web tool, respond with:
-\`\`\`json
-{"tool_call": {"name": "tool_name", "arguments": {"arg": "value"}}}
-\`\`\`
-
-Available tools and their parameters:
-- webSearchPrime: Search the web for information
-  - Parameters: {"search_query": "your search query"} (REQUIRED: use "search_query" not "query")
-- webReader: Read and extract content from web pages
-  - Parameters: {"url": "https://example.com"}
+You can call the tools directly when external information is required.
 
 ## 2. Chart Generation
 
@@ -445,125 +476,6 @@ IMPORTANT:
 - After generating a chart, briefly explain what it shows`;
   }
 
-  /**
-   * Try to execute a tool call from the message content
-   */
-  private async tryExecuteToolCall(
-    message: string,
-    emitProgress?: ProgressEmitter
-  ): Promise<ToolExecutionResult> {
-    try {
-      await this.ensureMcpConnections();
-      const jsonStr = this.extractToolCallJson(message);
-      if (!jsonStr) {
-        emitProgress?.({
-          phase: "tool",
-          status: "info",
-          message: "No tool call found in model draft."
-        });
-        return { detected: false, executed: false };
-      }
-
-      const parsed = JSON.parse(jsonStr);
-
-      if (!parsed.tool_call || !parsed.tool_call.name) {
-        emitProgress?.({
-          phase: "tool",
-          status: "info",
-          message: "Tool call JSON detected but invalid."
-        });
-        return { detected: false, executed: false };
-      }
-
-      const { name, arguments: args } = parsed.tool_call;
-      const normalizedArgs = this.normalizeToolArguments(name, args || {});
-      emitProgress?.({
-        phase: "tool",
-        status: "start",
-        toolName: name,
-        message: `Executing tool "${name}".`,
-        snippet: JSON.stringify(normalizedArgs).slice(0, 240)
-      });
-
-      // Check MCP availability using listTools() method
-      if (!this.mcp) {
-        emitProgress?.({
-          phase: "tool",
-          status: "error",
-          toolName: name,
-          message: "MCP is unavailable; cannot execute tool."
-        });
-        return { detected: true, executed: false, toolName: name, error: "MCP not available" };
-      }
-
-      // Get available tools using listTools()
-      const tools = this.mcp.listTools();
-      console.log(
-        "Available MCP tools:",
-        tools?.map((t) => t.name)
-      );
-
-      // Find the tool - tools are namespaced as "serverId.toolName"
-      let toolInfo = tools?.find((t) => t.name === name || t.name.endsWith(`.${name}`));
-
-      if (!toolInfo) {
-        await this.reconnectActiveServersIfNeeded();
-        const refreshedTools = this.mcp.listTools();
-        toolInfo = refreshedTools?.find((t) => t.name === name || t.name.endsWith(`.${name}`));
-      }
-
-      if (!toolInfo) {
-        emitProgress?.({
-          phase: "tool",
-          status: "error",
-          toolName: name,
-          message: `Tool "${name}" not found in available tools.`
-        });
-        return {
-          detected: true,
-          executed: false,
-          toolName: name,
-          error: `Tool "${name}" not found in available tools`
-        };
-      }
-
-      // Extract serverId from the namespaced tool name
-      const serverId = toolInfo.name.includes(".")
-        ? toolInfo.name.split(".")[0]
-        : toolInfo.serverId;
-
-      console.log(`Executing tool: ${name} on server: ${serverId} with args:`, normalizedArgs);
-      const toolResult = await this.mcp.callTool({
-        name,
-        serverId,
-        arguments: normalizedArgs
-      });
-
-      const resultText =
-        typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult, null, 2);
-
-      console.log(`Tool ${name} result:`, resultText.substring(0, 200));
-      emitProgress?.({
-        phase: "tool",
-        status: "success",
-        toolName: name,
-        message: `Tool "${name}" completed.`,
-        snippet: resultText.slice(0, 320)
-      });
-      return { detected: true, executed: true, toolName: name, result: resultText };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error("Tool call error:", error);
-      emitProgress?.({
-        phase: "tool",
-        status: "error",
-        message: "Tool execution failed.",
-        snippet: errorMsg.slice(0, 240)
-      });
-      return { detected: true, executed: false, error: errorMsg };
-    }
-  }
-
   // ============ Chat Methods (callable for REST API) ============
 
   private async generateAssistantResponse(
@@ -577,8 +489,9 @@ IMPORTANT:
       status: "start",
       message: "Loading system prompt and tool context."
     });
-    // Build system prompt
-    const systemPrompt = await this.buildSystemPrompt();
+
+    const { tools, toolList } = await this.buildAiTools(emitProgress);
+    const systemPrompt = this.buildSystemPrompt(toolList);
     emitProgress?.({
       phase: "context",
       status: "success",
@@ -592,197 +505,48 @@ IMPORTANT:
       baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
     });
 
-    // Get existing messages safely - ensure it's an array
-    const currentMessages = Array.isArray(this.messages) ? this.messages : [];
+    const { modelMessages: existingMessages, source } = await this.convertMessagesWithFallback(
+      emitProgress
+    );
 
-    // Convert messages for the model
-    let existingMessages: ModelMessage[] = [];
-    try {
-      existingMessages = await convertToModelMessages(currentMessages);
-    } catch (e) {
-      console.error("Error converting messages:", e);
-      existingMessages = [];
-    }
-
-    // Create user message
     const userMessage: ModelMessage = {
       role: "user",
       content: [{ type: "text", text: message }]
     };
-    const messages = userAlreadyInHistory ? existingMessages : [...existingMessages, userMessage];
+    const candidateMessages = userAlreadyInHistory
+      ? existingMessages
+      : [...existingMessages, userMessage];
+    const messages = pruneMessages({
+      messages: candidateMessages,
+      toolCalls: "before-last-2-messages",
+      reasoning: "before-last-message"
+    });
 
-    // Generate initial response
+    emitProgress?.({
+      phase: "context",
+      status: "info",
+      message: `History prepared (${source}); messages: ${candidateMessages.length} -> ${messages.length}.`
+    });
+
     emitProgress?.({
       phase: "model",
       status: "start",
-      message: "Model is generating the first draft."
+      message: "Model is generating the response."
     });
-    const text = await this.requestModelText({
+    const finalResponse = await this.requestModelText({
       model: glm(this.getModelId()),
       system: systemPrompt,
       messages,
+      tools,
       temperature: 0.7,
       abortSignal
     });
     emitProgress?.({
       phase: "thinking",
       status: "info",
-      message: "Draft generated. Inspecting for tool instructions.",
-      snippet: text.slice(0, 320)
+      message: "Response generation completed.",
+      snippet: finalResponse.slice(0, 320)
     });
-
-    let finalResponse = text;
-
-    // Check for tool calls and execute them
-    console.log("Checking for tool calls in response:", text.substring(0, 200));
-    const toolResult = await this.tryExecuteToolCall(text, emitProgress);
-    console.log("Tool execution result:", toolResult);
-
-    if (toolResult.executed && toolResult.result) {
-      // Tool was executed, now generate a follow-up response with the tool result
-      const toolContextMessage = {
-        role: "user" as const,
-        content: [
-          {
-            type: "text" as const,
-            text: `Tool "${toolResult.toolName}" returned the following result:\n\n${toolResult.result}\n\nPlease use this information to provide a helpful response to the user's original question.`
-          }
-        ]
-      };
-
-      const followUpMessages: ModelMessage[] = [
-        ...messages,
-        {
-          role: "assistant",
-          content: [{ type: "text", text }]
-        },
-        toolContextMessage
-      ];
-
-      emitProgress?.({
-        phase: "model",
-        status: "start",
-        message: "Tool returned data. Generating final answer."
-      });
-      const followUpText = await this.requestModelText({
-        model: glm(this.getModelId()),
-        system:
-          `${systemPrompt}\n\n` +
-          "A tool result has already been provided. Do not output tool_call JSON again. " +
-          "Respond directly to the user with a final answer.",
-        messages: followUpMessages,
-        temperature: 0.7,
-        abortSignal
-      });
-
-      finalResponse = followUpText;
-      emitProgress?.({
-        phase: "thinking",
-        status: "info",
-        message: "Final answer draft generated from tool result.",
-        snippet: followUpText.slice(0, 320)
-      });
-    } else if (toolResult.detected && !toolResult.executed) {
-      // Avoid returning raw tool_call JSON to user when tool execution fails.
-      const fallbackContextMessage: ModelMessage = {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text:
-              `Tool call failed${toolResult.toolName ? ` (${toolResult.toolName})` : ""}: ${toolResult.error || "unknown error"}.\n` +
-              "Please answer the user's question directly without outputting tool_call JSON."
-          }
-        ]
-      };
-
-      const fallbackMessages: ModelMessage[] = [
-        ...messages,
-        {
-          role: "assistant",
-          content: [{ type: "text", text }]
-        },
-        fallbackContextMessage
-      ];
-
-      emitProgress?.({
-        phase: "model",
-        status: "start",
-        message: "Tool failed. Generating fallback answer without tools."
-      });
-      const fallbackText = await this.requestModelText({
-        model: glm(this.getModelId()),
-        system:
-          `${systemPrompt}\n\n` +
-          "Do not output tool_call JSON. Answer directly based on your own knowledge and be explicit about uncertainty.",
-        messages: fallbackMessages,
-        temperature: 0.7,
-        abortSignal
-      });
-
-      finalResponse = fallbackText;
-      emitProgress?.({
-        phase: "thinking",
-        status: "info",
-        message: "Fallback answer generated.",
-        snippet: fallbackText.slice(0, 320)
-      });
-    }
-
-    // Final guardrail: never return raw tool_call JSON to API clients.
-    if (this.extractToolCallJson(finalResponse)) {
-      emitProgress?.({
-        phase: "model",
-        status: "start",
-        message: "Detected raw tool JSON in output. Running guardrail rewrite."
-      });
-      if (toolResult.executed && toolResult.result) {
-        const forcedFinalText = await this.requestModelText({
-          model: glm(this.getModelId()),
-          system:
-            "You are given user question and tool result. " +
-            "Return a direct final answer in Markdown. Never output JSON tool calls.",
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text:
-                    `User question:\n${message}\n\n` +
-                    `Tool result:\n${toolResult.result}\n\n` +
-                    "Please provide the final answer directly."
-                }
-              ]
-            }
-          ],
-          temperature: 0.4,
-          abortSignal
-        });
-        finalResponse = forcedFinalText;
-      } else {
-        const forcedFallbackText = await this.requestModelText({
-          model: glm(this.getModelId()),
-          system:
-            "Answer the user directly without using tools. " + "Never output JSON tool calls.",
-          messages: [
-            {
-              role: "user",
-              content: [{ type: "text", text: message }]
-            }
-          ],
-          temperature: 0.6,
-          abortSignal
-        });
-        finalResponse = forcedFallbackText;
-      }
-      emitProgress?.({
-        phase: "thinking",
-        status: "info",
-        message: "Guardrail rewrite completed.",
-        snippet: finalResponse.slice(0, 320)
-      });
-    }
 
     emitProgress?.({
       phase: "result",

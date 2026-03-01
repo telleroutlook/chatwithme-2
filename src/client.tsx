@@ -16,7 +16,7 @@ import { useResponsive } from "./hooks/useResponsive";
 import { Tabs } from "./components/ui";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Badge } from "@cloudflare/kumo";
 import { PlugIcon, ChatCircleIcon } from "@phosphor-icons/react";
@@ -125,18 +125,7 @@ function App() {
   const [input, setInput] = useState("");
   const [liveProgress, setLiveProgress] = useState<LiveProgressEntry[]>([]);
   const [awaitingFirstAssistant, setAwaitingFirstAssistant] = useState(false);
-  const historyLoadMarkerRef = useRef<string>("");
-  const activeSessionRef = useRef<string>(currentSessionId);
-  const [preferRestFallback] = useState(() => {
-    if (typeof navigator === "undefined") return false;
-    return /firefox/i.test(navigator.userAgent);
-  });
 
-  useEffect(() => {
-    if (preferRestFallback) {
-      setConnectionStatus("connected");
-    }
-  }, [preferRestFallback]);
   // Load sessions on mount
   useEffect(() => {
     setSessions(loadSessions());
@@ -145,14 +134,12 @@ function App() {
   // Save current session ID when changed
   useEffect(() => {
     localStorage.setItem("currentSessionId", currentSessionId);
-    activeSessionRef.current = currentSessionId;
   }, [currentSessionId]);
 
   // Agent connection
   const agent = useAgent({
     agent: "chat-agent",
     name: currentSessionId,
-    enabled: !preferRestFallback,
     onClose: useCallback(() => setConnectionStatus("disconnected"), []),
     onMcpUpdate: useCallback((mcpServers: MCPServersState) => {
       setMcpState(mcpServers);
@@ -165,8 +152,7 @@ function App() {
   // useAgentChat hook for AIChatAgent integration
   const { messages, sendMessage, status, stop, setMessages } = useAgentChat({
     agent,
-    getInitialMessages: null,
-    resume: false,
+    resume: true,
     onToolCall: async ({ toolCall }) => {
       // Handle client-side tools if needed
       console.log("Tool call:", toolCall);
@@ -180,42 +166,21 @@ function App() {
 
   const isStreaming = status === "streaming";
   const isConnected = connectionStatus === "connected";
-  const shouldUseRestFallback = preferRestFallback || !isConnected;
-  const [restMessages, setRestMessages] = useState<UIMessage[]>([]);
-  const chatMessages = shouldUseRestFallback ? restMessages : messages;
+  const chatMessages = messages;
   const setChatMessages = useCallback(
     (next: UIMessage[] | ((prev: UIMessage[]) => UIMessage[])) => {
-      if (shouldUseRestFallback) {
-        setRestMessages((prev) => (typeof next === "function" ? next(prev) : next));
-        return;
-      }
       setMessages((prev) => (typeof next === "function" ? next(prev) : next));
     },
-    [setMessages, shouldUseRestFallback]
-  );
-
-  const requestJson = useCallback(
-    async <T,>(input: RequestInfo | URL, init?: RequestInit): Promise<T> => {
-      const response = await fetch(input, init);
-      const data = (await response.json()) as T;
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return data;
-    },
-    []
+    [setMessages]
   );
 
   const loadPreconfiguredServers = useCallback(
     async (attempt = 0) => {
       try {
-        const servers = shouldUseRestFallback
-          ? (
-              await requestJson<{ success: boolean; servers: Record<string, PreconfiguredServer> }>(
-                `/api/mcp/servers?sessionId=${encodeURIComponent(currentSessionId)}`
-              )
-            ).servers
-          : ((await agent.call("getPreconfiguredServers", [])) as Record<string, PreconfiguredServer>);
+        const servers = (await agent.call("getPreconfiguredServers", [])) as Record<
+          string,
+          PreconfiguredServer
+        >;
         setPreconfiguredServers(servers as Record<string, PreconfiguredServer>);
         setIsLoading(false);
       } catch (error) {
@@ -232,49 +197,15 @@ function App() {
         setIsLoading(false);
       }
     },
-    [agent, currentSessionId, requestJson, shouldUseRestFallback]
+    [agent]
   );
 
   // Load preconfigured servers only after confirmed connected state.
   useEffect(() => {
-    if (!shouldUseRestFallback && connectionStatus !== "connected") return;
+    if (connectionStatus !== "connected") return;
     setIsLoading(true);
     void loadPreconfiguredServers();
-  }, [connectionStatus, loadPreconfiguredServers, shouldUseRestFallback]);
-
-  useEffect(() => {
-    const loadingKey = `loading:${currentSessionId}`;
-    const doneKey = `done:${currentSessionId}`;
-    if (historyLoadMarkerRef.current === loadingKey || historyLoadMarkerRef.current === doneKey) {
-      return;
-    }
-    historyLoadMarkerRef.current = loadingKey;
-
-    let cancelled = false;
-    const loadHistory = async () => {
-      try {
-        const data = await requestJson<{
-          success: boolean;
-          history: Array<{ id?: string; role: string; content: string }>;
-        }>(`/api/chat/history?sessionId=${encodeURIComponent(currentSessionId)}`);
-        if (cancelled || activeSessionRef.current !== currentSessionId) return;
-        const nextMessages = data.history.map((item, index) => ({
-          id: item.id ?? `${item.role}-${index}`,
-          role: item.role as "user" | "assistant" | "system",
-          parts: [{ type: "text", text: item.content }]
-        })) as UIMessage[];
-        setChatMessages(nextMessages);
-        historyLoadMarkerRef.current = doneKey;
-      } catch (error) {
-        console.error("Failed to load session history:", error);
-        historyLoadMarkerRef.current = "";
-      }
-    };
-    void loadHistory();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentSessionId, requestJson, setChatMessages]);
+  }, [connectionStatus, loadPreconfiguredServers]);
 
   // Hide live progress panel once assistant content starts arriving.
   useEffect(() => {
@@ -322,7 +253,6 @@ function App() {
   const handleNewSession = useCallback(() => {
     const newId = nanoid(8);
     stop();
-    historyLoadMarkerRef.current = "";
     setChatMessages([]);
     updateSessionMeta(newId, {
       title: t("session_new"),
@@ -342,7 +272,6 @@ function App() {
     (sessionId: string) => {
       if (sessionId === currentSessionId) return;
       stop();
-      historyLoadMarkerRef.current = "";
       setChatMessages([]);
       setCurrentSessionId(sessionId);
       setConnectionStatus("connecting");
@@ -370,12 +299,7 @@ function App() {
   const handleDeleteMessage = useCallback(
     async (messageId: UIMessage["id"]) => {
       try {
-        const result = shouldUseRestFallback
-          ? await requestJson<DeleteMessageResult>(
-              `/api/chat/message?sessionId=${encodeURIComponent(currentSessionId)}&messageId=${encodeURIComponent(messageId)}`,
-              { method: "DELETE" }
-            )
-          : ((await agent.call("deleteMessage", [messageId])) as DeleteMessageResult);
+        const result = (await agent.call("deleteMessage", [messageId])) as DeleteMessageResult;
         if (!isDeleteMessageResult(result)) {
           throw new Error("Invalid deleteMessage response");
         }
@@ -416,19 +340,13 @@ function App() {
         );
       }
     },
-    [agent, addToast, chatMessages, currentSessionId, requestJson, setChatMessages, shouldUseRestFallback, t]
+    [agent, addToast, chatMessages, currentSessionId, setChatMessages, t]
   );
 
   const handleEditMessage = useCallback(
     async (messageId: UIMessage["id"], content: string) => {
       try {
-        const resolved = shouldUseRestFallback
-          ? await requestJson<EditMessageResult>("/api/chat/edit", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ sessionId: currentSessionId, messageId, content })
-            })
-          : ((await agent.call("editUserMessage", [messageId, content])) as EditMessageResult);
+        const resolved = (await agent.call("editUserMessage", [messageId, content])) as EditMessageResult;
         if (!isEditMessageResult(resolved)) {
           throw new Error("Invalid editUserMessage response");
         }
@@ -463,20 +381,14 @@ function App() {
         );
       }
     },
-    [agent, addToast, chatMessages, currentSessionId, requestJson, setChatMessages, shouldUseRestFallback, t]
+    [agent, addToast, chatMessages, setChatMessages, t]
   );
 
   const handleRegenerateMessage = useCallback(
     async (messageId: UIMessage["id"]) => {
       trackChatEvent("message_regenerate", { messageId });
       try {
-        const result = shouldUseRestFallback
-          ? await requestJson<RegenerateMessageResult>("/api/chat/regenerate", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ sessionId: currentSessionId, messageId })
-            })
-          : ((await agent.call("regenerateFrom", [messageId])) as RegenerateMessageResult);
+        const result = (await agent.call("regenerateFrom", [messageId])) as RegenerateMessageResult;
         if (!isRegenerateMessageResult(result)) {
           throw new Error("Invalid regenerateFrom response");
         }
@@ -506,19 +418,13 @@ function App() {
         );
       }
     },
-    [agent, addToast, currentSessionId, requestJson, setChatMessages, shouldUseRestFallback, t]
+    [agent, addToast, setChatMessages, t]
   );
 
   const handleForkSession = useCallback(
     async (messageId: UIMessage["id"]) => {
       try {
-        const result = shouldUseRestFallback
-          ? await requestJson<ForkSessionResult>("/api/chat/fork", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ sessionId: currentSessionId, messageId })
-            })
-          : ((await agent.call("forkSession", [messageId])) as ForkSessionResult);
+        const result = (await agent.call("forkSession", [messageId])) as ForkSessionResult;
         if (!isForkSessionResult(result)) {
           throw new Error("Invalid forkSession response");
         }
@@ -546,7 +452,7 @@ function App() {
         );
       }
     },
-    [agent, addToast, currentSessionId, requestJson, shouldUseRestFallback, t]
+    [agent, addToast, t]
   );
 
   const handleToggleServer = useCallback(
@@ -554,13 +460,7 @@ function App() {
       setTogglingServer(name);
       trackChatEvent("mcp_toggle", { name });
       try {
-        const result = shouldUseRestFallback
-          ? await requestJson<ToggleServerResult>("/api/mcp/toggle", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ name, sessionId: currentSessionId })
-            })
-          : ((await agent.call("toggleServer", [name])) as ToggleServerResult);
+        const result = (await agent.call("toggleServer", [name])) as ToggleServerResult;
         if (!isToggleServerResult(result)) {
           throw new Error("Invalid toggleServer response");
         }
@@ -593,7 +493,7 @@ function App() {
         setTogglingServer(null);
       }
     },
-    [agent, addToast, currentSessionId, loadPreconfiguredServers, requestJson, shouldUseRestFallback, t]
+    [agent, addToast, loadPreconfiguredServers, t]
   );
 
   const handleSend = useCallback(() => {
@@ -639,42 +539,6 @@ function App() {
         groupKey: "context"
       }
     ]);
-    if (shouldUseRestFallback) {
-      const userMessage: UIMessage = {
-        id: `user-${Date.now()}`,
-        role: "user",
-        parts: [{ type: "text", text }]
-      };
-      const historyWithUser = [...chatMessages, userMessage];
-      setChatMessages(historyWithUser);
-      void (async () => {
-        try {
-          const data = await requestJson<{ success: boolean; response: string }>("/api/chat", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ sessionId: currentSessionId, message: text })
-          });
-          const assistantMessage: UIMessage = {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            parts: [{ type: "text", text: data.response }]
-          };
-          setChatMessages([...historyWithUser, assistantMessage]);
-        } catch (error) {
-          addToast(
-            t("server_toggle_failed", {
-              reason: error instanceof Error ? error.message : "Unknown error"
-            }),
-            "error"
-          );
-        } finally {
-          setAwaitingFirstAssistant(false);
-          setLiveProgress([]);
-        }
-      })();
-      return;
-    }
-
     sendMessage({ role: "user", parts: [{ type: "text", text }] });
   }, [
     addToast,
@@ -683,12 +547,8 @@ function App() {
     input,
     isStreaming,
     currentSessionId,
-    chatMessages,
-    requestJson,
     sendMessage,
-    setChatMessages,
     sessions,
-    shouldUseRestFallback,
     stop,
     t
   ]);
