@@ -2,7 +2,6 @@ import { Toaster } from "./components/Toaster";
 import { ModalHost } from "./components/modal";
 import {
   ChatPane,
-  InspectorPane,
   McpPane,
   MobileTabBar,
   TopBar,
@@ -163,8 +162,9 @@ function App() {
     Record<string, PreconfiguredServer>
   >({});
   const [pendingApprovals, setPendingApprovals] = useState<RuntimeApprovalItem[]>([]);
+  const [approvingApprovalId, setApprovingApprovalId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { events: eventLogs, addEvent: addEventLog, clear: clearEventLogs } = useEventLog();
+  const { addEvent: addEventLog } = useEventLog();
 
   // Responsive hook for mobile detection
   const { mobile } = useResponsive();
@@ -876,6 +876,8 @@ function App() {
 
   const handleApproveToolCall = useCallback(
     async (approvalId: string) => {
+      if (!pendingApprovals.some((item) => item.id === approvalId)) return;
+      setApprovingApprovalId(approvalId);
       try {
         const success = await chatTransport.decideApproval(approvalId, "approve");
         if (!success) {
@@ -891,15 +893,23 @@ function App() {
           }),
           "error"
         );
+      } finally {
+        setApprovingApprovalId((prev) => (prev === approvalId ? null : prev));
       }
     },
-    [addToast, chatTransport, t]
+    [addToast, chatTransport, pendingApprovals, t]
   );
 
   const handleRejectToolCall = useCallback(
     async (approvalId: string) => {
+      if (!pendingApprovals.some((item) => item.id === approvalId)) return;
+      setApprovingApprovalId(approvalId);
       try {
-        const success = await chatTransport.decideApproval(approvalId, "reject", "Rejected in inspector");
+        const success = await chatTransport.decideApproval(
+          approvalId,
+          "reject",
+          "Rejected in chat message card"
+        );
         if (!success) {
           addToast(t("server_toggle_failed", { reason: "Rejection failed" }), "error");
           return;
@@ -913,9 +923,11 @@ function App() {
           }),
           "error"
         );
+      } finally {
+        setApprovingApprovalId((prev) => (prev === approvalId ? null : prev));
       }
     },
-    [addToast, chatTransport, t]
+    [addToast, chatTransport, pendingApprovals, t]
   );
 
   const handleSend = useCallback(() => {
@@ -1012,6 +1024,10 @@ function App() {
   );
   const telemetry = useChatTelemetry();
   const telemetrySummary = useMemo(() => buildObservabilitySnapshot(telemetry), [telemetry]);
+  const pendingApprovalIds = useMemo(
+    () => new Set(pendingApprovals.map((item) => item.id)),
+    [pendingApprovals]
+  );
 
   const preconfiguredServerList = useMemo(
     () => Object.entries(preconfiguredServers),
@@ -1178,6 +1194,10 @@ function App() {
                 onEditMessage={handleEditMessage}
                 onRegenerateMessage={handleRegenerateMessage}
                 onForkMessage={handleForkSession}
+                pendingApprovalIds={pendingApprovalIds}
+                approvingApprovalId={approvingApprovalId}
+                onApproveToolCall={handleApproveToolCall}
+                onRejectToolCall={handleRejectToolCall}
                 t={t}
                 getMessageText={getMessageText}
               />
@@ -1193,19 +1213,6 @@ function App() {
               />
             )}
           </main>
-          <InspectorPane
-            toolsCount={activeToolsCount}
-            sourcesCount={sourceGroupsCount}
-            liveProgress={liveProgress}
-            telemetry={telemetry}
-            telemetrySummary={telemetrySummary}
-            eventLogs={eventLogs}
-            pendingApprovals={pendingApprovals}
-            onApproveToolCall={handleApproveToolCall}
-            onRejectToolCall={handleRejectToolCall}
-            onClearEventLogs={clearEventLogs}
-            t={t}
-          />
         </div>
 
         <footer className={`app-glass shrink-0 border-t border-kumo-line/80 bg-kumo-base/55 py-3 ${mobile ? "pb-16" : ""}`}>

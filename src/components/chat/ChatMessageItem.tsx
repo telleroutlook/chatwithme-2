@@ -26,6 +26,10 @@ interface ChatMessageItemProps {
   onEdit: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerate: (messageId: UIMessage["id"]) => Promise<void>;
   onFork: (messageId: UIMessage["id"]) => Promise<void>;
+  pendingApprovalIds?: Set<string>;
+  approvingApprovalId?: string | null;
+  onApproveToolCall?: (approvalId: string) => void;
+  onRejectToolCall?: (approvalId: string) => void;
   getMessageText: (message: UIMessage) => string;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
@@ -41,6 +45,10 @@ function ChatMessageItemInner({
   onEdit,
   onRegenerate,
   onFork,
+  pendingApprovalIds,
+  approvingApprovalId,
+  onApproveToolCall,
+  onRejectToolCall,
   getMessageText,
   t
 }: ChatMessageItemProps) {
@@ -113,6 +121,11 @@ function ChatMessageItemInner({
               input={toolCall.input}
               output={toolCall.output}
               errorText={toolCall.errorText}
+              approvalId={toolCall.approvalId}
+              canApprove={Boolean(toolCall.approvalId && pendingApprovalIds?.has(toolCall.approvalId))}
+              approvalBusy={Boolean(toolCall.approvalId && approvingApprovalId === toolCall.approvalId)}
+              onApprove={onApproveToolCall}
+              onReject={onRejectToolCall}
             />
           ))}
         </div>
@@ -248,6 +261,8 @@ function areChatMessageItemPropsEqual(
   if (prevProps.markdownPrefs?.enableAlerts !== nextProps.markdownPrefs?.enableAlerts) return false;
   if (prevProps.markdownPrefs?.enableFootnotes !== nextProps.markdownPrefs?.enableFootnotes) return false;
   if (prevProps.markdownPrefs?.streamCursor !== nextProps.markdownPrefs?.streamCursor) return false;
+  if (prevProps.pendingApprovalIds !== nextProps.pendingApprovalIds) return false;
+  if (prevProps.approvingApprovalId !== nextProps.approvingApprovalId) return false;
 
   const prevText = prevProps.getMessageText(prevProps.message);
   const nextText = nextProps.getMessageText(nextProps.message);

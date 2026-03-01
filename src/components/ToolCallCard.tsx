@@ -33,6 +33,11 @@ interface ToolCallCardProps {
   output?: unknown;
   errorText?: string;
   duration?: number;
+  approvalId?: string;
+  canApprove?: boolean;
+  approvalBusy?: boolean;
+  onApprove?: (approvalId: string) => void;
+  onReject?: (approvalId: string) => void;
 }
 
 // Status icon and color mapping
@@ -92,7 +97,12 @@ export function ToolCallCard({
   input,
   output,
   errorText,
-  duration
+  duration,
+  approvalId,
+  canApprove = false,
+  approvalBusy = false,
+  onApprove,
+  onReject
 }: ToolCallCardProps) {
   const config = statusConfig[state];
   const StatusIcon = config.icon;
@@ -178,6 +188,27 @@ export function ToolCallCard({
           </pre>
         </div>
       )}
+
+      {state === "approval-requested" && approvalId && onApprove && onReject && (
+        <div className="flex items-center gap-2 border-t border-kumo-line/50 px-4 py-2">
+          <button
+            type="button"
+            onClick={() => onApprove(approvalId)}
+            disabled={!canApprove || approvalBusy}
+            className="rounded border border-kumo-line px-2 py-1 text-xs text-kumo-subtle hover:bg-kumo-control disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            onClick={() => onReject(approvalId)}
+            disabled={!canApprove || approvalBusy}
+            className="rounded border border-kumo-line px-2 py-1 text-xs text-kumo-subtle hover:bg-kumo-control disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Reject
+          </button>
+        </div>
+      )}
     </Surface>
   );
 }
@@ -189,13 +220,41 @@ export function extractToolCalls(parts: Array<{ type: string; [key: string]: unk
   input?: Record<string, unknown>;
   output?: unknown;
   errorText?: string;
+  approvalId?: string;
 }> {
+  const parseApprovalId = (candidate: unknown): string | undefined => {
+    if (typeof candidate !== "string" || !candidate.trim()) {
+      return undefined;
+    }
+    return candidate.trim();
+  };
+
+  const parseApprovalIdFromOutput = (candidate: unknown): string | undefined => {
+    if (!candidate || typeof candidate !== "object") {
+      return undefined;
+    }
+    const maybeApprovalId = (candidate as { approvalId?: unknown }).approvalId;
+    return parseApprovalId(maybeApprovalId);
+  };
+
+  const parseApprovalIdFromError = (candidate: unknown): string | undefined => {
+    if (typeof candidate !== "string") {
+      return undefined;
+    }
+    const match = candidate.match(/\(id:\s*([^)]+)\)/i);
+    if (!match) {
+      return undefined;
+    }
+    return parseApprovalId(match[1]);
+  };
+
   const toolCalls: Array<{
     toolName: string;
     state: ToolCallState;
     input?: Record<string, unknown>;
     output?: unknown;
     errorText?: string;
+    approvalId?: string;
   }> = [];
 
   for (const part of parts) {
@@ -203,6 +262,7 @@ export function extractToolCalls(parts: Array<{ type: string; [key: string]: unk
     if (part.type === "dynamic-tool") {
       const dynamicPart = part as unknown as {
         toolName?: unknown;
+        toolCallId?: unknown;
         state?: unknown;
         input?: unknown;
         output?: unknown;
@@ -218,7 +278,11 @@ export function extractToolCalls(parts: Array<{ type: string; [key: string]: unk
         state,
         input: dynamicPart.input as Record<string, unknown> | undefined,
         output: dynamicPart.output,
-        errorText: typeof dynamicPart.errorText === "string" ? dynamicPart.errorText : undefined
+        errorText: typeof dynamicPart.errorText === "string" ? dynamicPart.errorText : undefined,
+        approvalId:
+          parseApprovalId(dynamicPart.toolCallId) ??
+          parseApprovalIdFromOutput(dynamicPart.output) ??
+          parseApprovalIdFromError(dynamicPart.errorText)
       });
     }
 
@@ -240,7 +304,11 @@ export function extractToolCalls(parts: Array<{ type: string; [key: string]: unk
         state,
         input: toolPart.input as Record<string, unknown> | undefined,
         output: toolPart.output,
-        errorText: typeof toolPart.errorText === "string" ? toolPart.errorText : undefined
+        errorText: typeof toolPart.errorText === "string" ? toolPart.errorText : undefined,
+        approvalId:
+          parseApprovalId(toolPart.toolCallId) ??
+          parseApprovalIdFromOutput(toolPart.output) ??
+          parseApprovalIdFromError(toolPart.errorText)
       });
     }
   }

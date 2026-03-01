@@ -16,6 +16,12 @@ interface ProgressEntry {
   snippet?: string;
 }
 
+const DEFAULT_MARKDOWN_PREFS = {
+  enableAlerts: true,
+  enableFootnotes: true,
+  streamCursor: true
+} as const;
+
 interface ChatPaneProps {
   messages: UIMessage[];
   isStreaming: boolean;
@@ -38,6 +44,10 @@ interface ChatPaneProps {
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
   onForkMessage: (messageId: UIMessage["id"]) => Promise<void>;
+  pendingApprovalIds?: Set<string>;
+  approvingApprovalId?: string | null;
+  onApproveToolCall?: (approvalId: string) => void;
+  onRejectToolCall?: (approvalId: string) => void;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
   getMessageText: (message: UIMessage) => string;
 }
@@ -64,17 +74,17 @@ export function ChatPane({
   onEditMessage,
   onRegenerateMessage,
   onForkMessage,
+  pendingApprovalIds,
+  approvingApprovalId,
+  onApproveToolCall,
+  onRejectToolCall,
   t,
   getMessageText
 }: ChatPaneProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const onAccentTextClass = "text-white hover:text-white";
   const [messageVariant, setMessageVariant] = useState<"bubble" | "docs">("bubble");
-  const [markdownPrefs, setMarkdownPrefs] = useState(() => ({
-    enableAlerts: true,
-    enableFootnotes: true,
-    streamCursor: true
-  }));
+  const markdownPrefs = DEFAULT_MARKDOWN_PREFS;
   const { mode, unreadCount, showBackToBottom, onScroll, scrollToBottom } = useChatAutoScroll({
     scrollRef,
     messagesLength: messages.length
@@ -98,39 +108,6 @@ export function ChatPane({
               {isReadonly && <Badge variant="secondary">{t("readonly_badge")}</Badge>}
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                size="xs"
-                variant={markdownPrefs.streamCursor ? "primary" : "secondary"}
-                className={markdownPrefs.streamCursor ? onAccentTextClass : undefined}
-                style={markdownPrefs.streamCursor ? { color: "#fff" } : undefined}
-                onClick={() =>
-                  setMarkdownPrefs((prev) => ({ ...prev, streamCursor: !prev.streamCursor }))
-                }
-              >
-                Stream
-              </Button>
-              <Button
-                size="xs"
-                variant={markdownPrefs.enableAlerts ? "primary" : "secondary"}
-                className={markdownPrefs.enableAlerts ? onAccentTextClass : undefined}
-                style={markdownPrefs.enableAlerts ? { color: "#fff" } : undefined}
-                onClick={() =>
-                  setMarkdownPrefs((prev) => ({ ...prev, enableAlerts: !prev.enableAlerts }))
-                }
-              >
-                Alerts
-              </Button>
-              <Button
-                size="xs"
-                variant={markdownPrefs.enableFootnotes ? "primary" : "secondary"}
-                className={markdownPrefs.enableFootnotes ? onAccentTextClass : undefined}
-                style={markdownPrefs.enableFootnotes ? { color: "#fff" } : undefined}
-                onClick={() =>
-                  setMarkdownPrefs((prev) => ({ ...prev, enableFootnotes: !prev.enableFootnotes }))
-                }
-              >
-                Footnotes
-              </Button>
               {!isConnected && (
                 <Button size="xs" variant="secondary" onClick={onRetryConnection}>
                   Retry
@@ -180,6 +157,10 @@ export function ChatPane({
             onEditMessage={onEditMessage}
             onRegenerateMessage={onRegenerateMessage}
             onForkMessage={onForkMessage}
+            pendingApprovalIds={pendingApprovalIds}
+            approvingApprovalId={approvingApprovalId}
+            onApproveToolCall={onApproveToolCall}
+            onRejectToolCall={onRejectToolCall}
             getMessageText={getMessageText}
             t={t}
           />
