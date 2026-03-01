@@ -34,6 +34,18 @@ import {
   normalizeToolArguments as normalizeArgs,
   toFallbackModelMessages
 } from "./model-utils";
+import {
+  getMaxOutputTokens,
+  getModelId,
+  getModelStreamEnabled,
+  getThinkingEnabled,
+  getThinkingType,
+  getToolMaxAttempts,
+  getToolTimeoutMs
+} from "./runtime-config";
+import { buildSystemPrompt } from "./system-prompt";
+import { classifyRetryableError } from "./retry-policy";
+import { buildApprovalSignature, requiresApprovalPolicy } from "./approval-policy";
 
 export interface McpServerConnectionState {
   preconfiguredServers: Record<
@@ -69,12 +81,40 @@ export interface AgentRuntimeEvent {
   data?: Record<string, unknown>;
 }
 
+export interface RetryStats {
+  tool: {
+    attempts: number;
+    success: number;
+    exhausted: number;
+  };
+  mcpConnection: {
+    attempts: number;
+    success: number;
+    exhausted: number;
+  };
+}
+
+export interface ToolApprovalRequest {
+  id: string;
+  signature: string;
+  toolName: string;
+  serverId?: string;
+  argsSnippet: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  resolvedAt?: string;
+  reason?: string;
+}
+
 export interface ChatAgentState {
   mcp: McpServerConnectionState;
   runtime: {
     toolRuns: ToolRunRecord[];
     lastError?: string;
     events: AgentRuntimeEvent[];
+    approvals: ToolApprovalRequest[];
+    approvedSignatures: Array<{ signature: string; expiresAt: string }>;
+    retryStats: RetryStats;
     stateVersion: number;
   };
 }
@@ -118,41 +158,32 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     runtime: {
       toolRuns: [],
       events: [],
+      approvals: [],
+      approvedSignatures: [],
+      retryStats: {
+        tool: { attempts: 0, success: 0, exhausted: 0 },
+        mcpConnection: { attempts: 0, success: 0, exhausted: 0 }
+      },
       stateVersion: 0
     }
   };
 
   private mcpInitPromise: Promise<void> | null = null;
 
-  private parseBooleanEnv(raw: string | undefined, defaultValue: boolean): boolean {
-    if (!raw) return defaultValue;
-    const normalized = raw.toLowerCase();
-    if (["1", "true", "yes", "on"].includes(normalized)) return true;
-    if (["0", "false", "no", "off"].includes(normalized)) return false;
-    return defaultValue;
-  }
-
   private isModelStreamEnabled(): boolean {
-    return this.parseBooleanEnv(this.runtimeEnv.CHAT_MODEL_STREAM, true);
+    return getModelStreamEnabled(this.runtimeEnv);
   }
 
   private getThinkingType(): "enabled" | "disabled" {
-    const explicit = this.runtimeEnv.CHAT_MODEL_THINKING?.toLowerCase();
-    if (explicit === "enabled" || explicit === "disabled") {
-      return explicit;
-    }
-    return this.isThinkingEnabled() ? "enabled" : "disabled";
+    return getThinkingType(this.runtimeEnv);
   }
 
   private getModelId(): string {
-    return this.runtimeEnv.CHAT_MODEL_ID || "GLM-4.7";
+    return getModelId(this.runtimeEnv);
   }
 
   private getMaxOutputTokens(): number | undefined {
-    const raw = this.runtimeEnv.CHAT_MODEL_MAX_TOKENS;
-    if (!raw) return undefined;
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    return getMaxOutputTokens(this.runtimeEnv);
   }
 
   private async requestModelText(params: {
@@ -196,7 +227,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   }
 
   private isThinkingEnabled(): boolean {
-    return this.parseBooleanEnv(this.runtimeEnv.CHAT_ENABLE_THINKING, false);
+    return getThinkingEnabled(this.runtimeEnv);
   }
 
   private appendRuntimeEvent(
@@ -272,47 +303,113 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     });
   }
 
+  private updateRetryStats(
+    kind: "tool" | "mcpConnection",
+    mutation: (target: RetryStats["tool"]) => RetryStats["tool"]
+  ): void {
+    const nextStats = {
+      ...this.state.runtime.retryStats,
+      [kind]: mutation(this.state.runtime.retryStats[kind])
+    };
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        retryStats: nextStats,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+  }
+
+  private pruneApprovalState(): void {
+    const now = Date.now();
+    const keptApprovals = this.state.runtime.approvals
+      .filter((item) => {
+        if (item.status === "pending") return true;
+        if (!item.resolvedAt) return true;
+        return now - new Date(item.resolvedAt).getTime() < 1000 * 60 * 60 * 24;
+      })
+      .slice(-120);
+    const approvedSignatures = this.state.runtime.approvedSignatures.filter(
+      (entry) => new Date(entry.expiresAt).getTime() > now
+    );
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        approvals: keptApprovals,
+        approvedSignatures,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+  }
+
+  private hasApprovedSignature(signature: string): boolean {
+    const now = Date.now();
+    const exists = this.state.runtime.approvedSignatures.some(
+      (entry) => entry.signature === signature && new Date(entry.expiresAt).getTime() > now
+    );
+    if (!exists) return false;
+    const remaining = this.state.runtime.approvedSignatures.filter(
+      (entry) => !(entry.signature === signature && new Date(entry.expiresAt).getTime() > now)
+    );
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        approvedSignatures: remaining,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+    return true;
+  }
+
+  private queueApproval(params: {
+    signature: string;
+    toolName: string;
+    serverId?: string;
+    argsSnippet: string;
+  }): ToolApprovalRequest {
+    const existing = this.state.runtime.approvals.find(
+      (item) => item.signature === params.signature && item.status === "pending"
+    );
+    if (existing) {
+      return existing;
+    }
+    const nextApproval: ToolApprovalRequest = {
+      id: crypto.randomUUID(),
+      signature: params.signature,
+      toolName: params.toolName,
+      serverId: params.serverId,
+      argsSnippet: params.argsSnippet,
+      status: "pending",
+      createdAt: new Date().toISOString()
+    };
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        approvals: [...this.state.runtime.approvals, nextApproval].slice(-120),
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+    return nextApproval;
+  }
+
   private getToolTimeoutMs(): number {
-    const raw = this.runtimeEnv.CHAT_TOOL_TIMEOUT_MS;
-    if (!raw) return 25000;
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 25000;
+    return getToolTimeoutMs(this.runtimeEnv);
   }
 
   private getToolMaxAttempts(): number {
-    const raw = this.runtimeEnv.CHAT_TOOL_MAX_ATTEMPTS;
-    if (!raw) return 2;
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
+    return getToolMaxAttempts(this.runtimeEnv);
   }
 
   private isRetryableToolError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error);
-    const lowered = message.toLowerCase();
-    return (
-      lowered.includes("timeout") ||
-      lowered.includes("network") ||
-      lowered.includes("fetch") ||
-      lowered.includes("econnreset") ||
-      lowered.includes("temporar") ||
-      lowered.includes("503") ||
-      lowered.includes("429")
-    );
+    return classifyRetryableError("tool", error);
   }
 
   private isRetryableMcpConnectionError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error);
-    const lowered = message.toLowerCase();
-    return (
-      lowered.includes("timeout") ||
-      lowered.includes("network") ||
-      lowered.includes("fetch") ||
-      lowered.includes("econnreset") ||
-      lowered.includes("temporar") ||
-      lowered.includes("503") ||
-      lowered.includes("429") ||
-      lowered.includes("connection")
-    );
+    return classifyRetryableError("mcp_connection", error);
   }
 
   private async callMcpToolWithRetry(params: {
@@ -326,6 +423,10 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     const retryEnabled = maxAttempts > 1;
 
     const runner = async (attempt: number) => {
+      this.updateRetryStats("tool", (stats) => ({
+        ...stats,
+        attempts: stats.attempts + 1
+      }));
       if (attempt > 1) {
         params.emitProgress?.({
           phase: "tool",
@@ -350,24 +451,39 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     };
 
     if (!retryEnabled) {
-      return await runner(1);
+      try {
+        const result = await runner(1);
+        this.updateRetryStats("tool", (stats) => ({
+          ...stats,
+          success: stats.success + 1
+        }));
+        return result;
+      } catch (error) {
+        this.updateRetryStats("tool", (stats) => ({
+          ...stats,
+          exhausted: stats.exhausted + 1
+        }));
+        throw error;
+      }
     }
 
-    return await this.retry(runner, {
-      maxAttempts,
-      shouldRetry: (error) => this.isRetryableToolError(error)
-    });
-  }
-
-  private requiresApprovalPolicy(toolName: string, args: Record<string, unknown>): boolean {
-    const lowered = toolName.toLowerCase();
-    const dangerousTokens = ["delete", "remove", "drop", "write", "update", "create", "patch"];
-    if (dangerousTokens.some((token) => lowered.includes(token))) {
-      return true;
+    try {
+      const result = await this.retry(runner, {
+        maxAttempts,
+        shouldRetry: (error) => this.isRetryableToolError(error)
+      });
+      this.updateRetryStats("tool", (stats) => ({
+        ...stats,
+        success: stats.success + 1
+      }));
+      return result;
+    } catch (error) {
+      this.updateRetryStats("tool", (stats) => ({
+        ...stats,
+        exhausted: stats.exhausted + 1
+      }));
+      throw error;
     }
-
-    const serialized = JSON.stringify(args);
-    return serialized.length > 8000;
   }
 
   private emitProgress(writer: UIMessageStreamWriter, event: LiveProgressEvent): void {
@@ -487,9 +603,15 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
                 this.updateLastError(error);
                 return { error };
               }
-              if (this.requiresApprovalPolicy(rawName, normalizedArgs)) {
-                const error =
-                  "Tool blocked by policy: this action requires approval in server safety policy.";
+              const approvalSignature = buildApprovalSignature(rawName, serverId, normalizedArgs);
+              if (requiresApprovalPolicy(rawName, normalizedArgs) && !this.hasApprovedSignature(approvalSignature)) {
+                const approval = this.queueApproval({
+                  signature: approvalSignature,
+                  toolName: alias,
+                  serverId,
+                  argsSnippet: JSON.stringify(normalizedArgs).slice(0, 320)
+                });
+                const error = `Tool "${alias}" requires approval (id: ${approval.id}).`;
                 this.upsertToolRun({
                   ...baseRun,
                   status: "blocked",
@@ -497,21 +619,21 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
                   error
                 });
                 this.appendRuntimeEvent({
-                  level: "error",
+                  level: "info",
                   source: "tool",
-                  type: "tool_blocked",
-                  message: `Tool ${alias} blocked by policy`,
-                  data: { toolName: alias }
+                  type: "tool_approval_required",
+                  message: `Tool ${alias} pending approval`,
+                  data: { toolName: alias, approvalId: approval.id }
                 });
                 this.updateLastError(error);
                 emitProgress?.({
                   phase: "tool",
-                  status: "error",
+                  status: "info",
                   toolName: alias,
-                  message: `Tool "${alias}" blocked by approval policy`,
+                  message: `Tool "${alias}" is waiting for approval`,
                   snippet: error
                 });
-                return { error };
+                return { error, approvalId: approval.id, status: "pending_approval" };
               }
               const result = await this.callMcpToolWithRetry({
                 name: rawName,
@@ -763,114 +885,6 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     return createUIMessageStreamResponse({ stream });
   }
 
-  /**
-   * Build system prompt with available MCP tools and chart generation instructions
-   */
-  private buildSystemPrompt(toolList: string[]): string {
-    return `You are a helpful AI assistant with the following capabilities:
-
-## 1. Web Tools (MCP)
-${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
-
-You can call the tools directly when external information is required.
-
-## 2. Chart Generation
-
-When asked to create charts or diagrams, you MUST output them in code blocks.
-For scenarios that are suitable for chart-based visualization, prefer G2 JSON charts first.
-Use Mermaid as a secondary option when G2 is not suitable, or when the user explicitly asks for diagrams.
-
-### For Diagrams (flowcharts, sequence, pie charts):
-Use Mermaid syntax in a code block:
-
-\`\`\`mermaid
-graph TD
-    A[Start] --> B{Decision}
-    B -->|Yes| C[Action 1]
-    B -->|No| D[Action 2]
-\`\`\`
-
-Mermaid examples:
-
-**Pie Chart:**
-\`\`\`mermaid
-pie title Sales Distribution
-    "East" : 35
-    "West" : 25
-    "North" : 20
-    "South" : 20
-\`\`\`
-
-**Flowchart:**
-\`\`\`mermaid
-flowchart LR
-    A[Input] --> B[Process]
-    B --> C[Output]
-\`\`\`
-
-**Sequence Diagram:**
-\`\`\`mermaid
-sequenceDiagram
-    User->>Server: Request
-    Server->>Database: Query
-    Database-->>Server: Result
-    Server-->>User: Response
-\`\`\`
-
-### For Data Charts (bar, line, area, scatter):
-Use G2 JSON format in a code block:
-
-\`\`\`g2
-{
-  "type": "interval",
-  "data": [
-    {"month": "Jan", "sales": 100},
-    {"month": "Feb", "sales": 150},
-    {"month": "Mar", "sales": 200}
-  ],
-  "encode": {"x": "month", "y": "sales"}
-}
-\`\`\`
-
-G2 output contract (MUST follow):
-- G2 blocks must be strict RFC 8259 JSON.
-- Do not output comments, trailing commas, undefined, NaN, Infinity, or functions.
-- All keys must use double quotes; all string values must use double quotes.
-- Never output callback expressions such as \`(d) => ...\` or \`function (...)\`.
-- For constant colors, use string literals like \`"#4E79A7"\`.
-- For categorical color mapping, use \`"encode": { "color": "<field>" }\`.
-- \`scale.color.range\` must contain only valid CSS color strings (hex/rgb/hsl), never category labels.
-- \`encode.x\`/\`encode.y\`/\`encode.color\` referenced fields must exist in \`data\`.
-- If you output a G2 code block, self-check that it can pass \`JSON.parse\`.
-
-G2 chart types:
-- "interval" : bar/column charts
-- "line" : line charts
-- "area" : area charts
-- "point" : scatter plots
-- "cell" : heatmaps
-
-**Line Chart Example:**
-\`\`\`g2
-{
-  "type": "line",
-  "data": [
-    {"date": "2024-01", "value": 120},
-    {"date": "2024-02", "value": 180},
-    {"date": "2024-03", "value": 150}
-  ],
-  "encode": {"x": "date", "y": "value"}
-}
-\`\`\`
-
-IMPORTANT:
-- Always use actual code blocks (triple backticks) for charts
-- Prefer G2 for data visualization with numbers and chart-friendly scenarios
-- Use Mermaid as the second choice for diagrams or when G2 is not suitable
-- Make sure JSON is valid in G2 blocks
-- After generating a chart, briefly explain what it shows`;
-  }
-
   // ============ Chat Methods (callable for REST API) ============
 
   private async generateAssistantResponse(
@@ -892,7 +906,7 @@ IMPORTANT:
     });
 
     const { tools, toolList } = await this.buildAiTools(emitProgress);
-    const systemPrompt = this.buildSystemPrompt(toolList);
+    const systemPrompt = buildSystemPrompt(toolList);
     emitProgress?.({
       phase: "context",
       status: "success",
@@ -1251,12 +1265,22 @@ IMPORTANT:
       }
 
       const result = await this.retry(
-        async () => await this.addMcpServer(name, config.url, options),
+        async () => {
+          this.updateRetryStats("mcpConnection", (stats) => ({
+            ...stats,
+            attempts: stats.attempts + 1
+          }));
+          return await this.addMcpServer(name, config.url, options);
+        },
         {
           maxAttempts: this.getToolMaxAttempts(),
           shouldRetry: (error) => this.isRetryableMcpConnectionError(error)
         }
       );
+      this.updateRetryStats("mcpConnection", (stats) => ({
+        ...stats,
+        success: stats.success + 1
+      }));
       this.setServerConnectionState(name, {
         serverId: result.id,
         connected: true,
@@ -1272,6 +1296,10 @@ IMPORTANT:
 
       return { success: true, stateVersion: this.state.runtime.stateVersion };
     } catch (error) {
+      this.updateRetryStats("mcpConnection", (stats) => ({
+        ...stats,
+        exhausted: stats.exhausted + 1
+      }));
       const message = error instanceof Error ? error.message : String(error);
       this.setServerConnectionState(name, {
         connected: false,
@@ -1297,10 +1325,23 @@ IMPORTANT:
     }
 
     try {
-      await this.retry(async () => await this.removeMcpServer(serverEntry.serverId as string), {
-        maxAttempts: this.getToolMaxAttempts(),
-        shouldRetry: (error) => this.isRetryableMcpConnectionError(error)
-      });
+      await this.retry(
+        async () => {
+          this.updateRetryStats("mcpConnection", (stats) => ({
+            ...stats,
+            attempts: stats.attempts + 1
+          }));
+          return await this.removeMcpServer(serverEntry.serverId as string);
+        },
+        {
+          maxAttempts: this.getToolMaxAttempts(),
+          shouldRetry: (error) => this.isRetryableMcpConnectionError(error)
+        }
+      );
+      this.updateRetryStats("mcpConnection", (stats) => ({
+        ...stats,
+        success: stats.success + 1
+      }));
       this.setServerConnectionState(name, {
         serverId: undefined,
         connected: false,
@@ -1315,6 +1356,10 @@ IMPORTANT:
       });
       return { success: true, stateVersion: this.state.runtime.stateVersion };
     } catch (error) {
+      this.updateRetryStats("mcpConnection", (stats) => ({
+        ...stats,
+        exhausted: stats.exhausted + 1
+      }));
       console.error(`Failed to deactivate server ${name}:`, error);
       const message = error instanceof Error ? error.message : String(error);
       this.updateLastError(message);
@@ -1371,17 +1416,106 @@ IMPORTANT:
     }
   }
 
+  @callable({ description: "List tool approval requests" })
+  listToolApprovals(): ToolApprovalRequest[] {
+    this.pruneApprovalState();
+    return this.state.runtime.approvals;
+  }
+
+  @callable({ description: "Approve pending tool call request" })
+  approveToolCall(
+    approvalId: string
+  ): { success: boolean; error?: string; stateVersion: number } {
+    const target = this.state.runtime.approvals.find((item) => item.id === approvalId);
+    if (!target || target.status !== "pending") {
+      return {
+        success: false,
+        error: "Approval request not found or already resolved",
+        stateVersion: this.state.runtime.stateVersion
+      };
+    }
+
+    const resolvedAt = new Date().toISOString();
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        approvals: this.state.runtime.approvals.map((item) =>
+          item.id === approvalId ? { ...item, status: "approved", resolvedAt } : item
+        ),
+        approvedSignatures: [
+          ...this.state.runtime.approvedSignatures,
+          {
+            signature: target.signature,
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+          }
+        ].slice(-200),
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+    this.appendRuntimeEvent({
+      level: "success",
+      source: "tool",
+      type: "tool_approval_granted",
+      message: `Tool approval granted for ${target.toolName}`,
+      data: { approvalId }
+    });
+    return { success: true, stateVersion: this.state.runtime.stateVersion };
+  }
+
+  @callable({ description: "Reject pending tool call request" })
+  rejectToolCall(
+    approvalId: string,
+    reason?: string
+  ): { success: boolean; error?: string; stateVersion: number } {
+    const target = this.state.runtime.approvals.find((item) => item.id === approvalId);
+    if (!target || target.status !== "pending") {
+      return {
+        success: false,
+        error: "Approval request not found or already resolved",
+        stateVersion: this.state.runtime.stateVersion
+      };
+    }
+
+    const resolvedAt = new Date().toISOString();
+    this.setState({
+      ...this.state,
+      runtime: {
+        ...this.state.runtime,
+        approvals: this.state.runtime.approvals.map((item) =>
+          item.id === approvalId
+            ? { ...item, status: "rejected", resolvedAt, reason: reason || "Rejected by operator" }
+            : item
+        ),
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
+    this.appendRuntimeEvent({
+      level: "info",
+      source: "tool",
+      type: "tool_approval_rejected",
+      message: `Tool approval rejected for ${target.toolName}`,
+      data: { approvalId, reason: reason || "Rejected by operator" }
+    });
+    return { success: true, stateVersion: this.state.runtime.stateVersion };
+  }
+
   @callable({ description: "Get runtime observability snapshot" })
   async getRuntimeSnapshot(): Promise<{
     toolRuns: ToolRunRecord[];
     lastError?: string;
     events: AgentRuntimeEvent[];
+    approvals: ToolApprovalRequest[];
+    retryStats: RetryStats;
     stateVersion: number;
   }> {
+    this.pruneApprovalState();
     return {
       toolRuns: this.state.runtime.toolRuns,
       lastError: this.state.runtime.lastError,
       events: this.state.runtime.events,
+      approvals: this.state.runtime.approvals,
+      retryStats: this.state.runtime.retryStats,
       stateVersion: this.state.runtime.stateVersion
     };
   }

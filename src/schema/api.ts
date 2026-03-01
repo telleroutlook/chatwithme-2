@@ -32,6 +32,12 @@ export const mcpServerBodySchema = requiredSessionBodySchema.extend({
   name: z.string().trim().min(1, "name is required")
 });
 
+export const toolApprovalDecisionBodySchema = requiredSessionBodySchema.extend({
+  approvalId: z.string().trim().min(1, "approvalId is required"),
+  decision: z.enum(["approve", "reject"]),
+  reason: z.string().trim().max(500, "reason too long").optional()
+});
+
 export const chatHistoryQuerySchema = z.object({
   sessionId: sessionIdSchema
 });
@@ -47,3 +53,4 @@ export type ForkBody = z.infer<typeof forkBodySchema>;
 export type McpServerBody = z.infer<typeof mcpServerBodySchema>;
 export type ChatHistoryQuery = z.infer<typeof chatHistoryQuerySchema>;
 export type DeleteMessageQuery = z.infer<typeof deleteMessageQuerySchema>;
+export type ToolApprovalDecisionBody = z.infer<typeof toolApprovalDecisionBodySchema>;

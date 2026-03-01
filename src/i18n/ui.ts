@@ -142,6 +142,10 @@ export const uiMessages = {
     inspector_telemetry: "Telemetry",
     inspector_telemetry_events: "{count} events",
     inspector_telemetry_empty: "No telemetry events yet.",
+    inspector_approvals: "Tool Approvals",
+    inspector_approvals_empty: "No pending approvals.",
+    inspector_approvals_approve: "Approve",
+    inspector_approvals_reject: "Reject",
     inspector_event_log: "Event Log",
     inspector_event_log_empty: "No events captured yet.",
     inspector_event_log_clear: "Clear"
@@ -283,6 +287,10 @@ export const uiMessages = {
     inspector_telemetry: "遥测事件",
     inspector_telemetry_events: "{count} 条事件",
     inspector_telemetry_empty: "暂无遥测事件。",
+    inspector_approvals: "工具审批",
+    inspector_approvals_empty: "暂无待审批项。",
+    inspector_approvals_approve: "批准",
+    inspector_approvals_reject: "拒绝",
     inspector_event_log: "事件日志",
     inspector_event_log_empty: "暂无采集事件。",
     inspector_event_log_clear: "清空"

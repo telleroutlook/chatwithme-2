@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { nanoid } from "nanoid";
+import { subscribeChatBus } from "../services/chatEventBus";
 
 export interface EventLogEntry {
   id: string;
@@ -9,12 +10,6 @@ export interface EventLogEntry {
   type: string;
   message: string;
   data?: Record<string, unknown>;
-}
-
-interface TrackEventDetail {
-  name?: unknown;
-  payload?: unknown;
-  timestamp?: unknown;
 }
 
 export function useEventLog(limit = 120) {
@@ -37,24 +32,16 @@ export function useEventLog(limit = 120) {
   }, []);
 
   useEffect(() => {
-    const onTrackedEvent = (event: Event) => {
-      const custom = event as CustomEvent<TrackEventDetail>;
-      const detail = custom.detail;
-      if (!detail || typeof detail !== "object" || typeof detail.name !== "string") {
-        return;
-      }
+    return subscribeChatBus((detail) => {
       addEvent({
         level: "info",
         source: "client",
         type: detail.name,
         message: detail.name,
-        data: detail.payload && typeof detail.payload === "object" ? (detail.payload as Record<string, unknown>) : undefined,
-        timestamp: typeof detail.timestamp === "string" ? detail.timestamp : new Date().toISOString()
+        data: detail.payload,
+        timestamp: detail.timestamp
       });
-    };
-
-    window.addEventListener("chatwithme:event", onTrackedEvent);
-    return () => window.removeEventListener("chatwithme:event", onTrackedEvent);
+    });
   }, [addEvent]);
 
   return {

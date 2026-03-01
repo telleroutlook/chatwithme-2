@@ -27,6 +27,14 @@ interface InspectorPaneProps {
     type: string;
     message: string;
   }>;
+  pendingApprovals: Array<{
+    id: string;
+    toolName: string;
+    argsSnippet: string;
+    createdAt: string;
+  }>;
+  onApproveToolCall: (approvalId: string) => void;
+  onRejectToolCall: (approvalId: string) => void;
   onClearEventLogs: () => void;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
@@ -38,6 +46,9 @@ export function InspectorPane({
   telemetry,
   telemetrySummary,
   eventLogs,
+  pendingApprovals,
+  onApproveToolCall,
+  onRejectToolCall,
   onClearEventLogs,
   t
 }: InspectorPaneProps) {
@@ -124,6 +135,51 @@ export function InspectorPane({
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </Text>
                   </span>
+                </div>
+              ))
+            )}
+          </div>
+        </Surface>
+
+        <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
+          <Text size="sm" bold>
+            {t("inspector_approvals")}
+          </Text>
+          <div className="mt-2 space-y-1.5">
+            {pendingApprovals.length === 0 ? (
+              <Text size="xs" variant="secondary">
+                {t("inspector_approvals_empty")}
+              </Text>
+            ) : (
+              pendingApprovals.slice(0, 4).map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-kumo-line bg-kumo-base/70 px-2 py-1.5"
+                >
+                  <Text size="xs" bold>
+                    {item.toolName}
+                  </Text>
+                  <span className="block">
+                    <Text size="xs" variant="secondary">
+                      {item.argsSnippet}
+                    </Text>
+                  </span>
+                  <div className="mt-1 flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onApproveToolCall(item.id)}
+                      className="rounded border border-kumo-line px-2 py-0.5 text-[11px] text-kumo-subtle hover:bg-kumo-control"
+                    >
+                      {t("inspector_approvals_approve")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRejectToolCall(item.id)}
+                      className="rounded border border-kumo-line px-2 py-0.5 text-[11px] text-kumo-subtle hover:bg-kumo-control"
+                    >
+                      {t("inspector_approvals_reject")}
+                    </button>
+                  </div>
                 </div>
               ))
             )}

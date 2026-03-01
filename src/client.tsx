@@ -46,45 +46,23 @@ import {
   isEditMessageResult,
   isForkSessionResult,
   isRegenerateMessageResult,
-  isToggleServerResult,
-  type DeleteMessageResult,
-  type EditMessageResult,
-  type ForkSessionResult,
-  type RegenerateMessageResult,
-  type ToggleServerResult
+  isToggleServerResult
 } from "./features/chat/services/apiContracts";
 import { buildCommandSuggestions } from "./features/chat/services/commandSuggestions";
 import { useChatTelemetry } from "./features/chat/hooks/useChatTelemetry";
 import { useEventLog } from "./features/chat/hooks/useEventLog";
 import { buildObservabilitySnapshot } from "./features/chat/services/observability";
-import { callApi } from "./features/chat/services/apiClient";
+import {
+  createChatTransport,
+  type ChatHistoryItem,
+  type ConnectionPermissions,
+  type PreconfiguredServer
+} from "./features/chat/services/chatTransport";
 import "./styles.css";
 
 // ============ Main App ============
 
 type Tab = "chat" | "mcp";
-
-interface PreconfiguredServer {
-  config: {
-    name: string;
-    url: string;
-    description: string;
-  };
-  serverId?: string;
-  connected: boolean;
-  error?: string;
-}
-
-interface ConnectionPermissions {
-  canEdit: boolean;
-  readonly: boolean;
-}
-
-interface ChatHistoryItem {
-  role: string;
-  content: string;
-  id?: string;
-}
 
 function readPreconfiguredServersFromState(
   state: unknown
@@ -101,6 +79,14 @@ function readPreconfiguredServersFromState(
 function isReadonlyModeQueryEnabled(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("mode") === "view";
+}
+
+interface RuntimeApprovalItem {
+  id: string;
+  toolName: string;
+  argsSnippet: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
 }
 
 function App() {
@@ -136,6 +122,7 @@ function App() {
   const [preconfiguredServers, setPreconfiguredServers] = useState<
     Record<string, PreconfiguredServer>
   >({});
+  const [pendingApprovals, setPendingApprovals] = useState<RuntimeApprovalItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { events: eventLogs, addEvent: addEventLog, clear: clearEventLogs } = useEventLog();
 
@@ -243,39 +230,19 @@ function App() {
     [setMessages]
   );
 
-  const callApiWithAgentFallback = useCallback(
-    async <T,>(apiCall: () => Promise<T>, agentCall: () => Promise<T>): Promise<T> => {
-      try {
-        return await apiCall();
-      } catch (apiError) {
-        console.warn("API call failed, fallback to agent.call:", apiError);
-        return await agentCall();
-      }
-    },
-    []
+  const chatTransport = useMemo(
+    () =>
+      createChatTransport({
+        agent,
+        sessionId: currentSessionId,
+        readonlyMode
+      }),
+    [agent, currentSessionId, readonlyMode]
   );
 
   const loadPermissions = useCallback(async () => {
     try {
-      const next = await callApiWithAgentFallback(
-        async () => {
-          const response = await callApi<{
-            canEdit: boolean;
-            readonly: boolean;
-          }>(
-            `/api/chat/permissions?sessionId=${encodeURIComponent(currentSessionId)}${
-              readonlyMode ? "&mode=view" : ""
-            }`
-          );
-          return {
-            canEdit: response.canEdit,
-            readonly: response.readonly
-          };
-        },
-        async () => {
-          return (await agent.call("getPermissions", [])) as ConnectionPermissions;
-        }
-      );
+      const next = await chatTransport.getPermissions();
       setPermissions({
         canEdit: Boolean(next.canEdit),
         readonly: Boolean(next.readonly)
@@ -284,33 +251,16 @@ function App() {
       console.error("Failed to load connection permissions:", error);
       setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
     }
-  }, [agent, callApiWithAgentFallback, currentSessionId, readonlyMode]);
+  }, [chatTransport, readonlyMode]);
 
   const loadHistory = useCallback(async (): Promise<ChatHistoryItem[]> => {
-    return await callApiWithAgentFallback(
-      async () => {
-        const response = await callApi<{ history: ChatHistoryItem[] }>(
-          `/api/chat/history?sessionId=${encodeURIComponent(currentSessionId)}`
-        );
-        return Array.isArray(response.history) ? response.history : [];
-      },
-      async () => (await agent.call("getHistory", [])) as ChatHistoryItem[]
-    );
-  }, [agent, callApiWithAgentFallback, currentSessionId]);
+    return await chatTransport.getHistory();
+  }, [chatTransport]);
 
   const loadPreconfiguredServers = useCallback(
     async (attempt = 0) => {
       try {
-        const servers = await callApiWithAgentFallback(
-          async () => {
-            const response = await callApi<{
-              servers: Record<string, PreconfiguredServer>;
-            }>(`/api/mcp/servers?sessionId=${encodeURIComponent(currentSessionId)}`);
-            return response.servers;
-          },
-          async () =>
-            (await agent.call("getPreconfiguredServers", [])) as Record<string, PreconfiguredServer>
-        );
+        const servers = await chatTransport.getPreconfiguredServers();
         setPreconfiguredServers(servers);
         setIsLoading(false);
       } catch (error) {
@@ -327,8 +277,36 @@ function App() {
         setIsLoading(false);
       }
     },
-    [agent, callApiWithAgentFallback, currentSessionId]
+    [chatTransport]
   );
+
+  const loadApprovals = useCallback(async () => {
+    try {
+      const rows = await chatTransport.listApprovals();
+      const parsed = rows.filter((item): item is RuntimeApprovalItem => {
+        if (!item || typeof item !== "object") return false;
+        const candidate = item as {
+          id?: unknown;
+          toolName?: unknown;
+          argsSnippet?: unknown;
+          status?: unknown;
+          createdAt?: unknown;
+        };
+        return (
+          typeof candidate.id === "string" &&
+          typeof candidate.toolName === "string" &&
+          typeof candidate.argsSnippet === "string" &&
+          (candidate.status === "pending" ||
+            candidate.status === "approved" ||
+            candidate.status === "rejected") &&
+          typeof candidate.createdAt === "string"
+        );
+      });
+      setPendingApprovals(parsed.filter((item) => item.status === "pending"));
+    } catch (error) {
+      console.error("Failed to load tool approvals:", error);
+    }
+  }, [chatTransport]);
 
   // Load preconfigured servers only after confirmed connected state.
   useEffect(() => {
@@ -345,6 +323,17 @@ function App() {
     setIsLoading(true);
     void loadPreconfiguredServers();
   }, [connectionStatus, loadPreconfiguredServers, preconfiguredServers]);
+
+  useEffect(() => {
+    if (connectionStatus !== "connected") return;
+    void loadApprovals();
+    const timer = window.setInterval(() => {
+      void loadApprovals();
+    }, 5000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [connectionStatus, loadApprovals]);
 
   // Hide live progress panel once assistant content starts arriving.
   useEffect(() => {
@@ -451,24 +440,7 @@ function App() {
         return;
       }
       try {
-        const result = await callApiWithAgentFallback(
-          async () => {
-            const response = await callApi<DeleteMessageResult>(
-              `/api/chat/message?sessionId=${encodeURIComponent(currentSessionId)}&messageId=${encodeURIComponent(
-                String(messageId)
-              )}`,
-              {
-                method: "DELETE"
-              }
-            );
-            return {
-              success: response.success,
-              deleted: response.deleted,
-              error: response.error
-            } as DeleteMessageResult;
-          },
-          async () => (await agent.call("deleteMessage", [messageId])) as DeleteMessageResult
-        );
+        const result = await chatTransport.deleteMessage(String(messageId));
         if (!isDeleteMessageResult(result)) {
           throw new Error("Invalid deleteMessage response");
         }
@@ -509,7 +481,7 @@ function App() {
         );
       }
     },
-    [agent, addToast, callApiWithAgentFallback, chatMessages, currentSessionId, permissions.canEdit, setChatMessages, t]
+    [addToast, chatMessages, chatTransport, currentSessionId, permissions.canEdit, setChatMessages, t]
   );
 
   const handleEditMessage = useCallback(
@@ -519,26 +491,7 @@ function App() {
         return;
       }
       try {
-        const resolved = await callApiWithAgentFallback(
-          async () => {
-            const response = await callApi<EditMessageResult>("/api/chat/edit", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                sessionId: currentSessionId,
-                messageId,
-                content
-              })
-            });
-            return {
-              success: response.success,
-              updated: response.updated,
-              error: response.error
-            } as EditMessageResult;
-          },
-          async () =>
-            (await agent.call("editUserMessage", [messageId, content])) as EditMessageResult
-        );
+        const resolved = await chatTransport.editMessage(String(messageId), content);
         if (!isEditMessageResult(resolved)) {
           throw new Error("Invalid editUserMessage response");
         }
@@ -573,7 +526,7 @@ function App() {
         );
       }
     },
-    [agent, addToast, callApiWithAgentFallback, chatMessages, currentSessionId, permissions.canEdit, setChatMessages, t]
+    [addToast, chatMessages, chatTransport, permissions.canEdit, setChatMessages, t]
   );
 
   const handleRegenerateMessage = useCallback(
@@ -584,24 +537,7 @@ function App() {
       }
       trackChatEvent("message_regenerate", { messageId });
       try {
-        const result = await callApiWithAgentFallback(
-          async () => {
-            const response = await callApi<RegenerateMessageResult>("/api/chat/regenerate", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                sessionId: currentSessionId,
-                messageId
-              })
-            });
-            return {
-              success: response.success,
-              response: response.response,
-              error: response.error
-            } as RegenerateMessageResult;
-          },
-          async () => (await agent.call("regenerateFrom", [messageId])) as RegenerateMessageResult
-        );
+        const result = await chatTransport.regenerateMessage(String(messageId));
         if (!isRegenerateMessageResult(result)) {
           throw new Error("Invalid regenerateFrom response");
         }
@@ -645,9 +581,7 @@ function App() {
     },
     [
       addToast,
-      agent,
-      callApiWithAgentFallback,
-      currentSessionId,
+      chatTransport,
       loadHistory,
       permissions.canEdit,
       setChatMessages,
@@ -662,24 +596,7 @@ function App() {
         return;
       }
       try {
-        const result = await callApiWithAgentFallback(
-          async () => {
-            const response = await callApi<ForkSessionResult>("/api/chat/fork", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                sessionId: currentSessionId,
-                messageId
-              })
-            });
-            return {
-              success: response.success,
-              newSessionId: response.newSessionId,
-              error: response.error
-            } as ForkSessionResult;
-          },
-          async () => (await agent.call("forkSession", [messageId])) as ForkSessionResult
-        );
+        const result = await chatTransport.forkSession(String(messageId));
         if (!isForkSessionResult(result)) {
           throw new Error("Invalid forkSession response");
         }
@@ -708,7 +625,7 @@ function App() {
         );
       }
     },
-    [agent, addToast, callApiWithAgentFallback, currentSessionId, permissions.canEdit, readonlyMode, t]
+    [addToast, chatTransport, permissions.canEdit, readonlyMode, t]
   );
 
   const handleToggleServer = useCallback(
@@ -720,25 +637,7 @@ function App() {
       setTogglingServer(name);
       trackChatEvent("mcp_toggle", { name });
       try {
-        const result = await callApiWithAgentFallback(
-          async () => {
-            const response = await callApi<ToggleServerResult>("/api/mcp/toggle", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                sessionId: currentSessionId,
-                name
-              })
-            });
-            return {
-              success: response.success,
-              active: response.active,
-              error: response.error,
-              stateVersion: response.stateVersion
-            } as ToggleServerResult;
-          },
-          async () => (await agent.call("toggleServer", [name])) as ToggleServerResult
-        );
+        const result = await chatTransport.toggleServer(name);
         if (!isToggleServerResult(result)) {
           throw new Error("Invalid toggleServer response");
         }
@@ -789,7 +688,51 @@ function App() {
         setTogglingServer(null);
       }
     },
-    [agent, addEventLog, addToast, callApiWithAgentFallback, currentSessionId, loadPreconfiguredServers, permissions.canEdit, t]
+    [addEventLog, addToast, chatTransport, loadPreconfiguredServers, permissions.canEdit, t]
+  );
+
+  const handleApproveToolCall = useCallback(
+    async (approvalId: string) => {
+      try {
+        const success = await chatTransport.decideApproval(approvalId, "approve");
+        if (!success) {
+          addToast(t("server_toggle_failed", { reason: "Approval failed" }), "error");
+          return;
+        }
+        await loadApprovals();
+        addToast(t("inspector_approvals_approve"), "success");
+      } catch (error) {
+        addToast(
+          t("server_toggle_failed", {
+            reason: error instanceof Error ? error.message : "Unknown error"
+          }),
+          "error"
+        );
+      }
+    },
+    [addToast, chatTransport, loadApprovals, t]
+  );
+
+  const handleRejectToolCall = useCallback(
+    async (approvalId: string) => {
+      try {
+        const success = await chatTransport.decideApproval(approvalId, "reject", "Rejected in inspector");
+        if (!success) {
+          addToast(t("server_toggle_failed", { reason: "Rejection failed" }), "error");
+          return;
+        }
+        await loadApprovals();
+        addToast(t("inspector_approvals_reject"), "success");
+      } catch (error) {
+        addToast(
+          t("server_toggle_failed", {
+            reason: error instanceof Error ? error.message : "Unknown error"
+          }),
+          "error"
+        );
+      }
+    },
+    [addToast, chatTransport, loadApprovals, t]
   );
 
   const handleSend = useCallback(() => {
@@ -1074,6 +1017,9 @@ function App() {
             telemetry={telemetry}
             telemetrySummary={telemetrySummary}
             eventLogs={eventLogs}
+            pendingApprovals={pendingApprovals}
+            onApproveToolCall={handleApproveToolCall}
+            onRejectToolCall={handleRejectToolCall}
             onClearEventLogs={clearEventLogs}
             t={t}
           />
