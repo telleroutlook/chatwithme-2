@@ -41,4 +41,77 @@ describe("appendLiveProgressEntry", () => {
     expect(next).toHaveLength(3);
     expect(next[2]?.id).toBe("entry-c");
   });
+
+  it("treats same message with different snippet as new entry", () => {
+    const first = createEntry({
+      id: "entry-a",
+      phase: "model",
+      message: "Generating response...",
+      snippet: "Hello",
+      groupKey: "model"
+    });
+    const updated = createEntry({
+      id: "entry-b",
+      phase: "model",
+      message: "Generating response...",
+      snippet: "Hello world",
+      groupKey: "model",
+      timestamp: "2026-03-01T10:00:05.000Z"
+    });
+
+    const next = appendLiveProgressEntry([first], updated);
+
+    // Different snippet = new entry (not merged)
+    expect(next).toHaveLength(2);
+    expect(next[1]?.snippet).toBe("Hello world");
+  });
+
+  it("merges entries with same message and same snippet", () => {
+    const first = createEntry({
+      id: "entry-a",
+      phase: "model",
+      message: "Generating response...",
+      snippet: "Hello world",
+      groupKey: "model",
+      timestamp: "2026-03-01T10:00:00.000Z"
+    });
+    const duplicate = createEntry({
+      id: "entry-b",
+      phase: "model",
+      message: "Generating response...",
+      snippet: "Hello world",
+      groupKey: "model",
+      timestamp: "2026-03-01T10:00:05.000Z"
+    });
+
+    const next = appendLiveProgressEntry([first], duplicate);
+
+    // Same message + same snippet = merged (only timestamp updated)
+    expect(next).toHaveLength(1);
+    expect(next[0]?.id).toBe("entry-a");
+    expect(next[0]?.timestamp).toBe("2026-03-01T10:00:05.000Z");
+  });
+
+  it("handles undefined snippet in comparison", () => {
+    const first = createEntry({
+      id: "entry-a",
+      phase: "context",
+      message: "Loading context...",
+      groupKey: "context"
+    });
+    const second = createEntry({
+      id: "entry-b",
+      phase: "context",
+      message: "Loading context...",
+      snippet: undefined,
+      groupKey: "context",
+      timestamp: "2026-03-01T10:00:05.000Z"
+    });
+
+    const next = appendLiveProgressEntry([first], second);
+
+    // Both have undefined snippet = merged
+    expect(next).toHaveLength(1);
+    expect(next[0]?.timestamp).toBe("2026-03-01T10:00:05.000Z");
+  });
 });

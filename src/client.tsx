@@ -195,6 +195,7 @@ function App() {
   const identityBypassRef = useRef<string | null>(null);
   const recentCloseAtRef = useRef<number[]>([]);
   const degradeUntilRef = useRef(0);
+  const snippetSampleCounterRef = useRef(0);
 
   // Save current session ID when changed
   useEffect(() => {
@@ -340,7 +341,18 @@ function App() {
     onData: (part) => {
       const progress = parseLiveProgressPart(part);
       if (!progress) return;
-      setLiveProgress((prev) => appendLiveProgressEntry(prev, progress, 2));
+      setLiveProgress((prev) => appendLiveProgressEntry(prev, progress, 6));
+
+      // Downsample high-frequency model snippet updates in event log
+      const isModelSnippet = progress.phase === "model" && progress.status === "info" && progress.snippet;
+      if (isModelSnippet) {
+        snippetSampleCounterRef.current += 1;
+        // Only log every 2nd snippet update
+        if (snippetSampleCounterRef.current % 2 !== 0) {
+          return;
+        }
+      }
+
       addEventLog({
         level: progress.status === "error" ? "error" : progress.status === "success" ? "success" : "info",
         source: "agent",

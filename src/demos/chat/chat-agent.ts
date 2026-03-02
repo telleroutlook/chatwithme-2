@@ -47,6 +47,12 @@ import {
 import { buildSystemPrompt } from "./system-prompt";
 import { classifyRetryableError } from "./retry-policy";
 import { buildApprovalSignature, requiresApprovalPolicy } from "./approval-policy";
+import {
+  extractSnippet,
+  SNIPPET_MAX_LENGTH,
+  SNIPPET_THROTTLE_MS,
+  SNIPPET_MIN_LENGTH_TO_EMIT
+} from "./snippet-utils";
 
 export interface McpServerConnectionState {
   preconfiguredServers: Record<
@@ -195,6 +201,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     temperature: number;
     tools?: ToolSet;
     abortSignal?: AbortSignal;
+    emitProgress?: ProgressEmitter;
   }): Promise<string> {
     const maxOutputTokens = this.getMaxOutputTokens();
     const callOptions = {
@@ -216,7 +223,41 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     };
 
     if (this.isModelStreamEnabled()) {
-      const result = streamText(callOptions);
+      // Throttle state for snippet emission
+      let lastEmittedSnippet = "";
+      let lastEmitTime = 0;
+      let accumulatedText = "";
+
+      const result = streamText({
+        ...callOptions,
+        onChunk: ({ chunk }) => {
+          // Accumulate text from text deltas
+          if (chunk.type === "text-delta") {
+            accumulatedText += chunk.text;
+          }
+
+          const now = Date.now();
+          const snippet = extractSnippet(accumulatedText);
+
+          // Throttle: skip if too soon, too short, or duplicate
+          if (
+            now - lastEmitTime < SNIPPET_THROTTLE_MS ||
+            snippet.length < SNIPPET_MIN_LENGTH_TO_EMIT ||
+            snippet === lastEmittedSnippet
+          ) {
+            return;
+          }
+
+          lastEmitTime = now;
+          lastEmittedSnippet = snippet;
+          params.emitProgress?.({
+            phase: "model",
+            message: "Generating response...",
+            status: "info",
+            snippet
+          });
+        }
+      });
       return await result.text;
     }
 
@@ -987,7 +1028,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       messages,
       tools,
       temperature: 0.7,
-      abortSignal
+      abortSignal,
+      emitProgress
     });
     emitProgress?.({
       phase: "thinking",

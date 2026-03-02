@@ -155,7 +155,7 @@ export function ChatPane({
                   </div>
                 )}
                 <div className="max-h-40 space-y-1.5 overflow-y-auto">
-                  {liveProgress.slice(-2).map((entry) => (
+                  {liveProgress.slice(-4).map((entry) => (
                     <div
                       key={entry.id}
                       className="rounded-lg border border-kumo-line/70 bg-kumo-base/65 px-2.5 py-1.5"
@@ -169,7 +169,7 @@ export function ChatPane({
                           </Text>
                         </span>
                         <span className="min-w-0 truncate">
-                          <Text size="xs">{entry.message}</Text>
+                          <Text size="xs">{entry.snippet || entry.message}</Text>
                         </span>
                         <span className="shrink-0 text-kumo-subtle">
                           <Text size="xs">{formatProgressTime(entry.timestamp)}</Text>
