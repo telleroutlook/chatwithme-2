@@ -13,7 +13,10 @@
   "chartTypes": [
     {
       "type": "interval",
-      "requiredFields": ["data", "encode"],
+      "requiredFields": [
+        "data",
+        "encode"
+      ],
       "example": "{\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"sales\":100},{\"month\":\"Feb\",\"sales\":150}],\"encode\":{\"x\":\"month\",\"y\":\"sales\"}}",
       "commonErrors": [
         "Missing encode object",
@@ -23,7 +26,10 @@
     },
     {
       "type": "line",
-      "requiredFields": ["data", "encode"],
+      "requiredFields": [
+        "data",
+        "encode"
+      ],
       "example": "{\"type\":\"line\",\"data\":[{\"date\":\"2024-01\",\"value\":120},{\"date\":\"2024-02\",\"value\":180}],\"encode\":{\"x\":\"date\",\"y\":\"value\"}}",
       "commonErrors": [
         "Using style.strokeWidth as callback",
@@ -32,7 +38,10 @@
     },
     {
       "type": "area",
-      "requiredFields": ["data", "encode"],
+      "requiredFields": [
+        "data",
+        "encode"
+      ],
       "example": "{\"type\":\"area\",\"data\":[{\"x\":1,\"y\":10},{\"x\":2,\"y\":20}],\"encode\":{\"x\":\"x\",\"y\":\"y\"}}",
       "commonErrors": [
         "Same as line chart errors",
@@ -41,7 +50,10 @@
     },
     {
       "type": "point",
-      "requiredFields": ["data", "encode"],
+      "requiredFields": [
+        "data",
+        "encode"
+      ],
       "example": "{\"type\":\"point\",\"data\":[{\"x\":10,\"y\":20},{\"x\":15,\"y\":30}],\"encode\":{\"x\":\"x\",\"y\":\"y\"}}",
       "commonErrors": [
         "Missing encode.color for category distinction",
@@ -50,7 +62,10 @@
     },
     {
       "type": "cell",
-      "requiredFields": ["data", "encode"],
+      "requiredFields": [
+        "data",
+        "encode"
+      ],
       "example": "{\"type\":\"cell\",\"data\":[{\"day\":\"Mon\",\"hour\":\"9am\",\"value\":10}],\"encode\":{\"x\":\"day\",\"y\":\"hour\",\"color\":\"value\"}}",
       "commonErrors": [
         "Missing encode.color for heat values",

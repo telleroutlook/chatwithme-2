@@ -1,8 +1,11 @@
 {
   "version": "1.0.0",
-  "fetchedAt": "2026-03-02T11:32:56.294Z",
-  "source": "local",
+  "fetchedAt": "2026-03-02T11:52:07.104Z",
+  "source": "local-fallback",
   "contentHash": "8d757be34aa9fdc3",
+  "degradeLevel": 0,
+  "fallbackUsed": false,
+  "kbDegraded": false,
   "summary": {
     "adc": true,
     "g2": true,
@@ -10,5 +13,12 @@
     "mermaidDiagramCount": 19,
     "adcChartCount": 12,
     "g2ChartCount": 5
-  }
+  },
+  "sizeInfo": {
+    "total": 0,
+    "adc": 0,
+    "g2": 0,
+    "mermaid": 0
+  },
+  "nextRefreshAt": "2026-03-02T00:00:00Z"
 }
