@@ -3,6 +3,7 @@ import { loadSessions, type SessionMeta } from "../services/sessionMeta";
 import type { SessionSyncReason } from "../services/sessionSync";
 
 interface UseSessionSyncTriggersParams {
+  userId: string;
   currentSessionId: string;
   enqueueSessionSync: (reason: SessionSyncReason, delayMs?: number) => void;
   setSessions: (sessions: SessionMeta[]) => void;
@@ -14,6 +15,7 @@ interface UseSessionSyncTriggersResult {
 }
 
 export function useSessionSyncTriggers({
+  userId,
   currentSessionId,
   enqueueSessionSync,
   setSessions,
@@ -24,11 +26,11 @@ export function useSessionSyncTriggers({
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
-    const stored = loadSessions();
+    const stored = loadSessions(userId);
     setSessions(stored);
     if (stored.length === 0) return;
     enqueueSessionSync("startup", 0);
-  }, [enqueueSessionSync, setSessions]);
+  }, [userId, enqueueSessionSync, setSessions]);
 
   useEffect(() => {
     enqueueSessionSync("session_switch");

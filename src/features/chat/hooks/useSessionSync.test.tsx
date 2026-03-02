@@ -5,10 +5,11 @@ import type { ChatSessionSummary } from "../services/chatTransport";
 import { saveSessions, type SessionMeta } from "../services/sessionMeta";
 
 const SESSION_STORAGE_VERSION_KEY = "chatwithme_session_storage_version";
+const TEST_USER_ID = "test-user-123";
 
 function seedSessions(sessions: SessionMeta[]): void {
-  localStorage.setItem(SESSION_STORAGE_VERSION_KEY, "v3");
-  saveSessions(sessions);
+  localStorage.setItem(SESSION_STORAGE_VERSION_KEY, "v4");
+  saveSessions(TEST_USER_ID, sessions);
 }
 
 function createLocalSession(id: string): SessionMeta {
@@ -55,6 +56,7 @@ describe("useSessionSync", () => {
     const setSessions = vi.fn();
     const { result } = renderHook(() =>
       useSessionSync({
+        userId: TEST_USER_ID,
         chatTransport: { getSessions },
         setSessions
       })
@@ -75,6 +77,7 @@ describe("useSessionSync", () => {
     const setSessions = vi.fn();
     const { result } = renderHook(() =>
       useSessionSync({
+        userId: TEST_USER_ID,
         chatTransport: { getSessions },
         setSessions
       })
@@ -93,6 +96,7 @@ describe("useSessionSync", () => {
     const setSessions = vi.fn();
     const { result } = renderHook(() =>
       useSessionSync({
+        userId: TEST_USER_ID,
         chatTransport: { getSessions },
         setSessions
       })
@@ -116,6 +120,7 @@ describe("useSessionSync", () => {
     const setSessions = vi.fn();
     const { result } = renderHook(() =>
       useSessionSync({
+        userId: TEST_USER_ID,
         chatTransport: { getSessions },
         setSessions,
         minIntervalMs: 5000

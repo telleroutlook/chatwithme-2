@@ -4,6 +4,7 @@ import { useSessionSyncTriggers } from "./useSessionSyncTriggers";
 import { saveSessions, type SessionMeta } from "../services/sessionMeta";
 
 const SESSION_STORAGE_VERSION_KEY = "chatwithme_session_storage_version";
+const TEST_USER_ID = "test-user-123";
 
 function createLocalSession(id: string): SessionMeta {
   return {
@@ -19,8 +20,8 @@ function createLocalSession(id: string): SessionMeta {
 }
 
 function seedSessions(sessions: SessionMeta[]): void {
-  localStorage.setItem(SESSION_STORAGE_VERSION_KEY, "v3");
-  saveSessions(sessions);
+  localStorage.setItem(SESSION_STORAGE_VERSION_KEY, "v4");
+  saveSessions(TEST_USER_ID, sessions);
 }
 
 describe("useSessionSyncTriggers", () => {
@@ -38,6 +39,7 @@ describe("useSessionSyncTriggers", () => {
     const { rerender } = renderHook(
       ({ currentSessionId }) =>
         useSessionSyncTriggers({
+          userId: TEST_USER_ID,
           currentSessionId,
           enqueueSessionSync: enqueue,
           setSessions
@@ -60,6 +62,7 @@ describe("useSessionSyncTriggers", () => {
     const { rerender } = renderHook(
       ({ currentSessionId }) =>
         useSessionSyncTriggers({
+          userId: TEST_USER_ID,
           currentSessionId,
           enqueueSessionSync: enqueue,
           setSessions
@@ -78,6 +81,7 @@ describe("useSessionSyncTriggers", () => {
 
     const { result } = renderHook(() =>
       useSessionSyncTriggers({
+        userId: TEST_USER_ID,
         currentSessionId: "s1",
         enqueueSessionSync: enqueue,
         setSessions
@@ -104,6 +108,7 @@ describe("useSessionSyncTriggers", () => {
     try {
       renderHook(() =>
         useSessionSyncTriggers({
+          userId: TEST_USER_ID,
           currentSessionId: "s1",
           enqueueSessionSync: enqueue,
           setSessions,

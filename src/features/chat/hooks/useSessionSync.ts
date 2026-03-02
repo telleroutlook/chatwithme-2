@@ -9,6 +9,7 @@ import {
 import type { ChatTransport } from "../services/chatTransport";
 
 interface UseSessionSyncParams {
+  userId: string;
   chatTransport: Pick<ChatTransport, "getSessions">;
   setSessions: (sessions: SessionMeta[]) => void;
   minIntervalMs?: number;
@@ -21,6 +22,7 @@ interface UseSessionSyncResult {
 }
 
 export function useSessionSync({
+  userId,
   chatTransport,
   setSessions,
   minIntervalMs = 5000,
@@ -38,7 +40,7 @@ export function useSessionSync({
       }
 
       const run = async () => {
-        const currentLocal = loadSessions();
+        const currentLocal = loadSessions(userId);
         if (currentLocal.length === 0) {
           setSessions([]);
           return;
@@ -49,13 +51,13 @@ export function useSessionSync({
           const remote = await chatTransport.getSessions(ids);
           const nowIso = new Date().toISOString();
           const merged = mergeSessionsWithServer(currentLocal, remote, nowIso);
-          saveSessions(merged);
+          saveSessions(userId, merged);
           setSessions(merged);
           trackChatEvent("sessions_sync", { reason, count: merged.length, source: "server" });
         } catch (error) {
           const nowIso = new Date().toISOString();
           const stale = markSessionsStaleFallback(currentLocal, nowIso);
-          saveSessions(stale);
+          saveSessions(userId, stale);
           setSessions(stale);
           trackChatEvent("sessions_sync", {
             reason,
@@ -73,7 +75,7 @@ export function useSessionSync({
         syncSessionsInFlightRef.current = null;
       }
     },
-    [chatTransport, setSessions]
+    [userId, chatTransport, setSessions]
   );
 
   const enqueueSessionSync = useCallback(

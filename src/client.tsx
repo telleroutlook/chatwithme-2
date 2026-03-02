@@ -12,6 +12,7 @@ import { PoweredByAgents, ThemeProvider, type ConnectionStatus } from "./compone
 import { ToastProvider, useToast } from "./hooks/useToast";
 import { I18nProvider, useI18n } from "./hooks/useI18n";
 import { useResponsive } from "./hooks/useResponsive";
+import { useUserIdentity } from "./hooks/useUserIdentity";
 import { Tabs } from "./components/ui";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
@@ -130,13 +131,16 @@ function App() {
   const { addToast } = useToast();
   const { t, lang, setLang } = useI18n();
 
+  // User identity - persists across sessions
+  const { userId, token } = useUserIdentity();
+
   // Session state
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
-    const saved = loadCurrentSessionId();
+    const saved = loadCurrentSessionId(userId);
     if (saved) return saved;
     const id = nanoid(8);
-    saveCurrentSessionId(id);
+    saveCurrentSessionId(userId, id);
     return id;
   });
 
@@ -197,14 +201,20 @@ function App() {
 
   // Save current session ID when changed
   useEffect(() => {
-    saveCurrentSessionId(currentSessionId);
-  }, [currentSessionId]);
+    saveCurrentSessionId(userId, currentSessionId);
+  }, [userId, currentSessionId]);
+
+  // Build composite agent name for user isolation: "userId:sessionId"
+  const agentName = useMemo(() => `${userId}:${currentSessionId}`, [userId, currentSessionId]);
 
   // Agent connection
   const agent = useAgent({
     agent: "chat-agent-v2",
-    name: currentSessionId,
-    query: readonlyMode ? { mode: "view" } : undefined,
+    name: agentName,
+    query: {
+      token,
+      ...(readonlyMode ? { mode: "view" } : {})
+    },
     onIdentity: useCallback(
       (resolvedSessionId: string) => {
         const normalized = resolvedSessionId.trim();
@@ -262,7 +272,7 @@ function App() {
           message: `Identity changed on reconnect: ${oldName} -> ${newName}`,
           data: { oldName, newName }
         });
-        const stale = loadSessions().map((session) =>
+        const stale = loadSessions(userId).map((session) =>
           session.id === oldName
             ? {
                 ...session,
@@ -272,10 +282,10 @@ function App() {
               }
             : session
         );
-        saveSessions(stale);
+        saveSessions(userId, stale);
         setSessions(stale);
       },
-      [addEventLog]
+      [addEventLog, userId]
     ),
     onMcpUpdate: useCallback((mcpServers: MCPServersState) => {
       setMcpState(mcpServers);
@@ -366,11 +376,13 @@ function App() {
   );
 
   const { enqueueSessionSync } = useSessionSync({
+    userId,
     chatTransport,
     setSessions
   });
 
   const { triggerReconnectSync } = useSessionSyncTriggers({
+    userId,
     currentSessionId,
     enqueueSessionSync,
     setSessions
@@ -459,33 +471,33 @@ function App() {
             (getMessageText(firstUserMsg).length > 30 ? "..." : "")
           : "New Chat";
 
-        updateSessionMeta(currentSessionId, {
+        updateSessionMeta(userId, currentSessionId, {
           title,
           lastMessage: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
           timestamp: new Date().toISOString(),
           messageCount: chatMessages.length
         });
-        setSessions(loadSessions());
+        setSessions(loadSessions(userId));
         enqueueSessionSync("assistant_message");
       }
     }
-  }, [chatMessages, currentSessionId, enqueueSessionSync]);
+  }, [chatMessages, currentSessionId, enqueueSessionSync, userId]);
 
   // Create new session
   const handleNewSession = useCallback(() => {
     const newId = nanoid(8);
     stop();
     setChatMessages([]);
-    updateSessionMeta(newId, {
+    updateSessionMeta(userId, newId, {
       title: t("session_new"),
       lastMessage: "",
       timestamp: new Date().toISOString(),
       messageCount: 0
     });
-    setSessions(loadSessions());
+    setSessions(loadSessions(userId));
     setCurrentSessionId(newId);
     applySessionViewReset();
-  }, [applySessionViewReset, setChatMessages, stop, t]);
+  }, [applySessionViewReset, setChatMessages, stop, t, userId]);
 
   // Switch session
   const handleSelectSession = useCallback(
@@ -514,8 +526,8 @@ function App() {
         }
 
         const nextSelection = getNextSessionAfterDelete(sessions, sessionId, currentSessionId);
-        deleteSessionMeta(sessionId);
-        setSessions(loadSessions());
+        deleteSessionMeta(userId, sessionId);
+        setSessions(loadSessions(userId));
 
         if (nextSelection.action === "switch") {
           handleSelectSession(nextSelection.sessionId);
@@ -547,7 +559,8 @@ function App() {
       permissions.canEdit,
       enqueueSessionSync,
       sessions,
-      t
+      t,
+      userId
     ]
   );
 
@@ -578,12 +591,12 @@ function App() {
 
         const lastMsg = nextMessages[nextMessages.length - 1];
         const lastText = lastMsg ? getMessageText(lastMsg) : "";
-        updateSessionMeta(currentSessionId, {
+        updateSessionMeta(userId, currentSessionId, {
           lastMessage: lastText.slice(0, 50) + (lastText.length > 50 ? "..." : ""),
           timestamp: new Date().toISOString(),
           messageCount: nextMessages.length
         });
-        setSessions(loadSessions());
+        setSessions(loadSessions(userId));
         enqueueSessionSync("delete_message");
 
         addToast(
@@ -608,7 +621,8 @@ function App() {
       permissions.canEdit,
       enqueueSessionSync,
       setChatMessages,
-      t
+      t,
+      userId
     ]
   );
 
@@ -732,13 +746,13 @@ function App() {
           throw new Error(result.error || "Fork session failed");
         }
 
-        updateSessionMeta(result.newSessionId, {
+        updateSessionMeta(userId, result.newSessionId, {
           title: t("session_fork_title"),
           lastMessage: "",
           timestamp: new Date().toISOString(),
           messageCount: 0
         });
-        setSessions(loadSessions());
+        setSessions(loadSessions(userId));
         enqueueSessionSync("fork_session");
         setCurrentSessionId(result.newSessionId);
         applySessionViewReset();
@@ -753,7 +767,7 @@ function App() {
         );
       }
     },
-    [addToast, applySessionViewReset, chatTransport, permissions.canEdit, enqueueSessionSync, t]
+    [addToast, applySessionViewReset, chatTransport, permissions.canEdit, enqueueSessionSync, t, userId]
   );
 
   const handleToggleServer = useCallback(

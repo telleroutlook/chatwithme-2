@@ -148,8 +148,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     retry: { maxAttempts: 2, baseDelayMs: 150, maxDelayMs: 1500 }
   };
 
-  // Keep last 100 messages in SQLite storage
-  maxPersistedMessages = 100;
+  // Keep last 1000 messages in SQLite storage (increased from 100 for better persistence)
+  maxPersistedMessages = 1000;
 
   initialState: ChatAgentState = {
     mcp: {
