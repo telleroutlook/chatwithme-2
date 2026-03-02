@@ -1,13 +1,14 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useEffect, memo, useMemo } from "react";
 import { Surface, Button } from "@cloudflare/kumo";
 import { CopyIcon, CheckIcon, CodeIcon } from "@phosphor-icons/react";
-import { useHighlight } from "../hooks/useHighlight";
+import { useShikiHighlight } from "../hooks/useShikiHighlight";
 
 interface CodeBlockProps {
   language: string;
   code: string;
   showCopy?: boolean;
   showLineNumbers?: boolean;
+  highlights?: number[];
 }
 
 // Detect if dark mode is active
@@ -36,7 +37,7 @@ function useIsDarkMode(): boolean {
 
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-mode"]
+      attributeFilter: ["data-mode"],
     });
 
     const onChange = () => setIsDark(checkDark());
@@ -51,20 +52,36 @@ function useIsDarkMode(): boolean {
   return isDark;
 }
 
-export function CodeBlock({
+// Loading skeleton for code block
+function CodeSkeleton({ lines = 5 }: { lines?: number }) {
+  return (
+    <div className="p-4 space-y-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div
+          key={i}
+          className="h-4 bg-kumo-control/50 rounded animate-pulse"
+          style={{ width: `${Math.random() * 40 + 60}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export const CodeBlock = memo(function CodeBlock({
   language,
   code,
   showCopy = true,
-  showLineNumbers = false
+  showLineNumbers = false,
+  highlights = [],
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const isDark = useIsDarkMode();
   const theme = isDark ? "github-dark" : "github-light";
 
-  const { html, isLoading, error } = useHighlight(code, {
+  const { html, isLoading, error } = useShikiHighlight(code, {
     language,
     theme,
-    enabled: !!code
+    enabled: !!code,
   });
 
   const handleCopy = useCallback(async () => {
@@ -89,6 +106,7 @@ export function CodeBlock({
 
   return (
     <Surface className="my-3 w-full rounded-xl ring ring-kumo-line overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/50 border-b border-kumo-line">
         <div className="flex items-center gap-2">
           <CodeIcon size={14} className="text-kumo-subtle" />
@@ -105,23 +123,41 @@ export function CodeBlock({
           </Button>
         )}
       </div>
+
+      {/* Code content */}
       <div className="overflow-x-auto bg-[var(--surface-2)]">
-        {isLoading && (
-          <div className="p-4 text-sm text-kumo-subtle">Loading syntax highlight...</div>
+        {/* Loading state */}
+        {isLoading && <CodeSkeleton lines={Math.min(code.split("\n").length, 10)} />}
+
+        {/* Error state - fallback to plain text */}
+        {error && (
+          <pre className="!mt-0 !mb-0 p-4 text-sm text-kumo-default">
+            <code>{code}</code>
+          </pre>
         )}
-        {error && <pre className="!mt-0 !mb-0 p-4 text-sm app-text-danger">{code}</pre>}
+
+        {/* Highlighted code from Shiki */}
         {html && !isLoading && !error && (
           <div
-            className="shiki-container p-4 [&_pre]:!m-0 [&_pre]:!p-0 [&_pre]:!bg-transparent [&_code]:!bg-transparent"
+            className="shiki-container p-4 [&_pre]:!m-0 [&_pre]:!p-0 [&_pre]:!bg-transparent [&_code]:!bg-transparent [&_.shiki]:!bg-transparent"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         )}
+
+        {/* Fallback for empty state */}
         {!html && !isLoading && !error && (
-          <pre className="!mt-0 !mb-0 p-4 text-sm">
+          <pre className="!mt-0 !mb-0 p-4 text-sm text-kumo-default">
             <code>{code}</code>
           </pre>
         )}
       </div>
+
+      {/* Line numbers sidebar (optional) */}
+      {showLineNumbers && lineNumbers && (
+        <div className="absolute left-0 top-0 bottom-0 w-12 bg-kumo-control/30 border-r border-kumo-line overflow-hidden pointer-events-none">
+          <pre className="p-4 text-xs text-kumo-subtle text-right">{lineNumbers}</pre>
+        </div>
+      )}
     </Surface>
   );
-}
+});

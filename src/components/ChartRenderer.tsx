@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo, useMemo } from "react";
 import { Text, Surface, Badge } from "@cloudflare/kumo";
-import { ChartBarIcon } from "@phosphor-icons/react";
+import { ChartBar } from "@phosphor-icons/react";
+import { useDelayedTransition } from "../hooks/useDelayedTransition";
 
 // ============ Mermaid Renderer ============
 
 interface MermaidRendererProps {
   code: string;
+  animated?: boolean;
 }
 
-export function MermaidRenderer({ code }: MermaidRendererProps) {
+export function MermaidRenderer({ code, animated = true }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -16,32 +18,42 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
     typeof document !== "undefined" &&
     document.documentElement.getAttribute("data-mode") === "dark";
 
+  // Delay animation during streaming
+  const showAnimation = useDelayedTransition(animated);
+
   useEffect(() => {
     let mounted = true;
-    const container = containerRef.current;
 
     const renderMermaid = async () => {
       if (mounted) {
         setIsLoading(true);
         setError(null);
       }
+
       try {
         const mermaid = (await import("mermaid")).default;
+
+        // Initialize mermaid with theme
         mermaid.initialize({
           startOnLoad: false,
           theme: isDark ? "dark" : "default",
           securityLevel: "strict",
           flowchart: {
-            htmlLabels: true
-          }
+            htmlLabels: true,
+          },
         });
 
         const renderId = `mermaid-${Math.random().toString(36).slice(2)}`;
         const { svg } = await mermaid.render(renderId, code.trim());
 
-        if (mounted && container) {
-          container.innerHTML = "";
-          container.innerHTML = svg;
+        if (mounted && containerRef.current) {
+          containerRef.current.innerHTML = "";
+          containerRef.current.innerHTML = svg;
+
+          // Apply animation class after render
+          if (showAnimation && mounted) {
+            containerRef.current.classList.add("animate-fade-in");
+          }
         }
       } catch (err) {
         if (mounted) {
@@ -58,11 +70,8 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
 
     return () => {
       mounted = false;
-      if (container) {
-        container.innerHTML = "";
-      }
     };
-  }, [code, isDark]);
+  }, [code, isDark, showAnimation]);
 
   if (error) {
     return (
@@ -77,15 +86,19 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
   return (
     <Surface className="w-full p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
       <div className="flex items-center gap-2 mb-2">
-        <ChartBarIcon size={14} className="text-kumo-accent" />
+        <ChartBar size={14} className="text-kumo-accent" />
         <Text size="xs" variant="secondary" bold>
           Mermaid Diagram
         </Text>
       </div>
-      <div className="relative">
-        <div ref={containerRef} className="mermaid-container overflow-x-auto" />
+      <div className="relative overflow-x-auto">
+        <div
+          ref={containerRef}
+          className={`mermaid-container ${showAnimation ? "animate-fade-in" : ""}`}
+          style={{ minHeight: 100 }}
+        />
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-elevated)]/85">
+          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-1)]/85">
             <span className="text-sm text-kumo-subtle">Rendering...</span>
           </div>
         )}
@@ -100,16 +113,20 @@ interface G2ChartRendererProps {
   spec: {
     type?: string;
     data?: Record<string, unknown>[] | Record<string, unknown>;
-    encode?: Record<string, string>;
+    encode?: Record<string, string | number>;
+    axis?: Record<string, unknown>;
+    legend?: Record<string, unknown>;
+    scale?: Record<string, unknown>;
+    style?: Record<string, unknown>;
     children?: unknown[];
     marks?: unknown[];
-    [key: string]: unknown;
   };
+  animated?: boolean;
 }
 
 const DEFAULT_G2_COLOR_PALETTE = [
   "#4E79A7",
-  "#F28E2B",
+  "#F28E2b",
   "#E15759",
   "#76B7B2",
   "#59A14F",
@@ -117,13 +134,13 @@ const DEFAULT_G2_COLOR_PALETTE = [
   "#B07AA1",
   "#FF9DA7",
   "#9C755F",
-  "#BAB0AC"
+  "#BAB0AC",
 ];
 
 function isLikelyValidCssColor(value: string): boolean {
   const normalized = value.trim();
   if (!normalized) return false;
-  if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(normalized)) return true;
+  if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6})$/i.test(normalized)) return true;
   if (/^(rgb|hsl)a?\(\s*[^)]+\)$/i.test(normalized)) return true;
   if (/^(transparent|currentColor|inherit)$/i.test(normalized)) return true;
   return false;
@@ -132,7 +149,7 @@ function isLikelyValidCssColor(value: string): boolean {
 function sanitizeFunctionLikeProps(input: string): string {
   let output = input;
   const functionLikePropPatterns = [
-    // "formatter": (d) => ...
+    // "formatter": (d) => { ... }
     /,\s*"formatter"\s*:\s*\([^)]*\)\s*=>[\s\S]*?(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
     /"formatter"\s*:\s*\([^)]*\)\s*=>[\s\S]*?(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
     // "formatter": function (...) { ... }
@@ -213,6 +230,7 @@ interface G2ChartInstance {
   options: (options: Record<string, unknown>) => void;
   render: () => Promise<void>;
   destroy: () => void;
+  forceFit: () => void;
 }
 
 const SIMPLE_MARK_TYPES = new Set(["interval", "line", "point", "area", "cell", "rect"]);
@@ -241,7 +259,7 @@ const DATA_TRANSFORM_TYPES = new Set([
   "venn",
   "log",
   "custom",
-  "ema"
+  "ema",
 ]);
 
 function normalizeComponentType(type: string): string {
@@ -313,10 +331,28 @@ function normalizeG2Spec(value: unknown): unknown {
   return normalizeColorScaleRange(output);
 }
 
-export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
+export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const chartRef = useRef<G2ChartInstance | null>(null);
+
+  // Delay animation during streaming
+  const showAnimation = useDelayedTransition(animated);
+
+  // Auto-fit using ResizeObserver
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      if (chartRef.current) {
+        chartRef.current.forceFit();
+      }
+    });
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -330,8 +366,7 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         chart.destroy();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        // G2 may throw during teardown if container is already detached.
-        if (!/_container|__remove__/i.test(message)) {
+        if (!/_container.*__remove__/i.test(message)) {
           console.error("Failed to destroy G2 chart:", err);
         }
       } finally {
@@ -344,6 +379,7 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         setIsLoading(true);
         setError(null);
       }
+
       try {
         if (!containerRef.current) return;
         containerRef.current.innerHTML = "";
@@ -352,9 +388,11 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
 
         chart = new Chart({
           container: containerRef.current,
-          autoFit: true,
-          height: 300
+          autoFit: true,  // Auto-fit to container
+          // Remove fixed height - let container decide
         }) as unknown as G2ChartInstance;
+
+        chartRef.current = chart;
 
         const normalizedSpec = normalizeG2Spec(spec) as G2ChartRendererProps["spec"];
         const specType = typeof normalizedSpec.type === "string" ? normalizedSpec.type : "";
@@ -385,6 +423,12 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
         }
 
         await chart.render();
+
+        // Apply animation after render
+        if (showAnimation && mounted && containerRef.current) {
+          containerRef.current.classList.add("animate-fade-in");
+        }
+
         if (!mounted) {
           safeDestroy();
         }
@@ -404,8 +448,9 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
     return () => {
       mounted = false;
       safeDestroy();
+      chartRef.current = null;
     };
-  }, [spec]);
+  }, [spec, showAnimation]);
 
   if (error) {
     return (
@@ -420,14 +465,18 @@ export function G2ChartRenderer({ spec }: G2ChartRendererProps) {
   return (
     <Surface className="w-full p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
       <div className="flex items-center gap-2 mb-2">
-        <ChartBarIcon size={14} className="text-kumo-accent" />
+        <ChartBar size={14} className="text-kumo-accent" />
         <Text size="xs" variant="secondary" bold>
           G2 Chart
         </Text>
-        {spec.type && <Badge variant="secondary">{spec.type}</Badge>}
+        {spec.type && <Badge variant="secondary">{String(spec.type)}</Badge>}
       </div>
       <div className="relative">
-        <div ref={containerRef} className="g2-chart-container" style={{ minHeight: 300 }} />
+        <div
+          ref={containerRef}
+          className={`g2-chart-container ${showAnimation ? "animate-fade-in" : ""}`}
+          style={{ minHeight: 200 }}  // Minimum height only
+        />
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-1)]/80">
             <span className="text-sm text-kumo-subtle">Rendering chart...</span>

@@ -14,6 +14,8 @@ interface ProgressEntry {
   status: "start" | "success" | "error" | "info";
   toolName?: string;
   snippet?: string;
+  severity?: "low" | "normal" | "high";
+  groupKey: string;
 }
 
 const DEFAULT_MARKDOWN_PREFS = {

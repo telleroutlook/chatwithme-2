@@ -1,4 +1,6 @@
-export type CommandTrigger = "@" | "#" | "!";
+export type CommandTrigger = "@" | "#" | "!" | "/";
+
+export type CommandSection = "tools" | "sessions" | "actions" | "prompts" | "models" | "files";
 
 export interface ParsedCommandToken {
   trigger: CommandTrigger;
@@ -13,10 +15,14 @@ export interface CommandSuggestionItem {
   label: string;
   description?: string;
   value: string;
-  section: "tools" | "sessions" | "actions";
+  section: CommandSection;
   keywords?: string[];
   priority?: number;
   group?: string;
+  /** Optional icon for the suggestion */
+  icon?: React.ReactNode;
+  /** Optional badge text (e.g., model name, file type) */
+  badge?: string;
 }
 
 export interface CommandExecutionIntent {
@@ -32,7 +38,8 @@ export interface CommandExecutionIntent {
 export function parseCommandToken(input: string, caretIndex: number): ParsedCommandToken | null {
   const safeCaret = Math.min(Math.max(caretIndex, 0), input.length);
   const textBeforeCaret = input.slice(0, safeCaret);
-  const match = textBeforeCaret.match(/(?:^|\s)([@#!])([^\s@#!]*)$/);
+  // Support @, #, !, / triggers
+  const match = textBeforeCaret.match(/(?:^|\s)([@#!\/])([^\s@#!\/]*)$/);
 
   if (!match || match.index === undefined) {
     return null;

@@ -1,11 +1,17 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { CodeBlock } from "./CodeBlock";
-import { MermaidRenderer, G2ChartRenderer, parseG2SpecFromCode } from "./ChartRenderer";
+import { LazyMermaidRenderer, LazyG2ChartRenderer, parseG2SpecFromCode } from "./LazyChartRenderer";
 import { CitationCards, type CitationCardItem } from "./CitationCards";
+import { HtmlDirectRenderer } from "./Renderers/HtmlDirectRenderer";
+import {
+  SvgRenderer,
+  looksLikeSvgMarkup,
+  extractFirstSvgMarkup,
+} from "./Renderers/SvgRenderer";
 
 interface MarkdownRendererProps {
   content: string;
@@ -16,24 +22,8 @@ interface MarkdownRendererProps {
   citations?: CitationCardItem[];
 }
 
-interface HtmlPreviewRendererProps {
-  code: string;
-}
-interface SvgPreviewRendererProps {
-  code: string;
-}
 interface MarkdownPreviewRendererProps {
   code: string;
-}
-
-const HTML_PREVIEW_HEIGHT = 560;
-type HtmlPreviewTab = "preview" | "code";
-type MarkdownPreviewTab = "preview" | "code";
-
-function looksLikeSvgMarkup(code: string): boolean {
-  const normalized = code.trim().toLowerCase();
-  if (!normalized) return false;
-  return normalized.startsWith("<svg") || normalized.includes("<svg ");
 }
 
 function decodeHtmlEntities(value: string): string {
@@ -55,12 +45,6 @@ function looksLikeHtmlDocument(code: string): boolean {
   );
 }
 
-function extractFirstSvgMarkup(code: string): string | null {
-  if (!code) return null;
-  const match = code.match(/<svg\b[\s\S]*?<\/svg>/i);
-  return match ? match[0] : null;
-}
-
 function stripEmptySourceMapDirectives(code: string): string {
   if (!code || !code.includes("sourceMappingURL")) return code;
   return code
@@ -69,148 +53,10 @@ function stripEmptySourceMapDirectives(code: string): string {
     .replace(/<!--\s*[#@]?\s*sourceMappingURL=.*?-->/gim, "");
 }
 
-function sanitizeSvgMarkup(raw: string): string {
-  if (!raw) return raw;
-  let output = raw;
-  output = output.replace(
-    /\s(stroke-width|height)\s*=\s*["']\s*(?:undefined|null|NaN)?\s*["']/gi,
-    ""
-  );
-  output = output.replace(
-    /\sstyle\s*=\s*["']([^"']*)["']/gi,
-    (_match, styleContent: string) => {
-      const cleaned = styleContent
-        .split(";")
-        .map((entry) => entry.trim())
-        .filter(Boolean)
-        .filter((entry) => {
-          if (!/^(stroke-width|height)\s*:/i.test(entry)) return true;
-          const value = entry.split(":").slice(1).join(":").trim();
-          if (!value) return false;
-          if (/^(undefined|null|NaN)$/i.test(value)) return false;
-          return true;
-        })
-        .join("; ");
-      return cleaned ? ` style="${cleaned}"` : "";
-    }
-  );
-  return output;
-}
-
-function createPreviewSrcDoc(code: string): string {
-  const sanitizedCode = stripEmptySourceMapDirectives(code);
-  if (looksLikeHtmlDocument(sanitizedCode)) {
-    return sanitizedCode;
-  }
-  return `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><style>html,body{margin:0;padding:8px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}</style></head><body>${sanitizedCode}</body></html>`;
-}
-
-const HtmlPreviewRenderer = memo(function HtmlPreviewRenderer({ code }: HtmlPreviewRendererProps) {
-  const [activeTab, setActiveTab] = useState<HtmlPreviewTab>("preview");
-  const [previewReady, setPreviewReady] = useState(false);
-  const srcDoc = createPreviewSrcDoc(code);
-
-  useEffect(() => {
-    if (activeTab !== "preview") {
-      setPreviewReady(false);
-      return;
-    }
-
-    let timeoutId = 0;
-    const rafId = window.requestAnimationFrame(() => {
-      timeoutId = window.setTimeout(() => {
-        setPreviewReady(true);
-      }, 0);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      if (timeoutId) window.clearTimeout(timeoutId);
-    };
-  }, [activeTab, srcDoc]);
-
-  return (
-    <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
-      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line flex items-center justify-between gap-2">
-        <span>HTML Preview</span>
-        <div className="inline-flex items-center rounded-md border border-kumo-line p-0.5">
-          <button
-            type="button"
-            className={`rounded px-2 py-1 text-[11px] ${
-              activeTab === "code" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
-            }`}
-            onClick={() => setActiveTab("code")}
-          >
-            Code
-          </button>
-          <button
-            type="button"
-            className={`rounded px-2 py-1 text-[11px] ${
-              activeTab === "preview" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
-            }`}
-            onClick={() => setActiveTab("preview")}
-          >
-            Preview
-          </button>
-        </div>
-      </div>
-      {activeTab === "preview" ? (
-        previewReady ? (
-          <iframe
-            title="HTML Preview"
-            srcDoc={srcDoc}
-            sandbox="allow-scripts"
-            scrolling="auto"
-            className="block w-full border-0 bg-[var(--surface-1)]"
-            style={{ height: HTML_PREVIEW_HEIGHT }}
-          />
-        ) : (
-          <div
-            className="block w-full bg-[var(--surface-1)]"
-            style={{ height: HTML_PREVIEW_HEIGHT }}
-          />
-        )
-      ) : (
-        <pre className="!m-0 max-h-[560px] overflow-auto bg-[var(--surface-1)] p-3 text-xs text-kumo-default">
-          <code>{code}</code>
-        </pre>
-      )}
-    </div>
-  );
-});
-
-function SvgPreviewRenderer({ code }: SvgPreviewRendererProps) {
-  const sanitizedSvg = useMemo(() => sanitizeSvgMarkup(code), [code]);
-  const svgDataUrl = useMemo(
-    () => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sanitizedSvg)}`,
-    [sanitizedSvg]
-  );
-
-  return (
-    <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
-      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line">
-        SVG Preview
-      </div>
-      <div className="bg-[var(--surface-1)] p-2">
-        <img
-          src={svgDataUrl}
-          alt="SVG Preview"
-          className="block h-auto w-full"
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-        />
-      </div>
-    </div>
-  );
-}
-
-const MARKDOWN_PREVIEW_HEIGHT = 560;
-
 const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
-  code
+  code,
 }: MarkdownPreviewRendererProps) {
-  const [activeTab, setActiveTab] = useState<MarkdownPreviewTab>("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
 
   return (
     <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
@@ -238,16 +84,13 @@ const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
         </div>
       </div>
       {activeTab === "preview" ? (
-        <div className="max-h-[560px] overflow-auto p-3">
+        <div className="max-h-[600px] overflow-auto p-3">
           <MarkdownRenderer content={code} />
         </div>
       ) : (
-        <pre
-          className="!m-0 max-h-[560px] overflow-auto bg-[var(--surface-1)] p-3 text-xs text-kumo-default"
-          style={{ minHeight: MARKDOWN_PREVIEW_HEIGHT }}
-        >
-          <code>{code}</code>
-        </pre>
+        <div className="max-h-[600px] overflow-auto">
+          <CodeBlock language="markdown" code={code} showCopy={false} />
+        </div>
       )}
     </div>
   );
@@ -272,7 +115,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   enableAlerts = true,
   enableFootnotes = true,
   streamCursor = true,
-  citations = []
+  citations = [],
 }: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
     let normalized = (
@@ -326,59 +169,75 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               );
             }
 
+            // Mermaid diagrams - lazy loaded
             const isMermaidBlock =
               language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
             if (isMermaidBlock) {
-              return <MermaidRenderer code={codeString} />;
+              return <LazyMermaidRenderer code={codeString} />;
             }
 
+            // G2 charts - lazy loaded
             if (language === "g2") {
               const spec = parseG2SpecFromCode(codeString);
               if (spec) {
-                return <G2ChartRenderer spec={spec} />;
+                return <LazyG2ChartRenderer spec={spec} />;
               }
               return <span className="text-xs app-text-danger">Invalid G2 spec</span>;
             }
 
+            // SVG handling
             const decodedCodeString = decodeHtmlEntities(codeString);
             const svgLikeCode = looksLikeSvgMarkup(codeString)
               ? codeString
               : looksLikeSvgMarkup(decodedCodeString)
                 ? decodedCodeString
                 : "";
+
+            // HTML document handling - use new HtmlDirectRenderer (no iframe!)
             const isHtmlDocument =
               language === "html" &&
               (looksLikeHtmlDocument(codeString) || looksLikeHtmlDocument(decodedCodeString));
+
             const firstSvgInCode = extractFirstSvgMarkup(codeString);
             const firstSvgInDecodedCode = extractFirstSvgMarkup(decodedCodeString);
             const svgFromHtmlDocument = firstSvgInCode ?? firstSvgInDecodedCode;
+
+            // SVG XML block
             const isSvgXmlBlock =
-              (language === "xml" || language === "xhtml" || (language === "html" && !isHtmlDocument)) &&
+              (language === "xml" ||
+                language === "xhtml" ||
+                (language === "html" && !isHtmlDocument)) &&
               !!svgLikeCode;
             const isRawSvgBlock = language === "svg" || (!language && !!svgLikeCode);
+
             if (isSvgXmlBlock || isRawSvgBlock) {
-              return <SvgPreviewRenderer code={svgLikeCode} />;
+              return <SvgRenderer code={svgLikeCode} />;
             }
 
+            // HTML preview - use new Shadow DOM renderer (no iframe, auto height!)
             if (language === "html") {
+              // During streaming, show code block to avoid jitter
               if (isStreaming) {
                 return <CodeBlock language={language} code={codeString} />;
               }
+              // If HTML contains SVG, render both
               if (isHtmlDocument && svgFromHtmlDocument) {
                 return (
                   <>
-                    <HtmlPreviewRenderer code={codeString} />
-                    <SvgPreviewRenderer code={svgFromHtmlDocument} />
+                    <HtmlDirectRenderer code={codeString} />
+                    <SvgRenderer code={svgFromHtmlDocument} />
                   </>
                 );
               }
-              return <HtmlPreviewRenderer code={codeString} />;
+              return <HtmlDirectRenderer code={codeString} />;
             }
 
+            // Markdown preview
             if (language === "markdown" || language === "md") {
               return <MarkdownPreviewRenderer code={codeString} />;
             }
 
+            // Default code block
             return <CodeBlock language={language} code={codeString} />;
           },
           p({ children }) {
@@ -470,7 +329,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
           },
           del({ children }) {
             return <del className="line-through opacity-70">{children}</del>;
-          }
+          },
         }}
       >
         {processedContent}

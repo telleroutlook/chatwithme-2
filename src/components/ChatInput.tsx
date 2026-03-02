@@ -171,14 +171,17 @@ export const ChatInput = memo(function ChatInput({
     const sectionTitles: Record<CommandSuggestionItem["section"], string> = {
       tools: t("chat_input_section_tools"),
       sessions: t("chat_input_section_sessions"),
-      actions: t("chat_input_section_actions")
+      actions: t("chat_input_section_actions"),
+      prompts: "Prompts",
+      models: "Models",
+      files: "Files"
     };
 
-    const groups: Array<{ section: string; items: CommandSuggestionItem[] }> = [];
+    const groups: Array<{ section: CommandSuggestionItem["section"]; items: CommandSuggestionItem[] }> = [];
     for (const section of ["tools", "sessions", "actions"] as const) {
       const items = filteredSuggestions.filter((item) => item.section === section);
       if (items.length > 0) {
-        groups.push({ section: sectionTitles[section], items });
+        groups.push({ section, items });
       }
     }
 
