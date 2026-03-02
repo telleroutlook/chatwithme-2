@@ -1,0 +1,61 @@
+{
+  "outputContract": [
+    "G2 blocks must be strict RFC 8259 JSON",
+    "Do not output comments, trailing commas, undefined, NaN, Infinity, or functions",
+    "All keys must use double quotes; all string values must use double quotes",
+    "Never output callback expressions such as (d) => ... or function (...)",
+    "For constant colors, use string literals like \"#4E79A7\"",
+    "For categorical color mapping, use \"encode\": { \"color\": \"<field>\" }",
+    "scale.color.range must contain only valid CSS color strings (hex/rgb/hsl), never category labels",
+    "encode.x/encode.y/encode.color referenced fields must exist in data",
+    "If you output a G2 code block, self-check that it can pass JSON.parse"
+  ],
+  "chartTypes": [
+    {
+      "type": "interval",
+      "requiredFields": ["data", "encode"],
+      "example": "{\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"sales\":100},{\"month\":\"Feb\",\"sales\":150}],\"encode\":{\"x\":\"month\",\"y\":\"sales\"}}",
+      "commonErrors": [
+        "Missing encode object",
+        "Using xField/yField instead of encode.x/encode.y",
+        "Not providing data array"
+      ]
+    },
+    {
+      "type": "line",
+      "requiredFields": ["data", "encode"],
+      "example": "{\"type\":\"line\",\"data\":[{\"date\":\"2024-01\",\"value\":120},{\"date\":\"2024-02\",\"value\":180}],\"encode\":{\"x\":\"date\",\"y\":\"value\"}}",
+      "commonErrors": [
+        "Using style.strokeWidth as callback",
+        "Missing encode.x or encode.y"
+      ]
+    },
+    {
+      "type": "area",
+      "requiredFields": ["data", "encode"],
+      "example": "{\"type\":\"area\",\"data\":[{\"x\":1,\"y\":10},{\"x\":2,\"y\":20}],\"encode\":{\"x\":\"x\",\"y\":\"y\"}}",
+      "commonErrors": [
+        "Same as line chart errors",
+        "Not handling null values properly"
+      ]
+    },
+    {
+      "type": "point",
+      "requiredFields": ["data", "encode"],
+      "example": "{\"type\":\"point\",\"data\":[{\"x\":10,\"y\":20},{\"x\":15,\"y\":30}],\"encode\":{\"x\":\"x\",\"y\":\"y\"}}",
+      "commonErrors": [
+        "Missing encode.color for category distinction",
+        "Using wrong mark type for scatter plots"
+      ]
+    },
+    {
+      "type": "cell",
+      "requiredFields": ["data", "encode"],
+      "example": "{\"type\":\"cell\",\"data\":[{\"day\":\"Mon\",\"hour\":\"9am\",\"value\":10}],\"encode\":{\"x\":\"day\",\"y\":\"hour\",\"color\":\"value\"}}",
+      "commonErrors": [
+        "Missing encode.color for heat values",
+        "Not using proper grid data format"
+      ]
+    }
+  ]
+}

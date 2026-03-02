@@ -1,14 +1,109 @@
 import type { ChartPrimaryType } from "./runtime-config";
+import {
+  loadChartKnowledge,
+  buildAdcPromptSection,
+  buildG2PromptSection,
+  buildMermaidPromptSection,
+} from "./chart-knowledge";
 
-export function buildSystemPrompt(toolList: string[], chartPrimary: ChartPrimaryType = "adc"): string {
-  const chartPriority = chartPrimary === "adc"
-    ? `For scenarios that are suitable for chart-based visualization, prefer Ant Design Charts (ADC) first.
+/**
+ * Build the system prompt for the chat agent.
+ *
+ * Chart rules are loaded from the knowledge base at runtime,
+ * enabling updates without code changes.
+ */
+export async function buildSystemPromptAsync(
+  toolList: string[],
+  chartPrimary: ChartPrimaryType = "adc"
+): Promise<string> {
+  // Load chart knowledge from KB
+  const knowledge = await loadChartKnowledge();
+
+  const chartPriority =
+    chartPrimary === "adc"
+      ? `For scenarios that are suitable for chart-based visualization, prefer Ant Design Charts (ADC) first.
 Use G2 as a secondary option when ADC is not suitable.`
-    : `For scenarios that are suitable for chart-based visualization, prefer G2 JSON charts first.
+      : `For scenarios that are suitable for chart-based visualization, prefer G2 JSON charts first.
 Use Ant Design Charts (ADC) as a secondary option when G2 is not suitable.`;
 
-  const adcSection = chartPrimary === "adc" ? `
-### For Data Charts (line, column, bar, area, pie, scatter, radar, gauge, heatmap, funnel, histogram, dual axes):
+  // Build chart sections based on knowledge
+  const adcSection = chartPrimary === "adc" ? buildAdcPromptSection(knowledge.adc) : "";
+  const g2Section = buildG2PromptSection(knowledge.g2);
+  const mermaidSection = buildMermaidPromptSection(knowledge.mermaid);
+
+  return `You are a helpful AI assistant with the following capabilities:
+
+## 1. Web Tools (MCP)
+${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
+
+You can call the tools directly when external information is required.
+
+## 2. Chart Generation
+
+When asked to create charts or diagrams, you MUST output them in code blocks.
+${chartPriority}
+Use Mermaid as a secondary option for diagrams.
+
+${mermaidSection}
+${adcSection}${g2Section}
+IMPORTANT:
+- Always use actual code blocks (triple backticks) for charts
+- ${chartPrimary === "adc" ? "Prefer ADC for data visualization with numbers and chart-friendly scenarios" : "Prefer G2 for data visualization with numbers and chart-friendly scenarios"}
+- Use Mermaid as the second choice for diagrams
+- Make sure JSON is valid in chart blocks
+- After generating a chart, briefly explain what it shows`;
+}
+
+/**
+ * Synchronous version for backward compatibility.
+ *
+ * Uses embedded knowledge (same as chart-knowledge.ts fallback).
+ * For production use, prefer buildSystemPromptAsync.
+ */
+export function buildSystemPrompt(
+  toolList: string[],
+  chartPrimary: ChartPrimaryType = "adc"
+): string {
+  const chartPriority =
+    chartPrimary === "adc"
+      ? `For scenarios that are suitable for chart-based visualization, prefer Ant Design Charts (ADC) first.
+Use G2 as a secondary option when ADC is not suitable.`
+      : `For scenarios that are suitable for chart-based visualization, prefer G2 JSON charts first.
+Use Ant Design Charts (ADC) as a secondary option when G2 is not suitable.`;
+
+  // Use embedded knowledge (same as chart-knowledge.ts)
+  const adcSection = chartPrimary === "adc" ? buildAdcPromptSectionEmbedded() : "";
+  const g2Section = buildG2PromptSectionEmbedded();
+  const mermaidSection = buildMermaidPromptSectionEmbedded();
+
+  return `You are a helpful AI assistant with the following capabilities:
+
+## 1. Web Tools (MCP)
+${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
+
+You can call the tools directly when external information is required.
+
+## 2. Chart Generation
+
+When asked to create charts or diagrams, you MUST output them in code blocks.
+${chartPriority}
+Use Mermaid as a secondary option for diagrams.
+
+${mermaidSection}
+${adcSection}${g2Section}
+IMPORTANT:
+- Always use actual code blocks (triple backticks) for charts
+- ${chartPrimary === "adc" ? "Prefer ADC for data visualization with numbers and chart-friendly scenarios" : "Prefer G2 for data visualization with numbers and chart-friendly scenarios"}
+- Use Mermaid as the second choice for diagrams
+- Make sure JSON is valid in chart blocks
+- After generating a chart, briefly explain what it shows`;
+}
+
+/**
+ * Embedded ADC prompt section (for sync version)
+ */
+function buildAdcPromptSectionEmbedded(): string {
+  return `### For Data Charts (line, column, bar, area, pie, scatter, radar, gauge, heatmap, funnel, histogram, dual axes):
 Use Ant Design Charts (ADC) JSON format in a code block:
 
 \`\`\`adc
@@ -72,10 +167,14 @@ ADC chart types:
   "colorField": "type"
 }
 \`\`\`
-` : "";
+`;
+}
 
-  const g2Section = `
-### For Data Charts (bar, line, area, scatter) - G2 Format:
+/**
+ * Embedded G2 prompt section (for sync version)
+ */
+function buildG2PromptSectionEmbedded(): string {
+  return `### For Data Charts (bar, line, area, scatter) - G2 Format:
 Use G2 JSON format in a code block:
 
 \`\`\`g2
@@ -121,21 +220,13 @@ G2 chart types:
 }
 \`\`\`
 `;
+}
 
-  return `You are a helpful AI assistant with the following capabilities:
-
-## 1. Web Tools (MCP)
-${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
-
-You can call the tools directly when external information is required.
-
-## 2. Chart Generation
-
-When asked to create charts or diagrams, you MUST output them in code blocks.
-${chartPriority}
-Use Mermaid as a secondary option for diagrams.
-
-### For Diagrams (flowcharts, sequence, pie charts):
+/**
+ * Embedded Mermaid prompt section (for sync version)
+ */
+function buildMermaidPromptSectionEmbedded(): string {
+  return `### For Diagrams (flowcharts, sequence, pie charts):
 Use Mermaid syntax in a code block:
 
 \`\`\`mermaid
@@ -171,11 +262,5 @@ sequenceDiagram
     Database-->>Server: Result
     Server-->>User: Response
 \`\`\`
-${adcSection}${g2Section}
-IMPORTANT:
-- Always use actual code blocks (triple backticks) for charts
-- ${chartPrimary === "adc" ? "Prefer ADC for data visualization with numbers and chart-friendly scenarios" : "Prefer G2 for data visualization with numbers and chart-friendly scenarios"}
-- Use Mermaid as the second choice for diagrams
-- Make sure JSON is valid in chart blocks
-- After generating a chart, briefly explain what it shows`;
+`;
 }

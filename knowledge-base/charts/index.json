@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "fetchedAt": "2026-03-02T11:32:56.294Z",
+  "source": "local",
+  "contentHash": "8d757be34aa9fdc3",
+  "summary": {
+    "adc": true,
+    "g2": true,
+    "mermaid": true,
+    "mermaidDiagramCount": 19,
+    "adcChartCount": 12,
+    "g2ChartCount": 5
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "diagramTypes": {
+    "flowchart": {
+      "whenToUse": "Process flows, decision trees, algorithm visualization, system architecture",
+      "minimalTemplate": "flowchart TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[Action 1]\n    B -->|No| D[Action 2]",
+      "commonErrors": [
+        "Using graph instead of flowchart keyword",
+        "Missing node shapes brackets",
+        "Incorrect arrow syntax"
+      ]
+    },
+    "graph": {
+      "whenToUse": "Simple directed/undirected graphs, alternative to flowchart",
+      "minimalTemplate": "graph LR\n    A --> B --> C",
+      "commonErrors": [
+        "Confusing TD/TB (top-down) with LR/RL (left-right)",
+        "Using undefined node styles"
+      ]
+    },
+    "sequenceDiagram": {
+      "whenToUse": "API interactions, message flows, communication protocols, service calls",
+      "minimalTemplate": "sequenceDiagram\n    participant A as Client\n    participant B as Server\n    A->>B: Request\n    B-->>A: Response",
+      "commonErrors": [
+        "Using wrong arrow types (->> vs -->>)",
+        "Missing participant declarations",
+        "Not using alt/opt for conditionals"
+      ]
+    },
+    "classDiagram": {
+      "whenToUse": "OOP class structures, database schemas, type definitions",
+      "minimalTemplate": "classDiagram\n    class Animal {\n        +String name\n        +makeSound()\n    }\n    class Dog {\n        +bark()\n    }\n    Animal <|-- Dog",
+      "commonErrors": [
+        "Wrong visibility modifiers",
+        "Missing class keyword",
+        "Incorrect inheritance syntax"
+      ]
+    },
+    "stateDiagram": {
+      "whenToUse": "State machines, workflow states, lifecycle diagrams",
+      "minimalTemplate": "stateDiagram-v2\n    [*] --> Idle\n    Idle --> Processing: Start\n    Processing --> Complete: Finish\n    Complete --> [*]",
+      "commonErrors": [
+        "Using v1 syntax instead of v2",
+        "Missing [*] for start/end states",
+        "Not labeling transitions"
+      ]
+    },
+    "erDiagram": {
+      "whenToUse": "Database entity relationships, data models, schema visualization",
+      "minimalTemplate": "erDiagram\n    USER ||--o{ ORDER : places\n    USER {\n        int id\n        string name\n    }\n    ORDER {\n        int id\n        string status\n    }",
+      "commonErrors": [
+        "Wrong relationship operators (||--o{ vs }|--|{)",
+        "Missing entity attributes",
+        "Invalid attribute types"
+      ]
+    },
+    "journey": {
+      "whenToUse": "User journeys, customer experience maps, process timelines",
+      "minimalTemplate": "journey\n    title User Journey\n    section Login\n        Visit site: 5: User\n        Enter credentials: 3: User\n        Click login: 5: User",
+      "commonErrors": [
+        "Missing title",
+        "Wrong score format",
+        "Not grouping into sections"
+      ]
+    },
+    "gantt": {
+      "whenToUse": "Project timelines, task schedules, milestone tracking",
+      "minimalTemplate": "gantt\n    title Project Schedule\n    dateFormat YYYY-MM-DD\n    section Phase 1\n        Task A: 2024-01-01, 7d\n        Task B: after Task A, 5d",
+      "commonErrors": [
+        "Wrong dateFormat",
+        "Invalid date syntax",
+        "Missing section declarations"
+      ]
+    },
+    "pie": {
+      "whenToUse": "Simple pie charts, percentage distributions, categorical breakdowns",
+      "minimalTemplate": "pie title Distribution\n    \"Category A\": 40\n    \"Category B\": 35\n    \"Category C\": 25",
+      "commonErrors": [
+        "Missing title keyword",
+        "Not using quotes for labels",
+        "Using colon instead of semicolon"
+      ]
+    },
+    "mindmap": {
+      "whenToUse": "Brainstorming, hierarchical concepts, knowledge trees",
+      "minimalTemplate": "mindmap\n  root((Central Idea))\n    Branch 1\n      Sub-branch 1a\n      Sub-branch 1b\n    Branch 2\n      Sub-branch 2a",
+      "commonErrors": [
+        "Missing root declaration",
+        "Incorrect indentation",
+        "Using invalid shapes for root"
+      ]
+    },
+    "timeline": {
+      "whenToUse": "Historical events, project milestones, chronological sequences",
+      "minimalTemplate": "timeline\n    title Project History\n    2024-01 : Kickoff\n    2024-02 : Phase 1 Complete\n    2024-03 : Launch",
+      "commonErrors": [
+        "Missing title",
+        "Wrong date format",
+        "Not using colon separator"
+      ]
+    },
+    "gitGraph": {
+      "whenToUse": "Git workflows, branch strategies, version control visualization",
+      "minimalTemplate": "gitGraph\n    commit\n    branch feature\n    checkout feature\n    commit\n    checkout main\n    merge feature",
+      "commonErrors": [
+        "Using undeclared branches",
+        "Wrong checkout/merge order",
+        "Missing commit statements"
+      ]
+    },
+    "quadrantChart": {
+      "whenToUse": "Priority matrices, 2x2 analysis, strategic planning",
+      "minimalTemplate": "quadrantChart\n    title Analysis Matrix\n    x-axis Low --> High\n    y-axis Low --> High\n    quadrant-1 Q1\n    quadrant-2 Q2\n    quadrant-3 Q3\n    quadrant-4 Q4\n    Item A: [0.8, 0.7]",
+      "commonErrors": [
+        "Missing axis declarations",
+        "Wrong coordinate format",
+        "Not defining quadrants"
+      ]
+    },
+    "requirementDiagram": {
+      "whenToUse": "Requirements engineering, SysML diagrams, system requirements",
+      "minimalTemplate": "requirementDiagram\n    requirement req1 {\n        id: 1\n        text: The system shall...\n    }\n    element entity1 {\n        type: system\n    }\n    entity1 satisfies req1",
+      "commonErrors": [
+        "Missing requirement blocks",
+        "Wrong relationship keywords",
+        "Invalid element types"
+      ]
+    },
+    "kanban": {
+      "whenToUse": "Task boards, work queues, agile workflows",
+      "minimalTemplate": "kanban\n    Todo\n        [Task 1]\n        [Task 2]\n    In Progress\n        [Task 3]\n    Done\n        [Task 4]",
+      "commonErrors": [
+        "Missing column headers",
+        "Wrong task syntax",
+        "Not using brackets for tasks"
+      ]
+    },
+    "sankey-beta": {
+      "whenToUse": "Flow diagrams, resource allocation, data pipeline visualization",
+      "minimalTemplate": "sankey-beta\n    source,target,value\n    A,B,10\n    B,C,5\n    A,C,5",
+      "commonErrors": [
+        "Using old sankey syntax",
+        "Missing CSV header",
+        "Wrong column order"
+      ]
+    },
+    "xychart-beta": {
+      "whenToUse": "Simple bar/line charts within Mermaid context",
+      "minimalTemplate": "xychart-beta\n    title \"Sales Chart\"\n    x-axis [Jan, Feb, Mar]\n    y-axis \"Revenue\" 0 --> 100\n    bar [50, 75, 60]",
+      "commonErrors": [
+        "Missing title or axis declarations",
+        "Wrong data format",
+        "Using non-beta syntax"
+      ]
+    },
+    "block-beta": {
+      "whenToUse": "Block diagrams, system architecture, component layouts",
+      "minimalTemplate": "block-beta\n    columns 3\n    A: \"Block A\"\n    B: \"Block B\"\n    C: \"Block C\"\n    A --> B",
+      "commonErrors": [
+        "Wrong column declaration",
+        "Invalid block syntax",
+        "Using unsupported connections"
+      ]
+    },
+    "architecture-beta": {
+      "whenToUse": "Cloud architecture, infrastructure diagrams, system topology",
+      "minimalTemplate": "architecture-beta\n    service api(database)[API Gateway]\n    service db(disk)[Database]\n    api:R --> L:db",
+      "commonErrors": [
+        "Missing service declarations",
+        "Wrong connection syntax",
+        "Invalid icons or positions"
+      ]
+    }
+  }
+}

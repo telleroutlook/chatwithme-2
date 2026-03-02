@@ -1,0 +1,134 @@
+{
+  "outputContract": [
+    "ADC blocks must be strict RFC 8259 JSON",
+    "Do not output comments, trailing commas, undefined, NaN, Infinity, or functions",
+    "All keys must use double quotes; all string values must use double quotes",
+    "Never output callback expressions such as (d) => ... or function (...)",
+    "Supported chart types: line, column, bar, area, pie, scatter, radar, gauge, heatmap, funnel, histogram, dualAxes"
+  ],
+  "typeWhitelist": [
+    "line",
+    "column",
+    "bar",
+    "area",
+    "pie",
+    "scatter",
+    "radar",
+    "gauge",
+    "heatmap",
+    "funnel",
+    "histogram",
+    "dualAxes"
+  ],
+  "chartTypes": [
+    {
+      "type": "line",
+      "requiredFields": ["data", "xField", "yField"],
+      "example": "{\"type\":\"line\",\"data\":[{\"year\":\"1991\",\"value\":3},{\"year\":\"1992\",\"value\":4}],\"xField\":\"year\",\"yField\":\"value\"}",
+      "commonErrors": [
+        "Using callback functions in field mappings",
+        "Missing required xField or yField",
+        "Data not in array format"
+      ]
+    },
+    {
+      "type": "column",
+      "requiredFields": ["data", "xField", "yField"],
+      "example": "{\"type\":\"column\",\"data\":[{\"category\":\"A\",\"value\":10},{\"category\":\"B\",\"value\":20}],\"xField\":\"category\",\"yField\":\"value\"}",
+      "commonErrors": [
+        "Confusing column (vertical) with bar (horizontal)",
+        "Missing required fields"
+      ]
+    },
+    {
+      "type": "bar",
+      "requiredFields": ["data", "xField", "yField"],
+      "example": "{\"type\":\"bar\",\"data\":[{\"category\":\"A\",\"value\":10},{\"category\":\"B\",\"value\":20}],\"xField\":\"value\",\"yField\":\"category\"}",
+      "commonErrors": [
+        "Swapping xField and yField (bar is horizontal)",
+        "Using callbacks for field values"
+      ]
+    },
+    {
+      "type": "area",
+      "requiredFields": ["data", "xField", "yField"],
+      "example": "{\"type\":\"area\",\"data\":[{\"date\":\"2024-01\",\"value\":100},{\"date\":\"2024-02\",\"value\":150}],\"xField\":\"date\",\"yField\":\"value\"}",
+      "commonErrors": [
+        "Same as line chart errors",
+        "Not stacking multiple series properly"
+      ]
+    },
+    {
+      "type": "pie",
+      "requiredFields": ["data", "angleField", "colorField"],
+      "example": "{\"type\":\"pie\",\"data\":[{\"type\":\"A\",\"value\":35},{\"type\":\"B\",\"value\":25}],\"angleField\":\"value\",\"colorField\":\"type\"}",
+      "commonErrors": [
+        "Using xField/yField instead of angleField/colorField",
+        "Not providing colorField for legend"
+      ]
+    },
+    {
+      "type": "scatter",
+      "requiredFields": ["data", "xField", "yField"],
+      "example": "{\"type\":\"scatter\",\"data\":[{\"x\":10,\"y\":20},{\"x\":15,\"y\":30}],\"xField\":\"x\",\"yField\":\"y\"}",
+      "commonErrors": [
+        "Missing colorField for category distinction",
+        "Data points not in array"
+      ]
+    },
+    {
+      "type": "radar",
+      "requiredFields": ["data", "xField", "yField"],
+      "example": "{\"type\":\"radar\",\"data\":[{\"item\":\"Speed\",\"score\":80},{\"item\":\"Power\",\"score\":90}],\"xField\":\"item\",\"yField\":\"score\"}",
+      "commonErrors": [
+        "Wrong field names for radar dimensions",
+        "Not normalizing values to similar scale"
+      ]
+    },
+    {
+      "type": "gauge",
+      "requiredFields": ["data"],
+      "example": "{\"type\":\"gauge\",\"data\":[{\"value\":75}]}",
+      "commonErrors": [
+        "Missing percent or value field",
+        "Using callbacks for custom rendering"
+      ]
+    },
+    {
+      "type": "heatmap",
+      "requiredFields": ["data", "xField", "yField", "colorField"],
+      "example": "{\"type\":\"heatmap\",\"data\":[{\"day\":\"Mon\",\"hour\":\"9am\",\"value\":10}],\"xField\":\"day\",\"yField\":\"hour\",\"colorField\":\"value\"}",
+      "commonErrors": [
+        "Missing colorField for intensity",
+        "Not providing proper grid data structure"
+      ]
+    },
+    {
+      "type": "funnel",
+      "requiredFields": ["data"],
+      "example": "{\"type\":\"funnel\",\"data\":[{\"stage\":\"Visit\",\"count\":100},{\"stage\":\"Buy\",\"count\":20}]}",
+      "commonErrors": [
+        "Data not sorted by funnel order",
+        "Missing value field for stage size"
+      ]
+    },
+    {
+      "type": "histogram",
+      "requiredFields": ["data", "binField"],
+      "example": "{\"type\":\"histogram\",\"data\":[{\"value\":1},{\"value\":2},{\"value\":3}],\"binField\":\"value\"}",
+      "commonErrors": [
+        "Using xField instead of binField",
+        "Not providing raw data for binning"
+      ]
+    },
+    {
+      "type": "dualAxes",
+      "requiredFields": ["data"],
+      "example": "{\"type\":\"dualAxes\",\"data\":[{\"time\":\"Jan\",\"value\":100,\"rate\":0.5}],\"xField\":\"time\",\"yField\":\"value\"}",
+      "commonErrors": [
+        "Not specifying two y-axis configurations",
+        "Mixing incompatible chart types"
+      ]
+    }
+  ]
+}

@@ -12,7 +12,7 @@
     "format:check": "prettier --check .",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "deploy": "npm run typecheck && vite build && wrangler deploy && node scripts/verify-deploy.mjs",
+    "deploy": "npm run kb:refresh:strict && npm run kb:validate && npm run typecheck && vite build && wrangler deploy && node scripts/verify-deploy.mjs",
     "types": "wrangler types env.d.ts --include-runtime false",
     "test": "vitest",
     "test:run": "vitest run",
@@ -20,7 +20,10 @@
     "test:e2e": "node test/e2e/smoke.production.mjs",
     "test:e2e:session-delete": "node test/e2e/session-delete.production.mjs",
     "test:e2e:scroll-lock": "node test/e2e/scroll-lock.production.mjs",
-    "deploy:raw": "vite build && wrangler deploy"
+    "deploy:raw": "vite build && wrangler deploy",
+    "kb:refresh": "node scripts/fetch-chart-knowledge.mjs",
+    "kb:refresh:strict": "node scripts/fetch-chart-knowledge.mjs --strict",
+    "kb:validate": "node scripts/validate-chart-knowledge.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.30",
