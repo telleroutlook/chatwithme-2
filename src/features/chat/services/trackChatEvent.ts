@@ -7,6 +7,7 @@ export type ChatEventName =
   | "message_edit_confirm"
   | "message_regenerate"
   | "scroll_back_bottom"
+  | "scroll_back_top"
   | "mcp_toggle"
   | "connection_open"
   | "connection_close"

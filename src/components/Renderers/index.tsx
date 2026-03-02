@@ -16,8 +16,10 @@ export { JsonTreeView, isValidJson } from "./JsonTreeView";
 export {
   MermaidRenderer,
   G2ChartRenderer,
-  parseG2SpecFromCode,
 } from "../ChartRenderer";
+
+// Re-export G2 spec parser
+export { parseG2SpecFromCode } from "../../utils/g2SpecParser";
 
 // Re-export CodeBlock
 export { CodeBlock } from "../CodeBlock";

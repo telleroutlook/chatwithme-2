@@ -7,6 +7,7 @@ import {
   FilePdfIcon,
   ImageIcon,
   LightningIcon,
+  FileJsIcon,
 } from "@phosphor-icons/react";
 import { downloadTextFile } from "../utils/exporters/image";
 import { exportContentToPdf } from "../utils/exporters/pdf";
@@ -16,13 +17,27 @@ interface DownloadToolbarProps {
   filename?: string;
   type?: "html" | "markdown" | "svg" | "text";
   elementRef?: React.RefObject<HTMLElement>;
+  /** Optional messages data for JSON export */
+  messages?: ExportableMessage[];
+}
+
+/** Message format for JSON export */
+export interface ExportableMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  timestamp?: string;
+  parts: Array<{
+    type: string;
+    text?: string;
+    [key: string]: unknown;
+  }>;
 }
 
 interface DownloadFormat {
   type: string;
   label: string;
   icon: React.ReactNode;
-  handler: (content: string, filename: string, elementRef?: React.RefObject<HTMLElement>) => Promise<void> | void;
+  handler: (content: string, filename: string, elementRef?: React.RefObject<HTMLElement>, messages?: ExportableMessage[]) => Promise<void> | void;
 }
 
 const DOWNLOAD_FORMATS: DownloadFormat[] = [
@@ -49,6 +64,21 @@ const DOWNLOAD_FORMATS: DownloadFormat[] = [
     handler: (content, filename) => {
       const fullHtml = wrapAsHtmlDocument(content);
       downloadTextFile(fullHtml, `${filename}.html`, "text/html");
+    },
+  },
+  {
+    type: "json",
+    label: "JSON",
+    icon: <FileJsIcon size={16} />,
+    handler: (content, filename, _elementRef, messages) => {
+      const exportData = {
+        exportVersion: 1,
+        exportedAt: new Date().toISOString(),
+        messages: messages || [],
+        content: content,
+      };
+      const jsonContent = JSON.stringify(exportData, null, 2);
+      downloadTextFile(jsonContent, `${filename}.json`, "application/json");
     },
   },
   {
@@ -123,6 +153,7 @@ export const DownloadToolbar = memo(function DownloadToolbar({
   content,
   filename = "content",
   elementRef,
+  messages,
 }: DownloadToolbarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
@@ -131,7 +162,7 @@ export const DownloadToolbar = memo(function DownloadToolbar({
     async (format: DownloadFormat) => {
       setIsExporting(format.type);
       try {
-        await format.handler(content, filename, elementRef);
+        await format.handler(content, filename, elementRef, messages);
         setIsOpen(false);
       } catch (err) {
         console.error(`Failed to export as ${format.type}:`, err);
@@ -139,7 +170,7 @@ export const DownloadToolbar = memo(function DownloadToolbar({
         setIsExporting(null);
       }
     },
-    [content, filename, elementRef]
+    [content, filename, elementRef, messages]
   );
 
   return (

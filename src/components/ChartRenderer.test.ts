@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseChartFromText, parseG2SpecFromCode } from "./ChartRenderer";
+import { parseChartFromText } from "./ChartRenderer";
+import { parseG2SpecFromCode } from "../utils/g2SpecParser";
 
 describe("parseG2SpecFromCode", () => {
   it("parses strict JSON g2 spec", () => {

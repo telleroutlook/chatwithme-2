@@ -961,6 +961,48 @@ function App() {
       }
     }
 
+    // Handle slash commands
+    const slashCommand = text.match(/^\/(\w+)(?:\s+(.*))?$/);
+    if (slashCommand) {
+      const command = slashCommand[1].toLowerCase();
+      const args = slashCommand[2] || "";
+
+      switch (command) {
+        case "help":
+          addToast("Available commands: /help, /clear, /export, /new, /stop", "info");
+          setInput("");
+          return;
+        case "clear":
+          if (permissions.canEdit) {
+            handleNewSession();
+            setInput("");
+            addToast("Chat cleared", "success");
+          } else {
+            addToast(t("readonly_action_blocked"), "info");
+          }
+          return;
+        case "export":
+          addToast("Export feature - use the download toolbar", "info");
+          setInput("");
+          return;
+        case "new":
+          handleNewSession();
+          setInput("");
+          addToast(t("session_new"), "success");
+          return;
+        case "stop":
+          stop();
+          setInput("");
+          setAwaitingFirstAssistant(false);
+          setAwaitingAssistantFromIndex(null);
+          addToast(t("chat_input_action_stop"), "success");
+          return;
+        default:
+          // Unknown command - treat as regular message
+          break;
+      }
+    }
+
     setInput("");
     setAwaitingFirstAssistant(true);
     setAwaitingAssistantFromIndex(chatMessages.length);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, memo, useMemo } from "react";
 import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
 import { useDelayedTransition } from "../hooks/useDelayedTransition";
+import { parseG2SpecFromCode } from "../utils/g2SpecParser";
 
 // ============ Mermaid Renderer ============
 
@@ -146,31 +147,6 @@ function isLikelyValidCssColor(value: string): boolean {
   return false;
 }
 
-function sanitizeFunctionLikeProps(input: string): string {
-  let output = input;
-  const functionLikePropPatterns = [
-    // "formatter": (d) => { ... }
-    /,\s*"formatter"\s*:\s*\([^)]*\)\s*=>[\s\S]*?(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
-    /"formatter"\s*:\s*\([^)]*\)\s*=>[\s\S]*?(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
-    // "formatter": function (...) { ... }
-    /,\s*"formatter"\s*:\s*function\s*\([^)]*\)\s*\{[\s\S]*?\}(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g,
-    /"formatter"\s*:\s*function\s*\([^)]*\)\s*\{[\s\S]*?\}(?=(,\s*"(?:[^"\\]|\\.)+"\s*:|\s*[}\]]))/g
-  ];
-
-  for (const pattern of functionLikePropPatterns) {
-    output = output.replace(pattern, "");
-  }
-  return output;
-}
-
-function sanitizeG2JsonLikeText(raw: string): string {
-  return sanitizeFunctionLikeProps(raw)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1")
-    .replace(/,\s*([}\]])/g, "$1")
-    .trim();
-}
-
 function normalizeColorScaleRange(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const obj = value as Record<string, unknown>;
@@ -195,28 +171,6 @@ function normalizeColorScaleRange(value: unknown): unknown {
       range: normalizedRange
     }
   };
-}
-
-export function parseG2SpecFromCode(code: string): Record<string, unknown> | null {
-  const raw = code.trim();
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    return parsed as Record<string, unknown>;
-  } catch {
-    // Fall through to permissive parsing path.
-  }
-
-  try {
-    const sanitized = sanitizeG2JsonLikeText(raw);
-    const reparsed = JSON.parse(sanitized);
-    if (!reparsed || typeof reparsed !== "object") return null;
-    return reparsed as Record<string, unknown>;
-  } catch {
-    return null;
-  }
 }
 
 interface G2ChartInstance {

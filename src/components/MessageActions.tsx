@@ -6,9 +6,11 @@ import {
   ArrowClockwiseIcon,
   TrashIcon,
   PencilSimpleIcon,
-  GitBranchIcon
+  GitBranchIcon,
+  DownloadIcon
 } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
+import { downloadTextFile } from "../utils/exporters/image";
 
 interface MessageActionsProps {
   /** Message content to copy */
@@ -29,6 +31,8 @@ interface MessageActionsProps {
   showDelete?: boolean;
   /** Show fork button */
   showFork?: boolean;
+  /** Show export button */
+  showExport?: boolean;
   /** Whether actions are disabled */
   disabled?: boolean;
   /** Disable mutating actions while keeping non-mutating actions available */
@@ -37,6 +41,8 @@ interface MessageActionsProps {
   compact?: boolean;
   /** Called when user requests session fork from this message */
   onFork?: () => void;
+  /** Optional message ID for export filename */
+  messageId?: string;
 }
 
 /**
@@ -58,10 +64,12 @@ export const MessageActions = memo(function MessageActions({
   showEdit = false,
   showDelete = false,
   showFork = false,
+  showExport = true,
   disabled = false,
   disableMutations = false,
   compact = true,
-  onFork
+  onFork,
+  messageId
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
   const [copyAnnouncement, setCopyAnnouncement] = useState("");
@@ -118,6 +126,21 @@ export const MessageActions = memo(function MessageActions({
     if (disabled || disableMutations || !onFork) return;
     onFork();
   }, [disabled, disableMutations, onFork]);
+
+  const handleExport = useCallback(() => {
+    if (disabled) return;
+    const filename = messageId ? `message-${messageId}` : "message";
+    const exportData = {
+      exportVersion: 1,
+      exportedAt: new Date().toISOString(),
+      message: {
+        id: messageId,
+        content: content
+      }
+    };
+    const jsonContent = JSON.stringify(exportData, null, 2);
+    downloadTextFile(jsonContent, `${filename}.json`, "application/json");
+  }, [content, disabled, messageId]);
 
   const buttonSize = compact ? "xs" : "sm";
   const iconSize = compact ? 12 : 14;
@@ -194,6 +217,20 @@ export const MessageActions = memo(function MessageActions({
           aria-label={t("message_actions_fork_message")}
         >
           {!compact && t("message_actions_fork")}
+        </Button>
+      )}
+
+      {/* Export button */}
+      {showExport && (
+        <Button
+          variant="secondary"
+          size={buttonSize}
+          onClick={handleExport}
+          disabled={disabled}
+          icon={<DownloadIcon size={iconSize} />}
+          aria-label={t("message_actions_export")}
+        >
+          {!compact && t("message_actions_export")}
         </Button>
       )}
     </div>

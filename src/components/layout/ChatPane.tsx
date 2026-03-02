@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { Badge, Button, Surface, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
-import { ChatInputArea, ChatMessageList, BackToBottom, LoadingDots } from "../chat";
+import { ChatInputArea, ChatMessageList, LoadingDots } from "../chat";
+import { ScrollJumpControls } from "../chat/ScrollJumpControls";
 import { useChatAutoScroll } from "../../features/chat/hooks/useChatAutoScroll";
 import { trackChatEvent } from "../../features/chat/services/trackChatEvent";
 
@@ -79,7 +80,7 @@ export function ChatPane({
   const onAccentTextClass = "text-white hover:text-white";
   const [messageVariant, setMessageVariant] = useState<"bubble" | "docs">("bubble");
   const markdownPrefs = DEFAULT_MARKDOWN_PREFS;
-  const { mode, unreadCount, showBackToBottom, onScroll, scrollToBottom } = useChatAutoScroll({
+  const { mode, unreadCount, showBackToBottom, showBackToTop, onScroll, scrollToBottom, scrollToTop } = useChatAutoScroll({
     scrollRef,
     messagesLength: messages.length
   });
@@ -200,13 +201,19 @@ export function ChatPane({
             </div>
           )}
         </div>
-        <BackToBottom
-          visible={showBackToBottom}
-          onClick={() => {
+        <ScrollJumpControls
+          showBackToTop={showBackToTop}
+          showBackToBottom={showBackToBottom}
+          onScrollToTop={() => {
+            trackChatEvent("scroll_back_top", { mode });
+            scrollToTop();
+          }}
+          onScrollToBottom={() => {
             trackChatEvent("scroll_back_bottom", { unreadCount, mode });
             scrollToBottom();
           }}
-          label={t("chat_back_to_bottom")}
+          bottomLabel={t("chat_back_to_bottom")}
+          topLabel={t("chat_back_to_top")}
           unreadCount={unreadCount}
           modeLabel={mode === "follow" ? t("chat_autoscroll_following") : t("chat_autoscroll_paused")}
         />

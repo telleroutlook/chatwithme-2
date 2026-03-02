@@ -59,4 +59,4 @@ export const LazyG2ChartRenderer = memo(function LazyG2ChartRenderer({
 });
 
 // Re-export the parser function for immediate use (it's a pure function, no side effects)
-export { parseG2SpecFromCode } from "./ChartRenderer";
+export { parseG2SpecFromCode } from "../utils/g2SpecParser";

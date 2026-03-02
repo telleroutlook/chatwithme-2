@@ -12,6 +12,7 @@ import {
   looksLikeSvgMarkup,
   extractFirstSvgMarkup,
 } from "./Renderers/SvgRenderer";
+import { MarkdownAlert, type AlertType } from "./MarkdownAlert";
 
 interface MarkdownRendererProps {
   content: string;
@@ -97,10 +98,37 @@ const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
 });
 
 function preprocessAlerts(content: string): string {
+  // Convert GitHub-style alerts to a format we can detect in blockquote
+  // [!NOTE] -> **__ALERT_NOTE__** etc.
   return content.replace(
-    /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/gim,
-    (_match, type: string) => `> **${type.toUpperCase()}**`
+    /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/gim,
+    (_match, type: string, rest: string) => `> **__ALERT_${type.toUpperCase()}__** ${rest}`
   );
+}
+
+function extractAlertType(children: React.ReactNode): { type: AlertType | null; cleanedChildren: React.ReactNode } {
+  // Check if the first child contains an alert marker
+  if (!children) return { type: null, cleanedChildren: children };
+
+  const childArray = Array.isArray(children) ? children : [children];
+  const firstChild = childArray[0];
+
+  // Look for alert marker in strong element
+  if (firstChild && typeof firstChild === "object" && "props" in firstChild) {
+    const props = firstChild.props;
+    if (props.children) {
+      const text = typeof props.children === "string" ? props.children : "";
+      const alertMatch = text.match(/^__ALERT_(NOTE|TIP|IMPORTANT|WARNING|CAUTION)__$/);
+      if (alertMatch) {
+        const alertType = alertMatch[1].toLowerCase() as AlertType;
+        // Return remaining children without the alert marker
+        const remainingChildren = childArray.slice(1);
+        return { type: alertType, cleanedChildren: remainingChildren };
+      }
+    }
+  }
+
+  return { type: null, cleanedChildren: children };
 }
 
 function stripFootnotes(content: string): string {
@@ -288,6 +316,12 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             );
           },
           blockquote({ children }) {
+            const { type: alertType, cleanedChildren } = extractAlertType(children);
+
+            if (alertType) {
+              return <MarkdownAlert type={alertType}>{cleanedChildren}</MarkdownAlert>;
+            }
+
             return (
               <blockquote className="border-l-4 border-kumo-accent/50 pl-4 py-1 my-3 bg-kumo-control/30 rounded-r">
                 {children}
