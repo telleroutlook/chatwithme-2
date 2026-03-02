@@ -121,7 +121,12 @@ app.get("/api/chat/sessions", validateQuery(chatSessionsQuerySchema), async (c) 
             updatedAt: now,
             health: normalized.length > 0 ? ("healthy" as const) : ("stale" as const)
           };
-        } catch {
+        } catch (error) {
+          console.error("[chat_sessions_item_failed]", {
+            sessionId,
+            requestId: c.get("requestId"),
+            error: unknownErrorMessage(error)
+          });
           return {
             sessionId,
             title: "New Chat",

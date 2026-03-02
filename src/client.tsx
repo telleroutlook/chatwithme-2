@@ -58,10 +58,13 @@ import { buildObservabilitySnapshot } from "./features/chat/services/observabili
 import {
   createChatTransport,
   type ChatHistoryItem,
-  type ChatSessionSummary,
   type ConnectionPermissions,
   type PreconfiguredServer
 } from "./features/chat/services/chatTransport";
+import { useSessionSync } from "./features/chat/hooks/useSessionSync";
+import { useSessionSyncTriggers } from "./features/chat/hooks/useSessionSyncTriggers";
+import { useSessionHistoryHydration } from "./features/chat/hooks/useSessionHistoryHydration";
+import { buildSessionViewResetState } from "./features/chat/services/sessionLifecycle";
 import "./styles.css";
 
 // ============ Main App ============
@@ -113,56 +116,6 @@ function readPendingApprovalsFromState(state: unknown): RuntimeApprovalItem[] | 
 function isReadonlyModeQueryEnabled(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("mode") === "view";
-}
-
-function buildHistorySignature(history: ChatHistoryItem[]): string {
-  return history
-    .map((item) => `${item.id ?? ""}|${item.role}|${item.content ?? ""}`)
-    .join("\u001f");
-}
-
-function mergeSessionsWithServer(
-  localSessions: SessionMeta[],
-  serverSessions: ChatSessionSummary[],
-  nowIso: string
-): SessionMeta[] {
-  const serverById = new Map(serverSessions.map((item) => [item.sessionId, item]));
-  return localSessions.map((local) => {
-    const remote = serverById.get(local.id);
-    if (!remote) {
-      const nextMismatch = (local.mismatchCount ?? 0) + 1;
-      return {
-        ...local,
-        health: nextMismatch >= 3 ? "orphaned" : "stale",
-        mismatchCount: nextMismatch,
-        lastSyncedAt: nowIso,
-        source: "local-fallback"
-      };
-    }
-
-    if (remote.messageCount === 0 && (local.messageCount > 0 || local.lastMessage.trim().length > 0)) {
-      const nextMismatch = (local.mismatchCount ?? 0) + 1;
-      return {
-        ...local,
-        health: nextMismatch >= 3 ? "orphaned" : "stale",
-        mismatchCount: nextMismatch,
-        lastSyncedAt: nowIso,
-        source: "server"
-      };
-    }
-
-    return {
-      ...local,
-      title: remote.title || local.title,
-      lastMessage: remote.lastMessage || local.lastMessage,
-      timestamp: remote.updatedAt || local.timestamp,
-      messageCount: remote.messageCount,
-      health: remote.health,
-      mismatchCount: 0,
-      lastSyncedAt: nowIso,
-      source: "server"
-    };
-  });
 }
 
 interface RuntimeApprovalItem {
@@ -237,18 +190,10 @@ function App() {
   const [liveProgress, setLiveProgress] = useState<LiveProgressEntry[]>([]);
   const [awaitingFirstAssistant, setAwaitingFirstAssistant] = useState(false);
   const [awaitingAssistantFromIndex, setAwaitingAssistantFromIndex] = useState<number | null>(null);
-  const syncSessionsRef = useRef<((reason: string, delayMs?: number) => void) | null>(null);
-  const syncSessionsInFlightRef = useRef<Promise<void> | null>(null);
-  const syncDebounceTimerRef = useRef<number | null>(null);
-  const syncLastStartRef = useRef(0);
+  const triggerReconnectSyncRef = useRef<() => void>(() => {});
   const identityBypassRef = useRef<string | null>(null);
   const recentCloseAtRef = useRef<number[]>([]);
   const degradeUntilRef = useRef(0);
-  const isHydratingRef = useRef(false);
-  const isResumingRef = useRef(false);
-  const loadHistoryRef = useRef<() => Promise<ChatHistoryItem[]>>(async () => []);
-  const hydrateCooldownRef = useRef<{ sessionId: string; at: number } | null>(null);
-  const lastHydratedSignatureRef = useRef<{ sessionId: string; signature: string } | null>(null);
 
   // Save current session ID when changed
   useEffect(() => {
@@ -358,7 +303,7 @@ function App() {
       if (Date.now() < degradeUntilRef.current) {
         return;
       }
-      syncSessionsRef.current?.("reconnect", 0);
+      triggerReconnectSyncRef.current();
     }, [addEventLog, currentSessionId]),
     onError: useCallback(
       (event: Event) => {
@@ -410,10 +355,6 @@ function App() {
     [setMessages]
   );
 
-  useEffect(() => {
-    isResumingRef.current = status !== "ready";
-  }, [status]);
-
   const chatTransport = useMemo(
     () =>
       createChatTransport({
@@ -423,6 +364,33 @@ function App() {
       }),
     [agent, currentSessionId, readonlyMode]
   );
+
+  const { enqueueSessionSync } = useSessionSync({
+    chatTransport,
+    setSessions
+  });
+
+  const { triggerReconnectSync } = useSessionSyncTriggers({
+    currentSessionId,
+    enqueueSessionSync,
+    setSessions
+  });
+
+  useEffect(() => {
+    triggerReconnectSyncRef.current = triggerReconnectSync;
+  }, [triggerReconnectSync]);
+
+  const applySessionViewReset = useCallback(() => {
+    const next = buildSessionViewResetState<RuntimeApprovalItem, LiveProgressEntry>(readonlyMode);
+    setConnectionStatus(next.connectionStatus);
+    setPermissions(next.permissions);
+    setIsLoading(next.isLoading);
+    setPreconfiguredServers(next.preconfiguredServers);
+    setPendingApprovals(next.pendingApprovals);
+    setAwaitingFirstAssistant(next.awaitingFirstAssistant);
+    setAwaitingAssistantFromIndex(next.awaitingAssistantFromIndex);
+    setLiveProgress(next.liveProgress);
+  }, [readonlyMode]);
 
   const loadPermissions = useCallback(async () => {
     try {
@@ -441,180 +409,19 @@ function App() {
     return await chatTransport.getHistory();
   }, [chatTransport]);
 
-  const syncSessions = useCallback(
-    async (reason = "manual") => {
-      if (syncSessionsInFlightRef.current) {
-        trackChatEvent("history_fetch_deduped", { reason });
-        return await syncSessionsInFlightRef.current;
-      }
-
-      const run = async () => {
-        const currentLocal = loadSessions();
-        if (currentLocal.length === 0) {
-          setSessions([]);
-          return;
-        }
-        const ids = Array.from(new Set(currentLocal.map((session) => session.id)));
-        try {
-          const remote = await chatTransport.getSessions(ids);
-          const nowIso = new Date().toISOString();
-          const merged = mergeSessionsWithServer(currentLocal, remote, nowIso);
-          saveSessions(merged);
-          setSessions(merged);
-          trackChatEvent("sessions_sync", { reason, count: merged.length, source: "server" });
-        } catch (error) {
-          const stale = currentLocal.map((session) => ({
-            ...session,
-            health: "stale" as const,
-            mismatchCount: (session.mismatchCount ?? 0) + 1,
-            lastSyncedAt: new Date().toISOString(),
-            source: "local-fallback" as const
-          }));
-          saveSessions(stale);
-          setSessions(stale);
-          trackChatEvent("sessions_sync", {
-            reason,
-            count: stale.length,
-            source: "local-fallback",
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      };
-
-      syncSessionsInFlightRef.current = run();
-      try {
-        await syncSessionsInFlightRef.current;
-      } finally {
-        syncSessionsInFlightRef.current = null;
-      }
-    },
-    [chatTransport]
-  );
-
-  const enqueueSessionSync = useCallback(
-    (reason: string, delayMs = 1500) => {
-      const now = Date.now();
-      if (syncSessionsInFlightRef.current) {
-        return;
-      }
-      const minInterval = 5000;
-      const elapsed = now - syncLastStartRef.current;
-      const appliedDelay = elapsed < minInterval ? Math.max(delayMs, minInterval - elapsed) : delayMs;
-      if (syncDebounceTimerRef.current !== null) {
-        window.clearTimeout(syncDebounceTimerRef.current);
-      }
-      syncDebounceTimerRef.current = window.setTimeout(() => {
-        syncDebounceTimerRef.current = null;
-        syncLastStartRef.current = Date.now();
-        void syncSessions(reason);
-      }, appliedDelay);
-    },
-    [syncSessions]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (syncDebounceTimerRef.current !== null) {
-        window.clearTimeout(syncDebounceTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    syncSessionsRef.current = enqueueSessionSync;
-    return () => {
-      syncSessionsRef.current = null;
-    };
-  }, [enqueueSessionSync]);
-
-  useEffect(() => {
-    loadHistoryRef.current = loadHistory;
-  }, [loadHistory]);
-
-  useEffect(() => {
-    const stored = loadSessions();
-    setSessions(stored);
-    if (stored.length === 0) return;
-    enqueueSessionSync("startup", 0);
-  }, [enqueueSessionSync]);
-
-  // Hydrate session history on session switch even when websocket reconnect is unstable.
-  useEffect(() => {
-    let cancelled = false;
-
-    const hydrateHistory = async () => {
-      if (isHydratingRef.current) return;
-      if (isResumingRef.current) return;
-      if (connectionStatus === "disconnected") return;
-      const now = Date.now();
-      const cooldown = hydrateCooldownRef.current;
-      if (cooldown && cooldown.sessionId === currentSessionId && now - cooldown.at < 3000) {
-        return;
-      }
-      hydrateCooldownRef.current = { sessionId: currentSessionId, at: now };
-      isHydratingRef.current = true;
-
-      try {
-        const history = await loadHistoryRef.current();
-        if (cancelled) return;
-        const normalizedHistory = Array.isArray(history) ? history : [];
-        const signature = buildHistorySignature(normalizedHistory);
-        const last = lastHydratedSignatureRef.current;
-        if (last && last.sessionId === currentSessionId && last.signature === signature) {
-          return;
-        }
-
-        const hydrated = normalizedHistory.map((item, index) => ({
-          id: item.id ?? `history-${currentSessionId}-${index}`,
-          role:
-            item.role === "user" || item.role === "assistant" || item.role === "system"
-              ? item.role
-              : "assistant",
-          parts: [{ type: "text", text: item.content ?? "" }]
-        }));
-        setChatMessages(hydrated as UIMessage[]);
-        lastHydratedSignatureRef.current = { sessionId: currentSessionId, signature };
-      } catch (error) {
-        if (cancelled) return;
-        console.error("Failed to hydrate chat history:", error);
-      } finally {
-        isHydratingRef.current = false;
-      }
-    };
-
-    void hydrateHistory();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [connectionStatus, currentSessionId, setChatMessages]);
+  useSessionHistoryHydration({
+    connectionStatus,
+    currentSessionId,
+    status,
+    loadHistory,
+    setChatMessages
+  });
 
   useEffect(() => {
     if (connectionStatus !== "connected") return;
     void loadPermissions();
   }, [connectionStatus, loadPermissions]);
 
-  useEffect(() => {
-    enqueueSessionSync("session_switch");
-  }, [currentSessionId, enqueueSessionSync]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      enqueueSessionSync("interval", 0);
-    }, 45000);
-
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      enqueueSessionSync("visibility", 0);
-    };
-
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [enqueueSessionSync]);
 
   // Hide live progress panel once assistant content starts arriving.
   useEffect(() => {
@@ -677,15 +484,8 @@ function App() {
     });
     setSessions(loadSessions());
     setCurrentSessionId(newId);
-    setConnectionStatus("connecting");
-    setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
-    setIsLoading(true);
-    setPreconfiguredServers({});
-    setPendingApprovals([]);
-    setAwaitingFirstAssistant(false);
-    setAwaitingAssistantFromIndex(null);
-    setLiveProgress([]);
-  }, [readonlyMode, setChatMessages, stop, t]);
+    applySessionViewReset();
+  }, [applySessionViewReset, setChatMessages, stop, t]);
 
   // Switch session
   const handleSelectSession = useCallback(
@@ -694,16 +494,9 @@ function App() {
       stop();
       setChatMessages([]);
       setCurrentSessionId(sessionId);
-      setConnectionStatus("connecting");
-      setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
-      setIsLoading(true);
-      setPreconfiguredServers({});
-      setPendingApprovals([]);
-      setAwaitingFirstAssistant(false);
-      setAwaitingAssistantFromIndex(null);
-      setLiveProgress([]);
+      applySessionViewReset();
     },
-    [currentSessionId, readonlyMode, setChatMessages, stop]
+    [applySessionViewReset, currentSessionId, setChatMessages, stop]
   );
 
   // Delete session
@@ -948,11 +741,7 @@ function App() {
         setSessions(loadSessions());
         enqueueSessionSync("fork_session");
         setCurrentSessionId(result.newSessionId);
-        setConnectionStatus("connecting");
-        setPermissions({ canEdit: !readonlyMode, readonly: readonlyMode });
-        setIsLoading(true);
-        setPreconfiguredServers({});
-        setPendingApprovals([]);
+        applySessionViewReset();
         addToast(t("message_fork_success"), "success");
       } catch (error) {
         console.error("Failed to fork session:", error);
@@ -964,7 +753,7 @@ function App() {
         );
       }
     },
-    [addToast, chatTransport, permissions.canEdit, readonlyMode, enqueueSessionSync, t]
+    [addToast, applySessionViewReset, chatTransport, permissions.canEdit, enqueueSessionSync, t]
   );
 
   const handleToggleServer = useCallback(

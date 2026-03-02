@@ -50,7 +50,10 @@ export function loadSessions(): SessionMeta[] {
           source: session.source ?? "local-fallback"
         }))
       : [];
-  } catch {
+  } catch (error) {
+    console.warn("[session_meta_load_failed]", {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return [];
   }
 }

@@ -218,6 +218,76 @@
 - Production smoke tests executed:
   - `GET /` returned `HTTP/2 200`
   - `GET /api/chat/history?sessionId=prod-smoke-20260228` returned success payload
+
+## Execution Notes (2026-03-01, session sync refactor hardening)
+
+- Extracted session sync merge/fallback logic into:
+  - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionSync.ts`
+- Added dedicated session sync orchestration hook:
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useSessionSync.ts`
+- Added reusable session-view reset defaults:
+  - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionLifecycle.ts`
+- Updated `/home/dev/github/chatwithme-2/src/client.tsx` to:
+  - consume `useSessionSync` instead of inline sync refs/timers
+  - reuse `buildSessionViewResetState` for `new/select/fork` reset flows
+- Improved observability for fallback paths:
+  - `/home/dev/github/chatwithme-2/src/server.ts` now logs failed per-session aggregation in `/api/chat/sessions`
+  - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionMeta.ts` now logs localStorage parse failures
+- Added tests:
+  - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionSync.test.ts`
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useSessionSync.test.tsx`
+  - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionLifecycle.test.ts`
+- Validation executed and passed:
+  - `npm run test:run` (115 tests)
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run build`
+
+## Execution Notes (2026-03-02, session sync trigger composition)
+
+- Added trigger composition hook:
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useSessionSyncTriggers.ts`
+  - It now owns `startup`, `session_switch`, `interval`, `visibility`, and exposes `triggerReconnectSync`.
+- Updated `/home/dev/github/chatwithme-2/src/client.tsx`:
+  - Removed inline startup/session-switch/visibility interval effects.
+  - Wired `onOpen` reconnect sync through trigger hook callback.
+  - Reduced file size from 1321 lines to 1296 lines.
+- Added tests:
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useSessionSyncTriggers.test.tsx`
+    - startup trigger
+    - session switch trigger
+    - reconnect trigger
+    - interval + visibility trigger
+- Validation executed and passed:
+  - `npm run test:run` (119 tests)
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run build`
+
+## Execution Notes (2026-03-02, session history hydration extraction)
+
+- Added hydration hook:
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useSessionHistoryHydration.ts`
+  - Owns history hydration guards and behavior:
+    - skip when not `ready`
+    - skip when connection is `disconnected`
+    - 3s per-session cooldown
+    - same-session signature dedupe
+- Updated `/home/dev/github/chatwithme-2/src/client.tsx`:
+  - Removed inline hydration refs/effect (`isHydratingRef`, `isResumingRef`, `loadHistoryRef`, cooldown/signature refs)
+  - Removed local `buildHistorySignature` helper
+  - Integrated `useSessionHistoryHydration(...)`
+  - Reduced file size from 1296 lines to 1235 lines
+- Added tests:
+  - `/home/dev/github/chatwithme-2/src/features/chat/hooks/useSessionHistoryHydration.test.tsx`
+    - hydrates when connected and ready
+    - skips when disconnected
+    - dedupes same-signature updates in same session
+- Validation executed and passed:
+  - `npm run test:run` (122 tests)
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run build`
   - `GET /api/mcp/servers?sessionId=prod-smoke-20260228` returned success payload
   - `POST /api/chat` returned success payload and assistant response
   - `DELETE /api/chat/history?sessionId=prod-smoke-20260228` returned success payload
