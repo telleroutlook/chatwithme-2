@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Surface, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
@@ -78,6 +78,17 @@ export function ChatPane({
     scrollRef,
     messagesLength: messages.length
   });
+
+  // Auto-scroll to show Live execution feed when user sends a message
+  useEffect(() => {
+    if (awaitingFirstAssistant) {
+      // Use requestAnimationFrame to ensure the feed panel has been rendered
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [awaitingFirstAssistant, scrollToBottom]);
+
   const formatProgressTime = (timestamp: string) => {
     const date = new Date(timestamp);
     if (Number.isNaN(date.getTime())) return "";

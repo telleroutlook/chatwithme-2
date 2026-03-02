@@ -13,13 +13,10 @@ import { ToastProvider, useToast } from "./hooks/useToast";
 import { I18nProvider, useI18n } from "./hooks/useI18n";
 import { useResponsive } from "./hooks/useResponsive";
 import { useUserIdentity } from "./hooks/useUserIdentity";
-import { Tabs } from "./components/ui";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Badge } from "@cloudflare/kumo";
-import { PlugIcon, ChatCircleIcon } from "@phosphor-icons/react";
 import type { UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import type { CommandSuggestionItem } from "./types/command";
@@ -1181,37 +1178,6 @@ function App() {
           t={t}
         />
 
-        {!mobile && (
-          <div className="app-glass border-b border-kumo-line/80 bg-kumo-base/55 px-3 sm:px-5">
-            <Tabs
-              value={activeTab}
-              onChange={setActiveTab}
-              ariaLabel={t("tabs_label")}
-              items={[
-                {
-                  value: "chat",
-                  icon: <ChatCircleIcon size={18} weight="bold" />,
-                  label: t("tabs_chat"),
-                  badge:
-                    activeToolsCount > 0 ? (
-                      <Badge variant="primary">
-                        {t("tabs_tools_count", { count: String(activeToolsCount) })}
-                      </Badge>
-                    ) : undefined
-                },
-                {
-                  value: "mcp",
-                  icon: <PlugIcon size={18} weight="bold" />,
-                  label: t("tabs_mcp"),
-                  badge:
-                    serverEntries.length > 0 ? (
-                      <Badge variant="secondary">{serverEntries.length}</Badge>
-                    ) : undefined
-                }
-              ]}
-            />
-          </div>
-        )}
 
         <div className="flex min-h-0 flex-1">
           <main className="min-h-0 min-w-0 flex-1">
