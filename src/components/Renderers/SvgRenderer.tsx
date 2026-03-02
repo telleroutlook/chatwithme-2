@@ -86,11 +86,11 @@ export const SvgRenderer = memo(function SvgRenderer({
           <span>SVG Preview</span>
         </div>
       )}
-      <div className="bg-[var(--surface-1)] p-4 flex items-center justify-center">
+      <div className="bg-[var(--surface-1)] p-4 flex items-center justify-center overflow-x-auto">
         <img
           src={svgDataUrl}
           alt="SVG Preview"
-          className="block h-auto w-full max-w-full"
+          className="block h-auto max-w-full object-contain"
           style={{ maxHeight: 600 }}
           loading="lazy"
           decoding="async"

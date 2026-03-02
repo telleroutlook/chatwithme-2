@@ -32,8 +32,6 @@ interface ChatPaneProps {
   canEdit: boolean;
   isReadonly: boolean;
   activeToolsCount: number;
-  mcpConnectedServers: number;
-  mcpTotalServers: number;
   awaitingFirstAssistant: boolean;
   liveProgress: ProgressEntry[];
   phaseLabels: Record<string, string>;
@@ -42,7 +40,6 @@ interface ChatPaneProps {
   commandSuggestions: CommandSuggestionItem[];
   onSend: () => void;
   onStop: () => void;
-  onRetryConnection: () => void;
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
@@ -58,8 +55,6 @@ export function ChatPane({
   canEdit,
   isReadonly,
   activeToolsCount,
-  mcpConnectedServers,
-  mcpTotalServers,
   awaitingFirstAssistant,
   liveProgress,
   phaseLabels,
@@ -68,7 +63,6 @@ export function ChatPane({
   commandSuggestions,
   onSend,
   onStop,
-  onRetryConnection,
   onDeleteMessage,
   onEditMessage,
   onRegenerateMessage,
@@ -91,29 +85,8 @@ export function ChatPane({
   };
 
   return (
-    <section className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]">
-      <div className="px-3 pt-3 sm:px-5">
-        <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Badge variant={isConnected ? "primary" : "secondary"}>
-                MCP {mcpConnectedServers}/{mcpTotalServers}
-              </Badge>
-              <Badge variant="secondary">{t("tabs_tools_count", { count: String(activeToolsCount) })}</Badge>
-              {isReadonly && <Badge variant="secondary">{t("readonly_badge")}</Badge>}
-            </div>
-            <div className="flex items-center gap-2">
-              {!isConnected && (
-                <Button size="xs" variant="secondary" onClick={onRetryConnection}>
-                  Retry
-                </Button>
-              )}
-            </div>
-          </div>
-        </Surface>
-      </div>
-
-      <div className="relative flex min-h-0 flex-col overflow-hidden px-3 pb-2 pt-4 sm:px-5">
+    <section className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+      <div className="relative flex min-h-0 flex-col overflow-hidden px-3 pb-2 pt-3 sm:px-5">
         <div className="mb-2 flex items-center justify-end gap-2">
           <Button
             variant={messageVariant === "bubble" ? "primary" : "secondary"}

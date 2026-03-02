@@ -1,8 +1,33 @@
-import { useEffect, useRef, useState, memo, useMemo } from "react";
+import { useEffect, useRef, useState, memo, useMemo, useCallback } from "react";
 import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
 import { useDelayedTransition } from "../hooks/useDelayedTransition";
 import { parseG2SpecFromCode } from "../utils/g2SpecParser";
+
+// ============ Theme Detection Hook ============
+
+function useThemeDetector() {
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return document.documentElement.getAttribute("data-mode") === "dark";
+  });
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const dark = document.documentElement.getAttribute("data-mode") === "dark";
+      setIsDark(dark);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-mode"]
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return isDark;
+}
 
 // ============ Mermaid Renderer ============
 
@@ -15,9 +40,7 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isDark =
-    typeof document !== "undefined" &&
-    document.documentElement.getAttribute("data-mode") === "dark";
+  const isDark = useThemeDetector();
 
   // Delay animation during streaming
   const showAnimation = useDelayedTransition(animated);
@@ -290,9 +313,20 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const chartRef = useRef<G2ChartInstance | null>(null);
+  const isDark = useThemeDetector();
 
   // Delay animation during streaming
   const showAnimation = useDelayedTransition(animated);
+
+  // Theme-aware colors for G2 charts
+  const themeColors = useMemo(() => ({
+    axisTitleFill: isDark ? '#a0a0a0' : '#666666',
+    axisLabelFill: isDark ? '#888888' : '#999999',
+    axisLineStroke: isDark ? '#404040' : '#e0e0e0',
+    axisGridStroke: isDark ? '#303030' : '#f0f0f0',
+    legendItemFill: isDark ? '#c0c0c0' : '#333333',
+    chartBackground: isDark ? '#1a1a1a' : '#ffffff',
+  }), [isDark]);
 
   // Auto-fit using ResizeObserver
   useEffect(() => {
@@ -342,8 +376,7 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
 
         chart = new Chart({
           container: containerRef.current,
-          autoFit: true,  // Auto-fit to container
-          // Remove fixed height - let container decide
+          autoFit: true,
         }) as unknown as G2ChartInstance;
 
         chartRef.current = chart;
@@ -355,8 +388,45 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
           (Array.isArray(normalizedSpec.marks) && normalizedSpec.marks.length > 0);
         const shouldUseOptions = hasCompositionChildren || COMPOSITION_TYPES.has(specType);
 
+        // Apply theme-aware axis defaults
+        const themeAwareAxis = {
+          x: {
+            titleFontSize: 12,
+            titleFill: themeColors.axisTitleFill,
+            labelFill: themeColors.axisLabelFill,
+            lineStroke: themeColors.axisLineStroke,
+            tickStroke: themeColors.axisLineStroke,
+            gridStroke: themeColors.axisGridStroke,
+            ...(normalizedSpec.axis?.x || {}),
+          },
+          y: {
+            titleFontSize: 12,
+            titleFill: themeColors.axisTitleFill,
+            labelFill: themeColors.axisLabelFill,
+            lineStroke: themeColors.axisLineStroke,
+            tickStroke: themeColors.axisLineStroke,
+            gridStroke: themeColors.axisGridStroke,
+            ...(normalizedSpec.axis?.y || {}),
+          },
+        };
+
+        // Apply theme-aware legend defaults
+        const themeAwareLegend = {
+          color: {
+            itemMarkerFill: themeColors.legendItemFill,
+            itemNameFill: themeColors.legendItemFill,
+            ...(normalizedSpec.legend?.color || {}),
+          },
+        };
+
         if (shouldUseOptions) {
-          chart.options(normalizedSpec as Record<string, unknown>);
+          // For composition types, merge theme colors into spec
+          const themedSpec = {
+            ...normalizedSpec,
+            axis: { ...themeAwareAxis, ...(normalizedSpec.axis || {}) },
+            legend: { ...themeAwareLegend, ...(normalizedSpec.legend || {}) },
+          };
+          chart.options(themedSpec as Record<string, unknown>);
         } else {
           if (SIMPLE_MARK_TYPES.has(specType)) {
             chart.mark(specType as "interval" | "line" | "point" | "area" | "cell" | "rect");
@@ -370,8 +440,11 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
             chart.encode(normalizedSpec.encode as Record<string, string | number>);
           }
 
-          if (normalizedSpec.axis) chart.axis(normalizedSpec.axis as Record<string, unknown>);
-          if (normalizedSpec.legend) chart.legend(normalizedSpec.legend as Record<string, unknown>);
+          // Apply theme-aware axis and legend
+          chart.axis(themeAwareAxis as Record<string, unknown>);
+          if (normalizedSpec.legend) {
+            chart.legend(themeAwareLegend as Record<string, unknown>);
+          }
           if (normalizedSpec.scale) chart.scale(normalizedSpec.scale as Record<string, unknown>);
           if (normalizedSpec.style) chart.style(normalizedSpec.style as Record<string, unknown>);
         }
@@ -404,7 +477,7 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
       safeDestroy();
       chartRef.current = null;
     };
-  }, [spec, showAnimation]);
+  }, [spec, showAnimation, themeColors]);
 
   if (error) {
     return (

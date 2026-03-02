@@ -1224,8 +1224,6 @@ function App() {
                   canEdit={permissions.canEdit}
                   isReadonly={permissions.readonly}
                   activeToolsCount={activeToolsCount}
-                  mcpConnectedServers={connectedServerCount}
-                  mcpTotalServers={totalServerCount}
                   awaitingFirstAssistant={awaitingFirstAssistant}
                   liveProgress={liveProgress}
                   phaseLabels={phaseLabels}
@@ -1234,10 +1232,6 @@ function App() {
                   commandSuggestions={commandSuggestions}
                   onSend={handleSend}
                   onStop={handleStop}
-                  onRetryConnection={() => {
-                    setConnectionStatus("connecting");
-                    setIsLoading(true);
-                  }}
                   onDeleteMessage={handleDeleteMessage}
                   onEditMessage={handleEditMessage}
                   onRegenerateMessage={handleRegenerateMessage}
