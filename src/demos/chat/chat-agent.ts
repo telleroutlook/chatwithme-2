@@ -41,7 +41,8 @@ import {
   getThinkingEnabled,
   getThinkingType,
   getToolMaxAttempts,
-  getToolTimeoutMs
+  getToolTimeoutMs,
+  getChartPrimary
 } from "./runtime-config";
 import { buildSystemPrompt } from "./system-prompt";
 import { classifyRetryableError } from "./retry-policy";
@@ -937,7 +938,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     });
 
     const { tools, toolList } = await this.buildAiTools(emitProgress);
-    const systemPrompt = buildSystemPrompt(toolList);
+    const chartPrimary = getChartPrimary(this.runtimeEnv);
+    const systemPrompt = buildSystemPrompt(toolList, chartPrimary);
     emitProgress?.({
       phase: "context",
       status: "success",

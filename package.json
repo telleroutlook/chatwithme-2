@@ -25,6 +25,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.30",
     "@ai-sdk/react": "^3.0.0",
+    "@ant-design/charts": "^2.6.7",
     "@antv/g2": "^5.4.8",
     "@cloudflare/agents-ui": "*",
     "@cloudflare/ai-chat": "*",

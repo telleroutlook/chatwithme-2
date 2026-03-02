@@ -4,7 +4,13 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { CodeBlock } from "./CodeBlock";
-import { LazyMermaidRenderer, LazyG2ChartRenderer, parseG2SpecFromCode } from "./LazyChartRenderer";
+import {
+  LazyMermaidRenderer,
+  LazyG2ChartRenderer,
+  LazyAntDesignChartsRenderer,
+  parseG2SpecFromCode,
+  parseAdcSpecFromCode,
+} from "./LazyChartRenderer";
 import { CitationCards, type CitationCardItem } from "./CitationCards";
 import { HtmlDirectRenderer } from "./Renderers/HtmlDirectRenderer";
 import {
@@ -211,6 +217,15 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                 return <LazyG2ChartRenderer spec={spec} />;
               }
               return <span className="text-xs app-text-danger">Invalid G2 spec</span>;
+            }
+
+            // Ant Design Charts - lazy loaded
+            if (language === "adc" || language === "ant-design-charts" || language === "antd-charts") {
+              const spec = parseAdcSpecFromCode(codeString);
+              if (spec) {
+                return <LazyAntDesignChartsRenderer spec={spec} />;
+              }
+              return <span className="text-xs app-text-danger">Invalid ADC spec</span>;
             }
 
             // SVG handling

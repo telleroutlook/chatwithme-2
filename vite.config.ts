@@ -20,7 +20,7 @@ export default defineConfig({
           // Markdown processing
           'vendor-markdown': ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'rehype-highlight', 'highlight.js'],
           // Chart libraries - loaded on demand but grouped when used
-          'vendor-chart': ['mermaid', '@antv/g2', 'echarts'],
+          'vendor-chart': ['mermaid', '@antv/g2', 'echarts', '@ant-design/charts'],
           // UI utilities
           'vendor-ui': ['@cloudflare/kumo', '@phosphor-icons/react'],
           // Virtual scrolling

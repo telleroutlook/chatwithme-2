@@ -70,7 +70,7 @@ export const MessageSkeleton = memo(function MessageSkeleton({
 });
 
 interface ChartSkeletonProps {
-  type?: "mermaid" | "g2";
+  type?: "mermaid" | "g2" | "adc";
   animate?: boolean;
 }
 

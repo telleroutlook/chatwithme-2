@@ -1,5 +1,6 @@
 import { lazy, Suspense, memo, type ReactNode } from "react";
 import { ChartSkeleton } from "./skeletons";
+import type { ParsedAdcSpec } from "../utils/adcSpecParser";
 
 // Lazy load the heavy chart components (these include the actual rendering logic)
 const MermaidRendererLazy = lazy(() =>
@@ -8,6 +9,10 @@ const MermaidRendererLazy = lazy(() =>
 
 const G2ChartRendererLazy = lazy(() =>
   import("./ChartRenderer").then((m) => ({ default: m.G2ChartRenderer }))
+);
+
+const AntDesignChartsRendererLazy = lazy(() =>
+  import("./AntDesignChartsRenderer").then((m) => ({ default: m.LazyAntDesignChartsRenderer }))
 );
 
 interface LazyMermaidRendererProps {
@@ -58,5 +63,25 @@ export const LazyG2ChartRenderer = memo(function LazyG2ChartRenderer({
   );
 });
 
-// Re-export the parser function for immediate use (it's a pure function, no side effects)
+interface LazyAntDesignChartsRendererProps {
+  spec: ParsedAdcSpec;
+  animated?: boolean;
+}
+
+/**
+ * Lazy-loaded Ant Design Charts renderer with skeleton fallback
+ */
+export const LazyAntDesignChartsRenderer = memo(function LazyAntDesignChartsRenderer({
+  spec,
+  animated = true,
+}: LazyAntDesignChartsRendererProps): ReactNode {
+  return (
+    <Suspense fallback={<ChartSkeleton type="adc" />}>
+      <AntDesignChartsRendererLazy spec={spec} animated={animated} />
+    </Suspense>
+  );
+});
+
+// Re-export the parser functions for immediate use (they are pure functions, no side effects)
 export { parseG2SpecFromCode } from "../utils/g2SpecParser";
+export { parseAdcSpecFromCode } from "../utils/adcSpecParser";
