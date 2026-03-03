@@ -85,11 +85,26 @@ sleep 1
 
 # Scroll up from bottom
 echo "🖱️  Scrolling up..."
-playwright-cli mousemove 720 450
-for i in {1..6}; do
-    playwright-cli mousewheel 0 -600
-    sleep 0.15
-done
+playwright-cli eval "
+(() => {
+  const findScroller = () => {
+    const candidates = Array.from(document.querySelectorAll('div')).filter(el => {
+      const s = window.getComputedStyle(el);
+      return (s.overflowY === 'auto' || s.overflowY === 'scroll') &&
+             el.scrollHeight > el.clientHeight + 8 &&
+             el.clientHeight > 280 &&
+             el.getBoundingClientRect().width > 500;
+    });
+    candidates.sort((a, b) => b.scrollHeight - a.scrollHeight);
+    return candidates[0];
+  };
+  const scroller = findScroller();
+  if (!scroller) return 'no_scroller';
+  scroller.scrollTop = Math.max(0, scroller.scrollTop - 3600);
+  return 'scrolled_up';
+})()
+"
+sleep 0.5
 
 # Record initial scroll position
 INITIAL_SCROLL=$(playwright-cli eval "

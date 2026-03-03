@@ -18,8 +18,6 @@ import {
   extractFirstSvgMarkup,
 } from "./Renderers/SvgRenderer";
 import { MarkdownAlert, type AlertType } from "./MarkdownAlert";
-import { trackChatEvent } from "../features/chat/services/trackChatEvent";
-import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
 import {
   decodeHtmlEntities,
   looksLikeHtmlDocument,
@@ -172,7 +170,6 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   streamCursor = true,
   citations = [],
 }: MarkdownRendererProps) {
-  const { currentSessionId } = useChatSessionContext();
   const processedContent = useMemo(() => {
     let normalized = (
       content
@@ -234,41 +231,19 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
 
             // G2 charts - lazy loaded
             if (language === "g2") {
-              const start = performance.now();
               const spec = parseG2SpecFromCode(codeString);
-              const durationMs = performance.now() - start;
 
               if (spec) {
-                trackChatEvent("chart_parse_success", {
-                  engine: "g2",
-                  inputSize: codeString.length,
-                  durationMs,
-                  sessionId: currentSessionId,
-                });
                 return <LazyG2ChartRenderer spec={spec} />;
               }
-              trackChatEvent("chart_parse_failure", {
-                engine: "g2",
-                inputSize: codeString.length,
-                durationMs,
-                sessionId: currentSessionId,
-              });
               return <span className="text-xs app-text-danger">Invalid G2 spec</span>;
             }
 
             // Ant Design Charts - lazy loaded
             if (language === "adc" || language === "ant-design-charts" || language === "antd-charts") {
-              const start = performance.now();
               const result = parseAdcSpecFromCode(codeString);
-              const durationMs = performance.now() - start;
 
               if (result.ok && result.spec) {
-                trackChatEvent("chart_parse_success", {
-                  engine: "adc",
-                  inputSize: codeString.length,
-                  durationMs,
-                  sessionId: currentSessionId,
-                });
                 return <LazyAntDesignChartsRenderer spec={result.spec} />;
               }
               const errorMessage =
@@ -277,16 +252,8 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                   : result.error === "ADC_PARSE_UNSUPPORTED_CALLBACK"
                     ? "ADC callbacks are not supported"
                     : result.error === "ADC_PARSE_EMPTY"
-                      ? "Empty ADC spec"
+                    ? "Empty ADC spec"
                       : "Invalid ADC JSON";
-
-              trackChatEvent("chart_parse_failure", {
-                engine: "adc",
-                errorCode: result.error,
-                inputSize: codeString.length,
-                durationMs,
-                sessionId: currentSessionId,
-              });
               return <span className="text-xs app-text-danger">{errorMessage}</span>;
             }
 

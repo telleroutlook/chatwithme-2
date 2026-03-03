@@ -38,11 +38,23 @@ export function useChatAutoScroll({
 }: UseChatAutoScrollOptions): UseChatAutoScrollResult {
   const [mode, setMode] = useState<AutoScrollMode>("follow");
   const [unreadCount, setUnreadCount] = useState(0);
-  const [showBackToTop, setShowBackToTop] = useState(false);
+  const modeRef = useRef<AutoScrollMode>("follow");
   const lastManualScrollAtRef = useRef(0);
   const lastObservedScrollHeightRef = useRef(0);
   const keyboardSuspendUntilRef = useRef(0);
   const prevKeyboardVisibleRef = useRef(keyboardVisible);
+
+  const setModeIfChanged = useCallback((nextMode: AutoScrollMode) => {
+    if (modeRef.current === nextMode) {
+      return;
+    }
+    modeRef.current = nextMode;
+    setMode(nextMode);
+  }, []);
+
+  const resetUnreadIfNeeded = useCallback(() => {
+    setUnreadCount((count) => (count === 0 ? count : 0));
+  }, []);
 
   // Suspend follow mode when keyboard visibility changes
   useEffect(() => {
@@ -69,9 +81,9 @@ export function useChatAutoScroll({
     }
     element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
     lastManualScrollAtRef.current = 0;
-    setMode("follow");
-    setUnreadCount(0);
-  }, [scrollRef]);
+    setModeIfChanged("follow");
+    resetUnreadIfNeeded();
+  }, [resetUnreadIfNeeded, scrollRef, setModeIfChanged]);
 
   const scrollToTop = useCallback(() => {
     const element = scrollRef.current;
@@ -80,8 +92,8 @@ export function useChatAutoScroll({
     }
     element.scrollTo({ top: 0, behavior: "smooth" });
     lastManualScrollAtRef.current = Date.now();
-    setMode("pause");
-  }, [scrollRef]);
+    setModeIfChanged("pause");
+  }, [scrollRef, setModeIfChanged]);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -90,14 +102,14 @@ export function useChatAutoScroll({
     }
 
     if (isNearBottom()) {
-      setMode("follow");
-      setUnreadCount(0);
+      setModeIfChanged("follow");
+      resetUnreadIfNeeded();
       return;
     }
 
-    setMode("pause");
+    setModeIfChanged("pause");
     setUnreadCount((count) => count + 1);
-  }, [isNearBottom, messagesLength, scrollRef]);
+  }, [isNearBottom, messagesLength, resetUnreadIfNeeded, scrollRef, setModeIfChanged]);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -164,17 +176,17 @@ export function useChatAutoScroll({
     // Only resume follow mode when user is effectively at the very bottom.
     if (hiddenHeight <= 4) {
       lastManualScrollAtRef.current = 0;
-      setMode("follow");
-      setUnreadCount(0);
+      setModeIfChanged("follow");
+      resetUnreadIfNeeded();
       return;
     }
 
     lastManualScrollAtRef.current = Date.now();
-    setMode("pause");
-  }, [scrollRef]);
+    setModeIfChanged("pause");
+  }, [resetUnreadIfNeeded, scrollRef, setModeIfChanged]);
 
   // Calculate visibility for both buttons
-  const { showBackToBottom, showBackToTop: topVisible } = (() => {
+  const { showBackToBottom, showBackToTop } = (() => {
     const element = scrollRef.current;
     if (!element) {
       return { showBackToBottom: false, showBackToTop: false };
@@ -187,11 +199,6 @@ export function useChatAutoScroll({
       showBackToTop: scrollTop > showTopThreshold
     };
   })();
-
-  // Update showBackToTop state
-  useEffect(() => {
-    setShowBackToTop(topVisible);
-  }, [topVisible]);
 
   return {
     mode,
