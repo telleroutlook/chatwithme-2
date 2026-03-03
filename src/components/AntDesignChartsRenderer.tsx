@@ -1,10 +1,11 @@
-import { memo, useMemo, useEffect, useState, type ReactNode, type FC } from "react";
+import { memo, useMemo, useRef, useCallback, type ReactNode, type FC } from "react";
 import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
 import type { ParsedAdcSpec, AdcChartType } from "../utils/adcSpecParser";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
 import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
 import { useThemeDetector } from "../hooks/useThemeDetector";
+import { getChartThemeTokens } from "./chartThemeTokens";
 
 // ============ Static Imports for Tree-shaking ============
 
@@ -110,11 +111,6 @@ function normalizeConfigForADC2(
       ...userStyle,
     };
 
-    // Only add position if user specified it (don't add default)
-    if (label.position) {
-      normalizedLabel.position = label.position;
-    }
-
     result.label = normalizedLabel;
   } else if (type === "pie") {
     // Default label for pie charts if not specified
@@ -142,7 +138,7 @@ function normalizeConfigForADC2(
         itemMarkerSize: 10,
         itemName: {
           style: {
-            fill: isDark ? "#b0b0b0" : "#333333",
+            fill: isDark ? "#e5e7eb" : "#333333",
             fontSize: 12,
           },
         },
@@ -159,16 +155,16 @@ function normalizeConfigForADC2(
     } else {
       result.axis = {
         x: {
-          titleFill: isDark ? "#a0a0a0" : "#666666",
-          labelFill: isDark ? "#888888" : "#666666",
-          lineStroke: isDark ? "#404040" : "#e0e0e0",
-          gridStroke: isDark ? "#303030" : "#f0f0f0",
+          titleFill: isDark ? "#d1d5db" : "#666666",
+          labelFill: isDark ? "#e5e7eb" : "#666666",
+          lineStroke: isDark ? "#6b7280" : "#e0e0e0",
+          gridStroke: isDark ? "#374151" : "#f0f0f0",
         },
         y: {
-          titleFill: isDark ? "#a0a0a0" : "#666666",
-          labelFill: isDark ? "#888888" : "#666666",
-          lineStroke: isDark ? "#404040" : "#e0e0e0",
-          gridStroke: isDark ? "#303030" : "#f0f0f0",
+          titleFill: isDark ? "#d1d5db" : "#666666",
+          labelFill: isDark ? "#e5e7eb" : "#666666",
+          lineStroke: isDark ? "#6b7280" : "#e0e0e0",
+          gridStroke: isDark ? "#374151" : "#f0f0f0",
         },
       };
     }
@@ -194,18 +190,45 @@ interface AntDesignChartsRendererProps {
   animated?: boolean;
 }
 
+export interface AdcConfigSanitizeResult {
+  config: Record<string, unknown>;
+  removedFields: string[];
+}
+
+export function sanitizeAdcConfig(config: Record<string, unknown>): AdcConfigSanitizeResult {
+  const removedFields: string[] = [];
+  const nextConfig: Record<string, unknown> = { ...config };
+
+  if (config.label && typeof config.label === "object" && !Array.isArray(config.label)) {
+    const label = config.label as Record<string, unknown>;
+    if ("position" in label) {
+      removedFields.push("label.position");
+      const { position: _position, ...restLabel } = label;
+      nextConfig.label = restLabel;
+    }
+  }
+
+  return {
+    config: nextConfig,
+    removedFields,
+  };
+}
+
 // ============ Main Renderer ============
 
 export function AntDesignChartsRenderer({
   spec,
-  animated = true,
+  animated = false,
 }: AntDesignChartsRendererProps): ReactNode {
   const isDark = useThemeDetector();
+  const themeTokens = useMemo(() => getChartThemeTokens(isDark), [isDark]);
   const { currentSessionId } = useChatSessionContext();
   const ChartComponent = CHART_COMPONENTS[spec.type];
+  const trackedReadyRef = useRef(false);
 
-  // Track successful mount
-  useEffect(() => {
+  const onReady = useCallback(() => {
+    if (trackedReadyRef.current) return;
+    trackedReadyRef.current = true;
     trackChatEvent("chart_render_success", {
       engine: "adc",
       type: spec.type,
@@ -215,7 +238,8 @@ export function AntDesignChartsRenderer({
 
   // Normalize config for ADC 2.x React
   const chartConfig = useMemo(() => {
-    return normalizeConfigForADC2(spec.type, spec.config, isDark);
+    const sanitized = sanitizeAdcConfig(spec.config);
+    return normalizeConfigForADC2(spec.type, sanitized.config, isDark);
   }, [spec.type, spec.config, isDark]);
 
   if (!ChartComponent) {
@@ -240,8 +264,11 @@ export function AntDesignChartsRenderer({
       <div
         className={`adc-chart-container ${animated ? "animate-fade-in" : ""}`}
         style={{ minHeight: 300, width: "100%" }}
+        data-chart-theme-axis-label-fill={themeTokens.axisLabelFill}
+        data-chart-theme-axis-line-stroke={themeTokens.axisLineStroke}
+        data-chart-theme-grid-stroke={themeTokens.axisGridStroke}
       >
-        <ChartComponent {...chartConfig} />
+        <ChartComponent {...chartConfig} onReady={onReady} />
       </div>
     </Surface>
   );

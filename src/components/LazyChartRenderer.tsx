@@ -40,7 +40,7 @@ interface LazyG2ChartRendererProps {
  */
 export const LazyMermaidRenderer = memo(function LazyMermaidRenderer({
   code,
-  animated = true,
+  animated = false,
 }: LazyMermaidRendererProps): ReactNode {
   return (
     <Suspense fallback={<ChartSkeleton type="mermaid" />}>
@@ -54,7 +54,7 @@ export const LazyMermaidRenderer = memo(function LazyMermaidRenderer({
  */
 export const LazyG2ChartRenderer = memo(function LazyG2ChartRenderer({
   spec,
-  animated = true,
+  animated = false,
 }: LazyG2ChartRendererProps): ReactNode {
   return (
     <Suspense fallback={<ChartSkeleton type="g2" />}>
@@ -73,7 +73,7 @@ interface LazyAntDesignChartsRendererProps {
  */
 export const LazyAntDesignChartsRenderer = memo(function LazyAntDesignChartsRenderer({
   spec,
-  animated = true,
+  animated = false,
 }: LazyAntDesignChartsRendererProps): ReactNode {
   return (
     <Suspense fallback={<ChartSkeleton type="adc" />}>

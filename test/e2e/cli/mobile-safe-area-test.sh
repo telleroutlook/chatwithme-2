@@ -39,7 +39,7 @@ TABBAR_CHECK=$(playwright-cli eval "
     paddingBottom: Math.round(paddingBottom),
     viewportHeight: window.innerHeight
   };
-})()
+})
 ")
 
 echo "   TabBar check: $TABBAR_CHECK"
@@ -76,7 +76,7 @@ TOUCH_CHECK=$(playwright-cli eval "
 
   const allMeetMin = results.every(r => r.meetsMinTarget);
   return { ok: allMeetMin, buttonCount: buttons.length, buttons: results };
-})()
+})
 ")
 
 echo "   Touch targets: $TOUCH_CHECK"

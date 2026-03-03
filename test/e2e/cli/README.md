@@ -12,6 +12,8 @@ This document describes the migration of E2E tests from Playwright Node.js scrip
 | `session-delete.production.mjs` | `session-delete-test.sh` | API | ✅ Migrated |
 | `scroll-lock.production.mjs` | `scroll-lock-test.sh` | UI | ✅ Migrated |
 | `bottom-growth.production.mjs` | `bottom-growth-test.sh` | UI | ✅ Migrated |
+| Chart rendering matrix | `chart-rendering-test.sh` | UI | ✅ Added |
+| Chart dark contrast check | `chart-dark-theme-contrast-test.sh` | UI | ✅ Added |
 | `mobile-keyboard.production.mjs` | `mobile-test.sh` | UI (Mobile) | ✅ Migrated |
 | `mobile-safe-area.production.mjs` | `mobile-safe-area-test.sh` | UI (Mobile) | ✅ Migrated |
 | `mobile-sheet-scrolllock.production.mjs` | `mobile-sheet-scrolllock-test.sh` | UI (Mobile) | ✅ Migrated |
@@ -59,6 +61,8 @@ test/e2e/
 │   ├── smoke-test.sh             # UI smoke test
 │   ├── scroll-lock-test.sh       # Scroll lock test
 │   ├── bottom-growth-test.sh     # Bottom growth test
+│   ├── chart-rendering-test.sh   # Chart engine rendering matrix
+│   ├── chart-dark-theme-contrast-test.sh  # Dark theme token assertions
 │   ├── mobile-test.sh            # Mobile keyboard test
 │   ├── mobile-safe-area-test.sh  # Mobile safe area test
 │   └── mobile-sheet-scrolllock-test.sh

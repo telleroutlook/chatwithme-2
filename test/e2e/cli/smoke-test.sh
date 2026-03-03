@@ -44,7 +44,7 @@ sleep 1
 
 # Find Send button (should be enabled now)
 playwright-cli snapshot --filename=smoke-after-fill.yaml
-SEND_REF=$(grep -B1 'button "Send"' smoke-after-fill.yaml | grep -oP 'ref=\K[^]]+' | head -1)
+SEND_REF=$(grep 'button "Send"' smoke-after-fill.yaml | grep -oP 'ref=\K[^]]+' | head -1)
 
 if [ -z "$SEND_REF" ]; then
     echo "❌ Could not find Send button"

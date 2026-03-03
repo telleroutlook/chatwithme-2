@@ -34,7 +34,7 @@ wait_for_streaming() {
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
-})()
+})
 " 2>/dev/null || echo "0")
         if [ "$STOP_COUNT" = "0" ]; then
             sleep 0.5
@@ -42,7 +42,7 @@ wait_for_streaming() {
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
-})()
+})
 " 2>/dev/null || echo "0")
             if [ "$STOP_COUNT2" = "0" ]; then
                 return 0
@@ -58,7 +58,7 @@ playwright-cli fill "$TEXTAREA_REF" "Please output a numbered list of 80 lines, 
 sleep 1
 
 playwright-cli snapshot --filename=mobile-scroll-send1.yaml
-SEND_REF=$(grep -B1 'button "Send"' mobile-scroll-send1.yaml | grep -oP 'ref=\K[^]]+' | head -1)
+SEND_REF=$(grep 'button "Send"' mobile-scroll-send1.yaml | grep -oP 'ref=\K[^]]+' | head -1)
 playwright-cli click "$SEND_REF"
 
 wait_for_streaming
@@ -71,7 +71,7 @@ playwright-cli fill "$TEXTAREA_REF" "Continue with another 80 lines of numbered 
 sleep 1
 
 playwright-cli snapshot --filename=mobile-scroll-send2b.yaml
-SEND_REF=$(grep -B1 'button "Send"' mobile-scroll-send2b.yaml | grep -oP 'ref=\K[^]]+' | head -1)
+SEND_REF=$(grep 'button "Send"' mobile-scroll-send2b.yaml | grep -oP 'ref=\K[^]]+' | head -1)
 playwright-cli click "$SEND_REF"
 
 wait_for_streaming
@@ -94,7 +94,7 @@ playwright-cli eval "
   };
   const scroller = findScroller();
   if (scroller) scroller.scrollBy({ top: -800, behavior: 'auto' });
-})()
+})
 "
 sleep 1
 
@@ -110,7 +110,7 @@ INITIAL_SCROLL=$(playwright-cli eval "
   });
   candidates.sort((a, b) => b.scrollHeight - a.scrollHeight);
   return Math.round(candidates[0]?.scrollTop || 0);
-})()
+})
 ")
 echo "   Initial scroll position: $INITIAL_SCROLL"
 
@@ -135,7 +135,7 @@ else
   if (!header) return null;
   const btn = header.querySelector('button');
   return btn ? 'found' : null;
-})()
+})
 ")
     if [ "$HEADER_BTN" = "found" ]; then
         playwright-cli eval "
@@ -143,7 +143,7 @@ else
   const header = document.querySelector('header, nav');
   const btn = header?.querySelector('button');
   if (btn) btn.click();
-})()
+})
 "
         sleep 1
         SIDEBAR_OPENED=true
@@ -167,7 +167,7 @@ if [ "$SIDEBAR_OPENED" = true ]; then
   });
   candidates.sort((a, b) => b.scrollHeight - a.scrollHeight);
   return Math.round(candidates[0]?.scrollTop || 0);
-})()
+})
 ")
     echo "   Scroll with sidebar open: $OPEN_SCROLL"
 
@@ -194,7 +194,7 @@ FINAL_SCROLL=$(playwright-cli eval "
   });
   candidates.sort((a, b) => b.scrollHeight - a.scrollHeight);
   return Math.round(candidates[0]?.scrollTop || 0);
-})()
+})
 ")
 echo "   Final scroll position: $FINAL_SCROLL"
 

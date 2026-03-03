@@ -34,7 +34,7 @@ wait_for_streaming() {
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
-})()
+})
 " 2>/dev/null || echo "0")
 
         if [ "$STOP_COUNT" = "0" ]; then
@@ -44,7 +44,7 @@ wait_for_streaming() {
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
-})()
+})
 " 2>/dev/null || echo "0")
             if [ "$STOP_COUNT2" = "0" ]; then
                 echo "   Streaming completed after $((i * 500))ms"
@@ -63,7 +63,7 @@ sleep 1
 
 # Find and click send button
 playwright-cli snapshot --filename=scroll-before-send1.yaml
-SEND_REF=$(grep -B1 'button "Send"' scroll-before-send1.yaml | grep -oP 'ref=\K[^]]+' | head -1)
+SEND_REF=$(grep 'button "Send"' scroll-before-send1.yaml | grep -oP 'ref=\K[^]]+' | head -1)
 playwright-cli click "$SEND_REF"
 
 wait_for_streaming
@@ -77,7 +77,7 @@ playwright-cli fill "$TEXTAREA_REF" "继续输出 100 行编号文本。"
 sleep 1
 
 playwright-cli snapshot --filename=scroll-before-send2b.yaml
-SEND_REF=$(grep -B1 'button "Send"' scroll-before-send2b.yaml | grep -oP 'ref=\K[^]]+' | head -1)
+SEND_REF=$(grep 'button "Send"' scroll-before-send2b.yaml | grep -oP 'ref=\K[^]]+' | head -1)
 playwright-cli click "$SEND_REF"
 
 wait_for_streaming
@@ -102,7 +102,7 @@ playwright-cli eval "
   if (!scroller) return 'no_scroller';
   scroller.scrollTop = Math.max(0, scroller.scrollTop - 3600);
   return 'scrolled_up';
-})()
+})
 "
 sleep 0.5
 
@@ -127,7 +127,7 @@ INITIAL_SCROLL=$(playwright-cli eval "
     scrollHeight: Math.round(scroller.scrollHeight),
     clientHeight: Math.round(scroller.clientHeight)
   };
-})()
+})
 ")
 echo "   Initial scroll: $INITIAL_SCROLL"
 
@@ -142,7 +142,7 @@ playwright-cli fill "$TEXTAREA_REF" "再输出 150 行内容。"
 sleep 1
 
 playwright-cli snapshot --filename=scroll-before-send3b.yaml
-SEND_REF=$(grep -B1 'button "Send"' scroll-before-send3b.yaml | grep -oP 'ref=\K[^]]+' | head -1)
+SEND_REF=$(grep 'button "Send"' scroll-before-send3b.yaml | grep -oP 'ref=\K[^]]+' | head -1)
 playwright-cli click "$SEND_REF"
 
 # Monitor scroll during streaming (sample every 2 seconds for 10 seconds)
@@ -161,7 +161,7 @@ for i in {1..5}; do
   });
   candidates.sort((a, b) => b.scrollHeight - a.scrollHeight);
   return candidates[0]?.scrollTop || 0;
-})()
+})
 " 2>/dev/null || echo "0")
     echo "   Sample $i: scrollTop = $CURRENT_SCROLL"
     if [ "$CURRENT_SCROLL" -gt "$MAX_SCROLL" ]; then
@@ -188,7 +188,7 @@ FINAL_SCROLL=$(playwright-cli eval "
     scrollTop: Math.round(scroller.scrollTop),
     scrollHeight: Math.round(scroller.scrollHeight)
   };
-})()
+})
 ")
 
 echo "   Final scroll: $FINAL_SCROLL"

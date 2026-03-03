@@ -4,6 +4,7 @@
     "Do not output comments, trailing commas, undefined, NaN, Infinity, or functions",
     "All keys must use double quotes; all string values must use double quotes",
     "Never output callback expressions such as (d) => ... or function (...)",
+    "Do not set label.position; renderer applies safe defaults by chart type",
     "Supported chart types: line, column, bar, area, pie, scatter, radar, gauge, heatmap, funnel, histogram, dualAxes"
   ],
   "typeWhitelist": [

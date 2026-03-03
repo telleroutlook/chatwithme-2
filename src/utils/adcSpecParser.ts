@@ -47,6 +47,8 @@ export type AdcParseErrorCode =
   | 'ADC_PARSE_INVALID_TYPE'
   | 'ADC_PARSE_EMPTY';
 
+export type AdcParseWarningCode = 'ADC_WARN_LABEL_POSITION_REMOVED';
+
 export interface ParsedAdcSpec {
   type: AdcChartType;
   config: Record<string, unknown>;
@@ -56,6 +58,7 @@ export interface AdcParseResult {
   ok: boolean;
   spec?: ParsedAdcSpec;
   error?: AdcParseErrorCode;
+  warnings?: AdcParseWarningCode[];
 }
 
 interface RawAdcSpecFlat {
@@ -188,12 +191,23 @@ export function parseAdcSpecFromCode(code: string): AdcParseResult {
     config = rest as Record<string, unknown>;
   }
 
+  const warnings: AdcParseWarningCode[] = [];
+  if (
+    config.label &&
+    typeof config.label === 'object' &&
+    !Array.isArray(config.label) &&
+    'position' in (config.label as Record<string, unknown>)
+  ) {
+    warnings.push('ADC_WARN_LABEL_POSITION_REMOVED');
+  }
+
   return {
     ok: true,
     spec: {
       type,
       config,
     },
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 

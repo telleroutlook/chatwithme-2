@@ -23,6 +23,8 @@ import {
   looksLikeHtmlDocument,
   stripEmptySourceMapDirectives,
 } from "../utils/htmlParser";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { trackChatEvent } from "../features/chat/services/trackChatEvent";
 
 // Lazy load CodeBlock to avoid loading Shiki highlighter on initial page load
 // This reduces the initial bundle by ~800KB (vendor-highlight chunk)
@@ -77,6 +79,20 @@ interface MarkdownRendererProps {
 
 interface MarkdownPreviewRendererProps {
   code: string;
+}
+
+function InvalidChartSpec({ message, code }: { message: string; code: string }) {
+  return (
+    <div className="my-2 rounded-lg border app-border-danger-soft app-bg-danger-soft p-3 text-xs">
+      <span className="app-text-danger">{message}</span>
+      <details className="mt-2">
+        <summary className="cursor-pointer text-kumo-subtle">View original spec</summary>
+        <pre className="mt-2 max-h-52 overflow-auto rounded bg-kumo-control p-2 font-mono text-[11px] text-kumo-default">
+          {code}
+        </pre>
+      </details>
+    </div>
+  );
 }
 
 const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
@@ -226,7 +242,17 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             const isMermaidBlock =
               language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
             if (isMermaidBlock) {
-              return <LazyMermaidRenderer code={codeString} />;
+              return (
+                <ErrorBoundary
+                  level="chart"
+                  fallback={<InvalidChartSpec message="Invalid Mermaid spec" code={codeString} />}
+                  onError={(error) =>
+                    trackChatEvent("chart_render_failure", { engine: "mermaid", errorCode: error.message })
+                  }
+                >
+                  <LazyMermaidRenderer code={codeString} />
+                </ErrorBoundary>
+              );
             }
 
             // G2 charts - lazy loaded
@@ -234,9 +260,19 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               const spec = parseG2SpecFromCode(codeString);
 
               if (spec) {
-                return <LazyG2ChartRenderer spec={spec} />;
+                return (
+                  <ErrorBoundary
+                    level="chart"
+                    fallback={<InvalidChartSpec message="Invalid G2 spec" code={codeString} />}
+                    onError={(error) =>
+                      trackChatEvent("chart_render_failure", { engine: "g2", errorCode: error.message })
+                    }
+                  >
+                    <LazyG2ChartRenderer spec={spec} />
+                  </ErrorBoundary>
+                );
               }
-              return <span className="text-xs app-text-danger">Invalid G2 spec</span>;
+              return <InvalidChartSpec message="Invalid G2 spec" code={codeString} />;
             }
 
             // Ant Design Charts - lazy loaded
@@ -244,7 +280,17 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               const result = parseAdcSpecFromCode(codeString);
 
               if (result.ok && result.spec) {
-                return <LazyAntDesignChartsRenderer spec={result.spec} />;
+                return (
+                  <ErrorBoundary
+                    level="chart"
+                    fallback={<InvalidChartSpec message="Invalid ADC spec" code={codeString} />}
+                    onError={(error) =>
+                      trackChatEvent("chart_render_failure", { engine: "adc", errorCode: error.message })
+                    }
+                  >
+                    <LazyAntDesignChartsRenderer spec={result.spec} />
+                  </ErrorBoundary>
+                );
               }
               const errorMessage =
                 result.error === "ADC_PARSE_INVALID_TYPE"
@@ -254,7 +300,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                     : result.error === "ADC_PARSE_EMPTY"
                     ? "Empty ADC spec"
                       : "Invalid ADC JSON";
-              return <span className="text-xs app-text-danger">{errorMessage}</span>;
+              return <InvalidChartSpec message={errorMessage} code={codeString} />;
             }
 
             // SVG handling

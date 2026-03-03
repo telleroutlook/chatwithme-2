@@ -1,0 +1,7 @@
+12:27:26 AM [vite] (chatwithme2mcp) Re-optimizing dependencies because lockfile has changed
+Using vars defined in .dev.vars
+error when starting dev server:
+SyntaxError: Invalid or unexpected token
+    at Object.runInlinedModule (workers/runner-worker.js:1314:35)
+    at CustomModuleRunner.directRequest (workers/runner-worker.js:1166:80)
+    at CustomModuleRunner.cachedRequest (workers/runner-worker.js:1084:73)

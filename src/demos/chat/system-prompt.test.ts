@@ -64,6 +64,11 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt([], "adc");
     expect(prompt).toContain("IMPORTANT:");
   });
+
+  it("should include ADC label.position safety rule", () => {
+    const prompt = buildSystemPrompt([], "adc");
+    expect(prompt).toContain("Do not set label.position");
+  });
 });
 
 // ============================================================================

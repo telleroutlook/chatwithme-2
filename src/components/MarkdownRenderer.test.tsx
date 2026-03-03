@@ -269,4 +269,18 @@ describe("MarkdownRenderer", () => {
       expect(codeView).toBeInTheDocument();
     });
   });
+
+  it("shows invalid ADC fallback with original spec", () => {
+    const content = [
+      "```adc",
+      '{"type":"unknown","data":[{"x":1,"y":2}]}',
+      "```",
+    ].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    expect(screen.getByText("Unsupported ADC chart type")).toBeInTheDocument();
+    expect(screen.getByText("View original spec")).toBeInTheDocument();
+    expect(screen.getByText('{"type":"unknown","data":[{"x":1,"y":2}]}')).toBeInTheDocument();
+  });
 });

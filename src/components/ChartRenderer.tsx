@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, memo, useMemo, useCallback } from "react";
 import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
-import { useDelayedTransition } from "../hooks/useDelayedTransition";
-import { parseG2SpecFromCode } from "../utils/g2SpecParser";
 import { validateMermaidCode } from "../utils/mermaidValidator";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
 import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
 import { useThemeDetector } from "../hooks/useThemeDetector";
+import { getChartThemeTokens } from "./chartThemeTokens";
 
 // ============ Mermaid Renderer ============
 
@@ -15,15 +14,12 @@ interface MermaidRendererProps {
   animated?: boolean;
 }
 
-export function MermaidRenderer({ code, animated = true }: MermaidRendererProps) {
+export function MermaidRenderer({ code, animated = false }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isDark = useThemeDetector();
   const { currentSessionId } = useChatSessionContext();
-
-  // Delay animation during streaming
-  const showAnimation = useDelayedTransition(animated);
 
   // Pre-render validation
   const validationError = useMemo(() => {
@@ -74,10 +70,6 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
             sessionId: currentSessionId
           });
 
-          // Apply animation class after render
-          if (showAnimation && mounted) {
-            containerRef.current.classList.add("animate-fade-in");
-          }
         }
       } catch (err) {
         if (mounted) {
@@ -101,7 +93,7 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
     return () => {
       mounted = false;
     };
-  }, [code, isDark, showAnimation, validationError, currentSessionId]);
+  }, [code, isDark, validationError, currentSessionId]);
 
   // Pre-validation error display
   if (validationError) {
@@ -141,7 +133,7 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
       <div className="relative overflow-x-auto">
         <div
           ref={containerRef}
-          className={`mermaid-container ${showAnimation ? "animate-fade-in" : ""}`}
+          className={`mermaid-container ${animated ? "animate-fade-in" : ""}`}
           style={{ minHeight: 100 }}
         />
         {isLoading && (
@@ -331,7 +323,7 @@ function normalizeG2Spec(value: unknown): unknown {
   return normalizeColorScaleRange(output);
 }
 
-export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps) {
+export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -339,18 +331,7 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
   const isDark = useThemeDetector();
   const { currentSessionId } = useChatSessionContext();
 
-  // Delay animation during streaming
-  const showAnimation = useDelayedTransition(animated);
-
-  // Theme-aware colors for G2 charts
-  const themeColors = useMemo(() => ({
-    axisTitleFill: isDark ? '#a0a0a0' : '#666666',
-    axisLabelFill: isDark ? '#888888' : '#999999',
-    axisLineStroke: isDark ? '#404040' : '#e0e0e0',
-    axisGridStroke: isDark ? '#303030' : '#f0f0f0',
-    legendItemFill: isDark ? '#c0c0c0' : '#333333',
-    chartBackground: isDark ? '#1a1a1a' : '#ffffff',
-  }), [isDark]);
+  const themeColors = useMemo(() => getChartThemeTokens(isDark), [isDark]);
 
   // Auto-fit using ResizeObserver
   useEffect(() => {
@@ -480,11 +461,6 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
           sessionId: currentSessionId
         });
 
-        // Apply animation after render
-        if (showAnimation && mounted && containerRef.current) {
-          containerRef.current.classList.add("animate-fade-in");
-        }
-
         if (!mounted) {
           safeDestroy();
         }
@@ -512,7 +488,7 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
       safeDestroy();
       chartRef.current = null;
     };
-  }, [spec, showAnimation, themeColors, currentSessionId]);
+  }, [spec, themeColors, currentSessionId]);
 
   if (error) {
     return (
@@ -536,7 +512,10 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
       <div className="relative">
         <div
           ref={containerRef}
-          className={`g2-chart-container ${showAnimation ? "animate-fade-in" : ""}`}
+          className={`g2-chart-container ${animated ? "animate-fade-in" : ""}`}
+          data-chart-theme-axis-label-fill={themeColors.axisLabelFill}
+          data-chart-theme-axis-line-stroke={themeColors.axisLineStroke}
+          data-chart-theme-grid-stroke={themeColors.axisGridStroke}
           style={{ minHeight: 200 }}  // Minimum height only
         />
         {isLoading && (

@@ -72,6 +72,8 @@ declare -A UI_TESTS=(
     ["UI Smoke"]="smoke-test.sh"
     ["Scroll Lock"]="scroll-lock-test.sh"
     ["Bottom Growth"]="bottom-growth-test.sh"
+    ["Chart Rendering"]="chart-rendering-test.sh"
+    ["Chart Dark Theme Contrast"]="chart-dark-theme-contrast-test.sh"
 )
 
 declare -A MOBILE_TESTS=(

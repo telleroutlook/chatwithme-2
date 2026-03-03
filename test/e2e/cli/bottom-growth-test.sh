@@ -33,7 +33,7 @@ wait_for_streaming() {
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
-})()
+})
 " 2>/dev/null || echo "0")
         if [ "$STOP_COUNT" = "0" ]; then
             sleep 0.5
@@ -41,7 +41,7 @@ wait_for_streaming() {
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
-})()
+})
 " 2>/dev/null || echo "0")
             if [ "$STOP_COUNT2" = "0" ]; then
                 return 0
@@ -57,7 +57,7 @@ playwright-cli fill "$TEXTAREA_REF" "请只返回一个 html 代码块，内部�
 sleep 1
 
 playwright-cli snapshot --filename=growth-before-send.yaml
-SEND_REF=$(grep -B1 'button "Send"' growth-before-send.yaml | grep -oP 'ref=\K[^]]+' | head -1)
+SEND_REF=$(grep 'button "Send"' growth-before-send.yaml | grep -oP 'ref=\K[^]]+' | head -1)
 playwright-cli click "$SEND_REF"
 
 wait_for_streaming
@@ -81,7 +81,7 @@ playwright-cli eval "
   const scroller = findScroller();
   if (scroller) scroller.scrollTop = scroller.scrollHeight;
   return scroller ? 'scrolled' : 'no_scroller';
-})()
+})
 "
 
 # Record before metrics
@@ -103,7 +103,7 @@ BEFORE_METRICS=$(playwright-cli eval "
     scrollHeight: Math.round(scroller.scrollHeight),
     clientHeight: Math.round(scroller.clientHeight)
   };
-})()
+})
 ")
 echo "   Before: $BEFORE_METRICS"
 
@@ -128,7 +128,7 @@ AFTER_METRICS=$(playwright-cli eval "
     clientHeight: Math.round(scroller.clientHeight),
     growth: Math.round(scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight)
   };
-})()
+})
 ")
 echo "   After: $AFTER_METRICS"
 

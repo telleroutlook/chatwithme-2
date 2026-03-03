@@ -1,0 +1,108 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e7]: Workspace
+      - generic [ref=e8]:
+        - button "Chats" [ref=e9]:
+          - generic [ref=e10]:
+            - img [ref=e11]
+            - text: Chats
+        - button "Tools 2" [ref=e1160]:
+          - generic [ref=e14]:
+            - img [ref=e15]
+            - text: Tools
+          - generic [ref=e1161]: "2"
+        - button "Resources" [ref=e17]:
+          - generic [ref=e18]:
+            - img [ref=e19]
+            - text: Resources
+        - button "Settings" [ref=e21]:
+          - generic [ref=e22]:
+            - img [ref=e23]
+            - text: Settings
+      - button "New Chat" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: New Chat
+    - generic [ref=e28]:
+      - 'button "Please render this Mermaid Seq... # Mermaid Diagrams ## 1. Flowchart ```mermaid g... now 20 Delete session" [ref=e2637]':
+        - generic [ref=e1041]:
+          - generic [ref=e1042]:
+            - paragraph [ref=e1044]: Please render this Mermaid Seq...
+            - paragraph [ref=e1046]: "# Mermaid Diagrams ## 1. Flowchart ```mermaid g..."
+            - generic [ref=e1047]:
+              - paragraph [ref=e1048]: now
+              - generic [ref=e1069]: "20"
+          - button "Delete session" [ref=e1049]:
+            - img [ref=e1050]
+      - 'button "Please render this mermaid flo... Here''s the rendered SVG: ```svg <svg width=\"100\"... 8m 8 Delete session" [ref=e2578]':
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - paragraph [ref=e33]: Please render this mermaid flo...
+            - paragraph [ref=e35]: "Here's the rendered SVG: ```svg <svg width=\"100\"..."
+            - generic [ref=e36]:
+              - paragraph [ref=e37]: 8m
+              - generic [ref=e38]: "8"
+          - button "Delete session" [ref=e39]:
+            - img [ref=e40]
+      - button "Hello, please respond with a s... Hello! 👋 How can I help you today? 15h 2 Delete session" [ref=e42]:
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - paragraph [ref=e46]: Hello, please respond with a s...
+            - paragraph [ref=e48]: Hello! 👋 How can I help you today?
+            - generic [ref=e49]:
+              - paragraph [ref=e50]: 15h
+              - generic [ref=e51]: "2"
+          - button "Delete session" [ref=e52]:
+            - img [ref=e53]
+  - generic [ref=e55]:
+    - banner [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - button "Toggle sidebar" [ref=e59]:
+            - img [ref=e60]
+          - generic [ref=e62]:
+            - img [ref=e63]
+            - generic [ref=e65]:
+              - heading "Workchatly" [level=1] [ref=e66]
+              - paragraph [ref=e67]: AI Agent
+        - generic [ref=e68]:
+          - button "New Chat" [ref=e69]:
+            - img [ref=e70]
+            - generic [ref=e72]: New Chat
+          - button "Export" [ref=e73]:
+            - img [ref=e74]
+            - img [ref=e76]
+          - button "Toggle theme" [ref=e78]:
+            - img [ref=e79]
+          - generic [ref=e81]:
+            - img [ref=e2274]
+            - generic [ref=e84]: connected
+    - main [ref=e86]:
+      - generic [ref=e87]:
+        - generic [ref=e88]:
+          - generic [ref=e89]:
+            - button "Bubble" [ref=e90] [cursor=pointer]
+            - button "Docs" [ref=e91] [cursor=pointer]
+          - generic [ref=e2644]:
+            - paragraph [ref=e2647]: "User:Please render ALL of these Mermaid diagrams simultaneously: 1. Flowchart: ```mermaid graph LR A[Start] --> B(Process) B --> C{Decision} C -->|One| D[Result 1] C -->|Two| E[Result 2] ``` 2. Sequence: ```mermaid sequenceDiagram Alice->>Bob: Hello Bob, how are you? Bob-->>Alice: I am good thanks! ``` 3. Gantt: ```mermaid gantt title Simultaneous Test section Section Task 1 :a1, 2024-01-01, 5d Task 2 :after a1, 10d ``` 4. Class Diagram: ```mermaid classDiagram Animal <|-- Duck Animal <|-- Fish Animal <|-- Zebra Animal : +int age Animal : +String gender Animal: +isMammal() Animal: +mate() class Duck{ +String beakColor +swim() +quack() } ``` 5. State Diagram: ```mermaid stateDiagram-v2 [*] --> Still Still --> [*] Still --> Moving Moving --> Still Moving --> Crash Crash --> [*] ```"
+            - generic [ref=e2649]:
+              - status [ref=e2650]
+              - button "Copy message" [ref=e2651] [cursor=pointer]:
+                - img [ref=e2652]
+              - button "Edit message" [ref=e2654] [cursor=pointer]:
+                - img [ref=e2655]
+              - button "Delete message" [ref=e2657] [cursor=pointer]:
+                - img [ref=e2658]
+          - button "Back to top" [ref=e99] [cursor=pointer]:
+            - img [ref=e100]
+            - text: Back to top
+          - button "Back to bottom · Following" [ref=e102] [cursor=pointer]:
+            - img [ref=e103]
+            - text: Back to bottom · Following
+        - generic [ref=e108]:
+          - generic "Multiline input enabled" [ref=e109]:
+            - img [ref=e110]
+          - textbox "Ask anything... (AI can search web & read pages)" [ref=e2638]
+          - button "Send" [disabled] [ref=e2639]:
+            - img [ref=e2640]
+            - generic [ref=e116]: Send

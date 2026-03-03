@@ -1,0 +1,144 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e7]: Workspace
+      - generic [ref=e8]:
+        - button "Chats" [ref=e9]:
+          - generic [ref=e10]:
+            - img [ref=e11]
+            - text: Chats
+        - button "Tools 2" [ref=e109]:
+          - generic [ref=e14]:
+            - img [ref=e15]
+            - text: Tools
+          - generic [ref=e110]: "2"
+        - button "Resources" [ref=e17]:
+          - generic [ref=e18]:
+            - img [ref=e19]
+            - text: Resources
+        - button "Settings" [ref=e21]:
+          - generic [ref=e22]:
+            - img [ref=e23]
+            - text: Settings
+      - button "New Chat" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: New Chat
+    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```merm... ```g2 {\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"... now 4 Delete session" [ref=e404]':
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - paragraph [ref=e115]: "请严格原样返回以下代码块，不要添加任何解释： ```merm..."
+          - paragraph [ref=e117]: "```g2 {\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"..."
+          - generic [ref=e118]:
+            - paragraph [ref=e119]: now
+            - generic [ref=e120]: "4"
+        - button "Delete session" [ref=e121]:
+          - img [ref=e122]
+  - generic [ref=e33]:
+    - banner [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - button "Toggle sidebar" [ref=e37]:
+            - img [ref=e38]
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - generic [ref=e43]:
+              - heading "Workchatly" [level=1] [ref=e44]
+              - paragraph [ref=e45]: AI Agent
+        - generic [ref=e46]:
+          - button "New Chat" [ref=e47]:
+            - img [ref=e48]
+            - generic [ref=e50]: New Chat
+          - button "Export" [ref=e51]:
+            - img [ref=e52]
+            - img [ref=e54]
+          - button "Toggle theme" [ref=e56]:
+            - img [ref=e57]
+          - generic [ref=e59]:
+            - img [ref=e99]
+            - generic [ref=e62]: connected
+    - main [ref=e64]:
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - button "Bubble" [ref=e68] [cursor=pointer]
+            - button "Docs" [ref=e69] [cursor=pointer]
+          - generic [ref=e126]:
+            - generic [ref=e129]:
+              - paragraph [ref=e132]: "User:请严格原样返回以下代码块，不要添加任何解释： ```mermaid flowchart TD A[Start] --> B{Decision} B -->|Yes| C[Done] B -->|No| D[Retry] ```"
+              - generic [ref=e134]:
+                - status [ref=e135]
+                - button "Copy message" [ref=e136] [cursor=pointer]:
+                  - img [ref=e137]
+                - button "Edit message" [ref=e139] [cursor=pointer]:
+                  - img [ref=e140]
+                - button "Delete message" [ref=e142] [cursor=pointer]:
+                  - img [ref=e143]
+            - generic [ref=e224]:
+              - generic [ref=e226]:
+                - paragraph [ref=e405]: "AI:"
+                - generic [ref=e407]:
+                  - generic [ref=e408]:
+                    - img [ref=e409]
+                    - paragraph [ref=e411]: Mermaid Diagram
+                  - document [ref=e414]:
+                    - generic [ref=e416]:
+                      - generic [ref=e420]:
+                        - paragraph [ref=e426]: "Yes"
+                        - paragraph [ref=e432]: "No"
+                      - generic [ref=e433]:
+                        - paragraph [ref=e440]: Start
+                        - paragraph [ref=e447]: Decision
+                        - paragraph [ref=e454]: Done
+                        - paragraph [ref=e461]: Retry
+              - generic [ref=e285]:
+                - status [ref=e286]
+                - button "Copy message" [ref=e287] [cursor=pointer]:
+                  - img [ref=e288]
+                  - text: Copy
+                - button "Regenerate response" [ref=e290] [cursor=pointer]:
+                  - img [ref=e291]
+                  - text: Regenerate
+                - button "Delete message" [ref=e293] [cursor=pointer]:
+                  - img [ref=e294]
+                  - text: Delete
+            - generic [ref=e311]:
+              - paragraph [ref=e314]: "User:请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"sales\":100},{\"month\":\"Feb\",\"sales\":150}],\"encode\":{\"x\":\"month\",\"y\":\"sales\"}} ```"
+              - generic [ref=e316]:
+                - status [ref=e317]
+                - button "Copy message" [ref=e318] [cursor=pointer]:
+                  - img [ref=e319]
+                - button "Edit message" [ref=e321] [cursor=pointer]:
+                  - img [ref=e322]
+                - button "Delete message" [ref=e324] [cursor=pointer]:
+                  - img [ref=e325]
+            - generic [ref=e462]:
+              - generic [ref=e464]:
+                - paragraph [ref=e465]: "AI:"
+                - generic [ref=e468]:
+                  - img [ref=e469]
+                  - paragraph [ref=e471]: G2 Chart
+                  - generic [ref=e472]: interval
+              - generic [ref=e477]:
+                - status [ref=e478]
+                - button "Copy message" [ref=e479] [cursor=pointer]:
+                  - img [ref=e480]
+                  - text: Copy
+                - button "Regenerate response" [ref=e482] [cursor=pointer]:
+                  - img [ref=e483]
+                  - text: Regenerate
+                - button "Delete message" [ref=e485] [cursor=pointer]:
+                  - img [ref=e486]
+                  - text: Delete
+          - button "Back to top" [ref=e77] [cursor=pointer]:
+            - img [ref=e78]
+            - text: Back to top
+          - button "Back to bottom · Following" [ref=e296] [cursor=pointer]:
+            - img [ref=e81]
+            - text: Back to bottom · Following
+        - generic [ref=e86]:
+          - generic "Multiline input enabled" [ref=e87]:
+            - img [ref=e88]
+          - textbox "Ask anything... (AI can search web & read pages)" [ref=e488]
+          - button "Send" [disabled] [ref=e489]:
+            - img [ref=e490]
+            - generic [ref=e94]: Send

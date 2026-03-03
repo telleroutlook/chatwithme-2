@@ -65,7 +65,7 @@ VISIBILITY_CHECK=$(playwright-cli eval "
     viewportHeight: vh,
     margin: Math.round(vh - rect.bottom)
   };
-})()
+})
 ")
 
 echo "   Visibility check: $VISIBILITY_CHECK"

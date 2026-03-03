@@ -34,6 +34,19 @@ describe("adcSpecParser", () => {
         expect(result.spec?.type).toBe("column");
       });
 
+      it("should emit warning when label.position is present", () => {
+        const code = `{
+  "type": "column",
+  "data": [{"category": "A", "value": 10}],
+  "xField": "category",
+  "yField": "value",
+  "label": {"position": "middle", "text": "value"}
+}`;
+        const result = parseAdcSpecFromCode(code);
+        expect(result.ok).toBe(true);
+        expect(result.warnings).toContain("ADC_WARN_LABEL_POSITION_REMOVED");
+      });
+
       it("should parse all supported chart types", () => {
         const types = ["line", "column", "bar", "area", "pie", "scatter", "radar", "gauge", "heatmap", "funnel", "histogram", "dualAxes"];
         for (const type of types) {
