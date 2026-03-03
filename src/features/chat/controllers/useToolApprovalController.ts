@@ -2,16 +2,9 @@ import { useCallback, useMemo } from "react";
 import type { EventLogEntry } from "../hooks/useEventLog";
 import type { UiMessageKey } from "../../../i18n/ui";
 import type { TranslateParams } from "../../../hooks/useI18n";
+import type { RuntimeApprovalItem } from "../services/clientHelpers";
 
 const DEFAULT_APPROVAL_REJECTION_REASON = "Rejected in chat message card";
-
-interface RuntimeApprovalItem {
-  id: string;
-  toolName: string;
-  argsSnippet: string;
-  status: "pending" | "approved" | "rejected";
-  createdAt: string;
-}
 
 interface UseToolApprovalControllerParams {
   pendingApprovals: RuntimeApprovalItem[];

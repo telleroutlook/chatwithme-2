@@ -19,6 +19,11 @@ import {
   extractFirstSvgMarkup,
 } from "./Renderers/SvgRenderer";
 import { MarkdownAlert, type AlertType } from "./MarkdownAlert";
+import {
+  decodeHtmlEntities,
+  looksLikeHtmlDocument,
+  stripEmptySourceMapDirectives,
+} from "../utils/htmlParser";
 
 interface MarkdownRendererProps {
   content: string;
@@ -31,33 +36,6 @@ interface MarkdownRendererProps {
 
 interface MarkdownPreviewRendererProps {
   code: string;
-}
-
-function decodeHtmlEntities(value: string): string {
-  if (!value || !value.includes("&")) return value;
-  if (typeof document === "undefined") return value;
-  const textarea = document.createElement("textarea");
-  textarea.innerHTML = value;
-  return textarea.value;
-}
-
-function looksLikeHtmlDocument(code: string): boolean {
-  const normalized = code.trim().toLowerCase();
-  if (!normalized) return false;
-  return (
-    normalized.startsWith("<!doctype html") ||
-    normalized.includes("<html") ||
-    normalized.includes("<head") ||
-    normalized.includes("<body")
-  );
-}
-
-function stripEmptySourceMapDirectives(code: string): string {
-  if (!code || !code.includes("sourceMappingURL")) return code;
-  return code
-    .replace(/^[\t ]*\/\/[#@]\s*sourceMappingURL=.*$/gim, "")
-    .replace(/\/\*[#@]\s*sourceMappingURL=[\s\S]*?\*\//gi, "")
-    .replace(/<!--\s*[#@]?\s*sourceMappingURL=.*?-->/gim, "");
 }
 
 const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({

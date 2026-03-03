@@ -31,24 +31,6 @@ interface UseChatSessionControllerParams {
   readonlyMode: boolean;
 }
 
-interface RuntimeApprovalItem {
-  id: string;
-  toolName: string;
-  argsSnippet: string;
-  status: "pending" | "approved" | "rejected";
-  createdAt: string;
-}
-
-interface LiveProgressEntry {
-  id: string;
-  timestamp: string;
-  phase: string;
-  message: string;
-  status: string;
-  severity: string;
-  groupKey: string;
-}
-
 export interface UseChatSessionControllerResult {
   handleNewSession: () => void;
   handleSelectSession: (sessionId: string) => void;
