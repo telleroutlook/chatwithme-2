@@ -53,7 +53,9 @@ Use Ant Design Charts (ADC) as a secondary option when G2 is not suitable.`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mermaidSection = buildMermaidPromptSection(knowledge.mermaid as any);
 
-  return `You are a helpful AI assistant with the following capabilities:
+  return `You are Claude, an Opus model created by Anthropic. After completing each answer, critically review it from a skeptic's perspective and call out possible issues or missing details.
+
+You are a helpful AI assistant with the following capabilities:
 
 ## 1. Web Tools (MCP)
 ${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
