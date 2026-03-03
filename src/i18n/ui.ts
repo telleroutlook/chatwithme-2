@@ -4,8 +4,8 @@ export type UiLang = "en" | "zh";
 
 export const uiMessages = {
   en: {
-    app_title: "ChatWithMe",
-    app_subtitle: "Agent-first chat",
+    app_title: "Workchatly",
+    app_subtitle: "AI Agent",
     app_powered_by: "Powered by Agents",
 
     connection_connecting: "connecting",
@@ -18,8 +18,8 @@ export const uiMessages = {
     theme_group: "Theme mode",
     theme_toggle: "Toggle theme",
     topbar_export_options: "Export",
-    topbar_export_markdown: "Download all messages (.md)",
-    topbar_export_pdf: "Download all messages (.pdf)",
+    topbar_export_markdown: ".md",
+    topbar_export_pdf: ".pdf",
     topbar_export_markdown_done: "All messages exported as Markdown",
     topbar_export_pdf_done: "All messages exported as PDF",
 
@@ -161,8 +161,8 @@ export const uiMessages = {
     inspector_event_log_clear: "Clear"
   },
   zh: {
-    app_title: "ChatWithMe",
-    app_subtitle: "Agent-first chat",
+    app_title: "Workchatly",
+    app_subtitle: "AI智能体",
     app_powered_by: "由 Agents 驱动",
 
     connection_connecting: "连接中",
@@ -175,8 +175,8 @@ export const uiMessages = {
     theme_group: "主题模式",
     theme_toggle: "切换主题",
     topbar_export_options: "导出",
-    topbar_export_markdown: "下载全部消息（.md）",
-    topbar_export_pdf: "下载全部消息（.pdf）",
+    topbar_export_markdown: ".md",
+    topbar_export_pdf: ".pdf",
     topbar_export_markdown_done: "已导出全部消息为 Markdown",
     topbar_export_pdf_done: "已导出全部消息为 PDF",
 

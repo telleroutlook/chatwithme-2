@@ -21,7 +21,7 @@ import type { CommandSuggestionItem } from "./types/command";
 import { extractMessageSources } from "./types/message-sources";
 import { getMessageText } from "./utils/message-text";
 import { downloadTextFile } from "./utils/exporters/image";
-import { exportToPdf } from "./utils/exporters/pdf";
+import { exportPlainTextToPdf } from "./utils/exporters/pdf";
 import { nanoid } from "nanoid";
 import { trackChatEvent } from "./features/chat/services/trackChatEvent";
 import {
@@ -1152,20 +1152,33 @@ function App() {
   const handleExportAllMessagesAsPdf = useCallback(async () => {
     if (chatMessages.length === 0) return;
 
-    const exportTarget = exportCaptureRef.current;
-    if (!exportTarget) {
-      addToast("Failed to export PDF: chat content is not ready", "error");
-      return;
-    }
-
     const exportedAt = new Date();
     const timestamp = exportedAt.toISOString().replace(/[:.]/g, "-");
     const filename = `chat-${currentSessionId}-${timestamp}.pdf`;
+    const lines: string[] = [
+      "Chat Export",
+      "",
+      `Session ID: ${currentSessionId}`,
+      `Exported At: ${exportedAt.toISOString()}`,
+      "",
+      "----------------------------------------",
+      ""
+    ];
+
+    chatMessages.forEach((message, index) => {
+      const role = message.role === "assistant" ? "Assistant" : message.role === "user" ? "User" : "System";
+      const content = getMessageText(message).trim();
+      lines.push(`${index + 1}. ${role}`);
+      lines.push(content || "(empty)");
+      lines.push("");
+    });
 
     try {
-      await exportToPdf(exportTarget, {
+      await exportPlainTextToPdf(lines.join("\n"), {
         filename,
-        margin: 8
+        margin: 12,
+        fontSize: 11,
+        title: "Chat Export"
       });
       addToast(t("topbar_export_pdf_done"), "success");
       trackChatEvent("chat_export_pdf", { messageCount: chatMessages.length, sessionId: currentSessionId });

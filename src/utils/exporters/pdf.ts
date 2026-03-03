@@ -11,6 +11,52 @@ export interface PdfExportOptions {
   filename?: string;
 }
 
+export interface PlainTextPdfOptions extends PdfExportOptions {
+  title?: string;
+}
+
+const EXPORT_SAFE_STYLE_ID = "pdf-export-safe-style";
+
+function applyExportSafeStyles(clonedDoc: Document): void {
+  if (clonedDoc.getElementById(EXPORT_SAFE_STYLE_ID)) return;
+
+  const style = clonedDoc.createElement("style");
+  style.id = EXPORT_SAFE_STYLE_ID;
+  style.textContent = `
+    :root, [data-mode], body {
+      color: #0f172a !important;
+      background-color: #ffffff !important;
+    }
+
+    /* Force simple colors so html2canvas won't parse oklch/color-mix definitions */
+    *,
+    *::before,
+    *::after {
+      color: inherit !important;
+      border-color: #cbd5e1 !important;
+      background-image: none !important;
+      text-shadow: none !important;
+      box-shadow: none !important;
+      filter: none !important;
+      backdrop-filter: none !important;
+    }
+  `;
+
+  clonedDoc.head.appendChild(style);
+}
+
+function getHtml2CanvasOptions() {
+  return {
+    scale: 2,
+    useCORS: true,
+    logging: false,
+    backgroundColor: "#fff",
+    onclone: (clonedDoc: Document) => {
+      applyExportSafeStyles(clonedDoc);
+    }
+  };
+}
+
 /**
  * Export DOM element to PDF
  */
@@ -33,12 +79,7 @@ export async function exportToPdf(
   ]);
 
   // Render element to canvas
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: "#fff",
-  });
+  const canvas = await html2canvas(element, getHtml2CanvasOptions());
 
   // Calculate dimensions
   const imgWidth = canvas.width;
@@ -152,12 +193,7 @@ export async function exportMultipleToPdf(
       pdf.addPage();
     }
 
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#fff",
-    });
+    const canvas = await html2canvas(element, getHtml2CanvasOptions());
 
     const imgWidth = canvas.width;
     const imgHeight = canvas.height;
@@ -175,6 +211,148 @@ export async function exportMultipleToPdf(
     const imgData = canvas.toDataURL("image/png");
     pdf.addImage(imgData, "PNG", 10, 10, scaledWidth, scaledHeight);
   }
+
+  pdf.save(filename);
+}
+
+/**
+ * Export plain text to PDF without html2canvas/CSS parsing.
+ */
+export async function exportPlainTextToPdf(
+  text: string,
+  options: PlainTextPdfOptions = {}
+): Promise<void> {
+  const {
+    orientation = "portrait",
+    format = "a4",
+    margin = 12,
+    fontSize = 11,
+    filename = "export.pdf",
+    title
+  } = options;
+
+  const { default: jsPDF } = await import("jspdf");
+
+  const pdf = new jsPDF({
+    orientation,
+    unit: "mm",
+    format
+  });
+
+  const pageWidthMm = pdf.internal.pageSize.getWidth();
+  const pageHeightMm = pdf.internal.pageSize.getHeight();
+  const pxPerMm = 96 / 25.4;
+  const renderScale = 2;
+
+  const pageWidthPx = Math.floor(pageWidthMm * pxPerMm * renderScale);
+  const pageHeightPx = Math.floor(pageHeightMm * pxPerMm * renderScale);
+  const marginPx = Math.floor(margin * pxPerMm * renderScale);
+  const contentWidthPx = pageWidthPx - marginPx * 2;
+  const contentHeightPx = pageHeightPx - marginPx * 2;
+
+  const baseFontPx = Math.max(12, Math.floor(fontSize * pxPerMm * 0.9 * renderScale));
+  const lineHeightPx = Math.floor(baseFontPx * 1.6);
+  const titleFontPx = Math.floor(baseFontPx * 1.15);
+  const titleGapPx = Math.floor(lineHeightPx * 0.8);
+
+  const fontFamily =
+    '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", Arial, sans-serif';
+
+  const measureCanvas = document.createElement("canvas");
+  const measureCtx = measureCanvas.getContext("2d");
+  if (!measureCtx) {
+    throw new Error("Failed to initialize canvas context for PDF export.");
+  }
+  const textMeasureCtx = measureCtx;
+
+  function wrapLine(input: string, fontPx: number): string[] {
+    if (!input) return [""];
+    textMeasureCtx.font = `${fontPx}px ${fontFamily}`;
+    const out: string[] = [];
+    let current = "";
+    for (const char of Array.from(input)) {
+      const candidate = current + char;
+      if (textMeasureCtx.measureText(candidate).width <= contentWidthPx) {
+        current = candidate;
+        continue;
+      }
+      if (current) out.push(current);
+      current = char;
+    }
+    if (current) out.push(current);
+    return out;
+  }
+
+  const pages: string[][] = [];
+  let currentPage: string[] = [];
+  let remainingHeightPx = contentHeightPx;
+
+  if (title) {
+    const titleLines = wrapLine(title, titleFontPx);
+    for (const line of titleLines) {
+      if (remainingHeightPx < lineHeightPx) {
+        pages.push(currentPage);
+        currentPage = [];
+        remainingHeightPx = contentHeightPx;
+      }
+      currentPage.push(`__TITLE__${line}`);
+      remainingHeightPx -= lineHeightPx;
+    }
+    remainingHeightPx -= titleGapPx;
+  }
+
+  const normalized = text.replace(/\r\n/g, "\n");
+  for (const paragraph of normalized.split("\n")) {
+    const wrapped = wrapLine(paragraph, baseFontPx);
+    for (const line of wrapped) {
+      if (remainingHeightPx < lineHeightPx) {
+        pages.push(currentPage);
+        currentPage = [];
+        remainingHeightPx = contentHeightPx;
+      }
+      currentPage.push(line);
+      remainingHeightPx -= lineHeightPx;
+    }
+  }
+  if (currentPage.length > 0) {
+    pages.push(currentPage);
+  }
+  if (pages.length === 0) {
+    pages.push([""]);
+  }
+
+  pages.forEach((lines, index) => {
+    if (index > 0) {
+      pdf.addPage();
+    }
+
+    const pageCanvas = document.createElement("canvas");
+    pageCanvas.width = pageWidthPx;
+    pageCanvas.height = pageHeightPx;
+    const ctx = pageCanvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Failed to render PDF page canvas.");
+    }
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+    ctx.fillStyle = "#0f172a";
+    ctx.textBaseline = "top";
+
+    let y = marginPx;
+    for (const rawLine of lines) {
+      const isTitleLine = rawLine.startsWith("__TITLE__");
+      const line = isTitleLine ? rawLine.slice("__TITLE__".length) : rawLine;
+      ctx.font = isTitleLine
+        ? `600 ${titleFontPx}px ${fontFamily}`
+        : `400 ${baseFontPx}px ${fontFamily}`;
+      ctx.fillText(line, marginPx, y);
+      y += lineHeightPx;
+    }
+
+    const image = pageCanvas.toDataURL("image/png");
+    pdf.addImage(image, "PNG", 0, 0, pageWidthMm, pageHeightMm);
+  });
 
   pdf.save(filename);
 }
