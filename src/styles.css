@@ -472,4 +472,12 @@ pre {
   display: block;
   max-width: 100%;
   height: auto;
+  margin-inline: auto;
+}
+
+.g2-chart-container canvas,
+.g2-chart-container svg,
+.adc-chart-container canvas,
+.adc-chart-container svg {
+  margin-inline: auto;
 }

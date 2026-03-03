@@ -20,6 +20,7 @@ import type { MCPServersState } from "agents";
 import type { CommandSuggestionItem } from "./types/command";
 import { extractMessageSources } from "./types/message-sources";
 import { getMessageText } from "./utils/message-text";
+import { downloadTextFile } from "./utils/exporters/image";
 import { nanoid } from "nanoid";
 import { trackChatEvent } from "./features/chat/services/trackChatEvent";
 import {
@@ -1113,6 +1114,39 @@ function App() {
     return date.toLocaleDateString();
   };
 
+  const handleExportAllMessagesAsMarkdown = useCallback(() => {
+    if (chatMessages.length === 0) return;
+
+    const exportedAt = new Date();
+    const timestamp = exportedAt.toISOString().replace(/[:.]/g, "-");
+    const filename = `chat-${currentSessionId}-${timestamp}`;
+    const lines: string[] = [
+      "# Chat Export",
+      "",
+      `- Session ID: ${currentSessionId}`,
+      `- Exported At: ${exportedAt.toISOString()}`,
+      "",
+      "---",
+      ""
+    ];
+
+    chatMessages.forEach((message, index) => {
+      const role = message.role === "assistant" ? "Assistant" : message.role === "user" ? "User" : "System";
+      const content = getMessageText(message).trim();
+
+      lines.push(`## ${index + 1}. ${role}`);
+      lines.push("");
+      lines.push("````text");
+      lines.push(content || "(empty)");
+      lines.push("````");
+      lines.push("");
+    });
+
+    downloadTextFile(lines.join("\n"), `${filename}.md`, "text/markdown");
+    addToast(t("topbar_export_markdown_done"), "success");
+    trackChatEvent("chat_export_markdown", { messageCount: chatMessages.length, sessionId: currentSessionId });
+  }, [addToast, chatMessages, currentSessionId, t]);
+
   return (
     <div className="flex h-full bg-kumo-base/70 text-kumo-default">
       {mobile && sidebarOpen && (
@@ -1164,6 +1198,8 @@ function App() {
           mobile={mobile}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           onNewSession={handleNewSession}
+          onExportAllMarkdown={handleExportAllMessagesAsMarkdown}
+          disableExportAllMarkdown={chatMessages.length === 0}
           connectionStatus={connectionStatus}
           t={t}
         />

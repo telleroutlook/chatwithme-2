@@ -4,8 +4,8 @@ export type UiLang = "en" | "zh";
 
 export const uiMessages = {
   en: {
-    app_title: "ChatWithMe MCP",
-    app_subtitle: "Agent-first chat workspace",
+    app_title: "ChatWithMe",
+    app_subtitle: "Agent-first chat",
     app_powered_by: "Powered by Agents",
 
     connection_connecting: "connecting",
@@ -17,6 +17,8 @@ export const uiMessages = {
     theme_system: "System mode",
     theme_group: "Theme mode",
     theme_toggle: "Toggle theme",
+    topbar_export_markdown: "Download all messages (.md)",
+    topbar_export_markdown_done: "All messages exported as Markdown",
 
     lang_en: "EN",
     lang_zh: "中",
@@ -156,8 +158,8 @@ export const uiMessages = {
     inspector_event_log_clear: "Clear"
   },
   zh: {
-    app_title: "ChatWithMe MCP",
-    app_subtitle: "Agent 优先聊天工作台",
+    app_title: "ChatWithMe",
+    app_subtitle: "Agent-first chat",
     app_powered_by: "由 Agents 驱动",
 
     connection_connecting: "连接中",
@@ -169,6 +171,8 @@ export const uiMessages = {
     theme_system: "跟随系统",
     theme_group: "主题模式",
     theme_toggle: "切换主题",
+    topbar_export_markdown: "下载全部消息（.md）",
+    topbar_export_markdown_done: "已导出全部消息为 Markdown",
 
     lang_en: "EN",
     lang_zh: "中",

@@ -1,5 +1,12 @@
 import { Text } from "@cloudflare/kumo";
-import { ListIcon, MoonIcon, PlusIcon, PlugsConnectedIcon, SunIcon } from "@phosphor-icons/react";
+import {
+  DownloadSimpleIcon,
+  ListIcon,
+  MoonIcon,
+  PlusIcon,
+  PlugsConnectedIcon,
+  SunIcon
+} from "@phosphor-icons/react";
 import { ConnectionIndicator, type ConnectionStatus, useThemeMode } from "../AgentsUiCompat";
 import { useResponsive } from "../../hooks/useResponsive";
 
@@ -7,11 +14,21 @@ interface TopBarProps {
   mobile: boolean;
   onToggleSidebar: () => void;
   onNewSession: () => void;
+  onExportAllMarkdown: () => void;
+  disableExportAllMarkdown?: boolean;
   connectionStatus: ConnectionStatus;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
 
-export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus, t }: TopBarProps) {
+export function TopBar({
+  mobile,
+  onToggleSidebar,
+  onNewSession,
+  onExportAllMarkdown,
+  disableExportAllMarkdown = false,
+  connectionStatus,
+  t
+}: TopBarProps) {
   const { mode, setMode } = useThemeMode();
   const { touch } = useResponsive();
   const resolvedMode =
@@ -62,7 +79,7 @@ export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus
           <button
             type="button"
             onClick={onNewSession}
-            className={`inline-flex items-center gap-1.5 rounded-lg border border-kumo-line px-2.5 py-2 text-xs font-medium text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
+            className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-kumo-line px-2.5 py-2 text-xs font-medium text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 sm:justify-start ${
               isTouchDevice ? "active:scale-95" : ""
             }`}
             style={{ minHeight: 44, minWidth: 44 }}
@@ -74,8 +91,21 @@ export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus
           </button>
           <button
             type="button"
+            onClick={onExportAllMarkdown}
+            disabled={disableExportAllMarkdown}
+            className={`inline-flex items-center justify-center rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
+              isTouchDevice ? "active:scale-95" : ""
+            } ${disableExportAllMarkdown ? "cursor-not-allowed opacity-50" : ""}`}
+            style={{ minHeight: 44, minWidth: 44 }}
+            aria-label={t("topbar_export_markdown")}
+            title={t("topbar_export_markdown")}
+          >
+            <DownloadSimpleIcon size={18} />
+          </button>
+          <button
+            type="button"
             onClick={handleToggleTheme}
-            className={`rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
+            className={`inline-flex items-center justify-center rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
               isTouchDevice ? "active:scale-95" : ""
             }`}
             style={{ minHeight: 44, minWidth: 44 }}
@@ -84,14 +114,16 @@ export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus
           >
             {isDark ? <SunIcon size={18} /> : <MoonIcon size={18} />}
           </button>
-          <ConnectionIndicator
-            status={connectionStatus}
-            labels={{
-              connecting: t("connection_connecting"),
-              connected: t("connection_connected"),
-              disconnected: t("connection_disconnected")
-            }}
-          />
+          {!mobile ? (
+            <ConnectionIndicator
+              status={connectionStatus}
+              labels={{
+                connecting: t("connection_connecting"),
+                connected: t("connection_connected"),
+                disconnected: t("connection_disconnected")
+              }}
+            />
+          ) : null}
         </div>
       </div>
     </header>
