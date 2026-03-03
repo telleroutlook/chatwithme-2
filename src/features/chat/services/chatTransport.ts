@@ -62,15 +62,48 @@ interface ChatTransportParams {
   readonlyMode: boolean;
 }
 
+/**
+ * Log fallback event for observability
+ */
+function logFallbackEvent(
+  requestId: string,
+  sessionId: string,
+  method: string,
+  agentError: unknown
+): void {
+  const event = {
+    event: "agent_fallback_triggered",
+    requestId,
+    sessionId,
+    method,
+    agentError: agentError instanceof Error ? agentError.message : String(agentError),
+    timestamp: new Date().toISOString(),
+  };
+  // Use console.info for structured logging (can be captured by log aggregation)
+  console.info(JSON.stringify(event));
+}
+
 async function withAgentFallback<T>(
   agentCall: () => Promise<T>,
-  apiCall: () => Promise<T>
+  apiCall: () => Promise<T>,
+  context?: { requestId?: string; sessionId?: string; method?: string }
 ): Promise<T> {
   try {
     return await agentCall();
-  } catch {
+  } catch (error) {
+    // Log fallback event for observability
+    if (context?.requestId && context?.sessionId && context?.method) {
+      logFallbackEvent(context.requestId, context.sessionId, context.method, error);
+    }
     return await apiCall();
   }
+}
+
+/**
+ * Generate a simple unique request ID for client-side tracking
+ */
+function generateRequestId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 export function createChatTransport({
@@ -88,6 +121,7 @@ export function createChatTransport({
 
   return {
     async getPermissions() {
+      const requestId = generateRequestId();
       return await withAgentFallback(
         async () => (await agent.call("getPermissions", [])) as ConnectionPermissions,
         async () => {
@@ -98,7 +132,8 @@ export function createChatTransport({
             canEdit: Boolean(response.canEdit),
             readonly: Boolean(response.readonly)
           };
-        }
+        },
+        { requestId, sessionId, method: "getPermissions" }
       );
     },
 
@@ -109,6 +144,7 @@ export function createChatTransport({
       if (historyInFlight) {
         return await historyInFlight;
       }
+      const requestId = generateRequestId();
       historyInFlight = withAgentFallback(
         async () => (await agent.call("getHistory", [])) as ChatHistoryItem[],
         async () => {
@@ -116,7 +152,8 @@ export function createChatTransport({
             `/api/chat/history?sessionId=${encodedSessionId}`
           );
           return Array.isArray(response.history) ? response.history : [];
-        }
+        },
+        { requestId, sessionId, method: "getHistory" }
       );
       try {
         const history = await historyInFlight;
@@ -140,6 +177,7 @@ export function createChatTransport({
     },
 
     async getPreconfiguredServers() {
+      const requestId = generateRequestId();
       return await withAgentFallback(
         async () =>
           (await agent.call("getPreconfiguredServers", [])) as Record<string, PreconfiguredServer>,
@@ -148,7 +186,8 @@ export function createChatTransport({
             `/api/mcp/servers?sessionId=${encodedSessionId}`
           );
           return response.servers;
-        }
+        },
+        { requestId, sessionId, method: "getPreconfiguredServers" }
       );
     },
 
@@ -175,6 +214,7 @@ export function createChatTransport({
     },
 
     async deleteMessage(messageId: string) {
+      const requestId = generateRequestId();
       const result = await withAgentFallback(
         async () => (await agent.call("deleteMessage", [messageId])) as DeleteMessageResult,
         async () => {
@@ -189,7 +229,8 @@ export function createChatTransport({
             deleted: response.deleted,
             error: response.error
           } as DeleteMessageResult;
-        }
+        },
+        { requestId, sessionId, method: "deleteMessage" }
       );
       if (result.success && result.deleted) {
         invalidateHistoryCache();
@@ -198,6 +239,7 @@ export function createChatTransport({
     },
 
     async editMessage(messageId: string, content: string) {
+      const requestId = generateRequestId();
       const result = await withAgentFallback(
         async () => (await agent.call("editUserMessage", [messageId, content])) as EditMessageResult,
         async () => {
@@ -215,7 +257,8 @@ export function createChatTransport({
             updated: response.updated,
             error: response.error
           } as EditMessageResult;
-        }
+        },
+        { requestId, sessionId, method: "editMessage" }
       );
       if (result.success && result.updated) {
         invalidateHistoryCache();
@@ -224,6 +267,7 @@ export function createChatTransport({
     },
 
     async regenerateMessage(messageId: string) {
+      const requestId = generateRequestId();
       const result = await withAgentFallback(
         async () => (await agent.call("regenerateFrom", [messageId])) as RegenerateMessageResult,
         async () => {
@@ -240,7 +284,8 @@ export function createChatTransport({
             response: response.response,
             error: response.error
           } as RegenerateMessageResult;
-        }
+        },
+        { requestId, sessionId, method: "regenerateMessage" }
       );
       if (result.success) {
         invalidateHistoryCache();
@@ -249,6 +294,7 @@ export function createChatTransport({
     },
 
     async toggleServer(name: string) {
+      const requestId = generateRequestId();
       return await withAgentFallback(
         async () => (await agent.call("toggleServer", [name])) as ToggleServerResult,
         async () => {
@@ -266,11 +312,13 @@ export function createChatTransport({
             error: response.error,
             stateVersion: response.stateVersion
           } as ToggleServerResult;
-        }
+        },
+        { requestId, sessionId, method: "toggleServer" }
       );
     },
 
     async listApprovals() {
+      const requestId = generateRequestId();
       return await withAgentFallback(
         async () => (await agent.call("listToolApprovals", [])) as unknown[],
         async () => {
@@ -278,11 +326,13 @@ export function createChatTransport({
             `/api/runtime/approvals?sessionId=${encodedSessionId}`
           );
           return Array.isArray(response.approvals) ? response.approvals : [];
-        }
+        },
+        { requestId, sessionId, method: "listApprovals" }
       );
     },
 
     async decideApproval(approvalId: string, decision: "approve" | "reject", reason?: string) {
+      const requestId = generateRequestId();
       return await withAgentFallback(
         async () => {
           const result =
@@ -305,7 +355,8 @@ export function createChatTransport({
             })
           });
           return response.success === true;
-        }
+        },
+        { requestId, sessionId, method: "decideApproval" }
       );
     }
   };

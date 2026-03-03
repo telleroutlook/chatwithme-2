@@ -17,6 +17,7 @@ declare namespace Cloudflare {
     CHAT_TOOL_MAX_ATTEMPTS?: string;
     AGENT_IDLE_TIMEOUT_SECONDS?: string;
     CHAT_CHART_PRIMARY?: string;
+    ALLOWED_ORIGINS?: string;
     ChatAgentV2: DurableObjectNamespace<import("./src/demos/chat/chat-agent").ChatAgentV2>;
   }
 }

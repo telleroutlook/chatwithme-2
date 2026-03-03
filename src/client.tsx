@@ -1,11 +1,6 @@
 import { Toaster } from "./components/Toaster";
 import { ModalHost } from "./components/modal";
-import {
-  ChatPane,
-  TopBar,
-  WorkspaceSidebar,
-  type WorkspaceSection
-} from "./components/layout";
+import type { WorkspaceSection } from "./components/layout";
 import { ThemeProvider, type ConnectionStatus } from "./components/AgentsUiCompat";
 import { ToastProvider, useToast } from "./hooks/useToast";
 import { I18nProvider, useI18n } from "./hooks/useI18n";
@@ -17,11 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { UIMessage } from "ai";
 import type { MCPServersState } from "agents";
-import type { CommandSuggestionItem } from "./types/command";
-import { extractMessageSources } from "./types/message-sources";
-import { getMessageText } from "./utils/message-text";
-import { downloadTextFile } from "./utils/exporters/image";
-import { exportPlainTextToPdf } from "./utils/exporters/pdf";
 import { nanoid } from "nanoid";
 import { trackChatEvent } from "./features/chat/services/trackChatEvent";
 import {
@@ -30,7 +20,6 @@ import {
   saveCurrentSessionId,
   saveSessions,
   updateSessionMeta,
-  deleteSessionMeta,
   type SessionMeta
 } from "./features/chat/services/sessionMeta";
 import {
@@ -39,88 +28,34 @@ import {
   type LiveProgressEntry,
   type ProgressPhase
 } from "./features/chat/services/progress";
-import {
-  isDeleteSessionResult,
-  isDeleteMessageResult,
-  isEditMessageResult,
-  isRegenerateMessageResult,
-  isToggleServerResult
-} from "./features/chat/services/apiContracts";
-import { getNextSessionAfterDelete } from "./features/chat/services/sessionSelection";
-import { buildCommandSuggestions } from "./features/chat/services/commandSuggestions";
-import { useChatTelemetry } from "./features/chat/hooks/useChatTelemetry";
+import { buildSessionViewResetState } from "./features/chat/services/sessionLifecycle";
 import { useEventLog } from "./features/chat/hooks/useEventLog";
-import { ApprovalContext } from "./features/chat/context/ApprovalContext";
-import { buildObservabilitySnapshot } from "./features/chat/services/observability";
 import {
   createChatTransport,
-  type ChatHistoryItem,
   type ConnectionPermissions,
   type PreconfiguredServer
 } from "./features/chat/services/chatTransport";
 import { useSessionSync } from "./features/chat/hooks/useSessionSync";
 import { useSessionSyncTriggers } from "./features/chat/hooks/useSessionSyncTriggers";
 import { useSessionHistoryHydration } from "./features/chat/hooks/useSessionHistoryHydration";
-import { buildSessionViewResetState } from "./features/chat/services/sessionLifecycle";
+import { getMessageText } from "./utils/message-text";
+import {
+  useChatSessionController,
+  useMessageActions,
+  useToolApprovalController,
+  useChatActions,
+  useExportActions
+} from "./features/chat/controllers";
+import { ChatWorkspace } from "./features/chat/app/ChatWorkspace";
+import {
+  readPreconfiguredServersFromState,
+  readPendingApprovalsFromState,
+  isReadonlyModeQueryEnabled,
+  type RuntimeApprovalItem
+} from "./features/chat/services/clientHelpers";
 import "./styles.css";
 
 // ============ Main App ============
-
-const DEFAULT_APPROVAL_REJECTION_REASON = "Rejected in chat message card";
-
-function readPreconfiguredServersFromState(
-  state: unknown
-): Record<string, PreconfiguredServer> | null {
-  if (!state || typeof state !== "object") return null;
-  const candidate = state as {
-    mcp?: { preconfiguredServers?: Record<string, PreconfiguredServer> };
-  };
-  const servers = candidate.mcp?.preconfiguredServers;
-  if (!servers || typeof servers !== "object") return null;
-  return servers;
-}
-
-function readPendingApprovalsFromState(state: unknown): RuntimeApprovalItem[] | null {
-  if (!state || typeof state !== "object") return null;
-  const candidate = state as {
-    runtime?: {
-      approvals?: Array<{
-        id?: unknown;
-        toolName?: unknown;
-        argsSnippet?: unknown;
-        status?: unknown;
-        createdAt?: unknown;
-      }>;
-    };
-  };
-  const approvals = candidate.runtime?.approvals;
-  if (!Array.isArray(approvals)) return null;
-
-  return approvals
-    .filter((item): item is RuntimeApprovalItem => {
-      return (
-        typeof item.id === "string" &&
-        typeof item.toolName === "string" &&
-        typeof item.argsSnippet === "string" &&
-        (item.status === "pending" || item.status === "approved" || item.status === "rejected") &&
-        typeof item.createdAt === "string"
-      );
-    })
-    .filter((item) => item.status === "pending");
-}
-
-function isReadonlyModeQueryEnabled(): boolean {
-  if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get("mode") === "view";
-}
-
-interface RuntimeApprovalItem {
-  id: string;
-  toolName: string;
-  argsSnippet: string;
-  status: "pending" | "approved" | "rejected";
-  createdAt: string;
-}
 
 function App() {
   const { addToast } = useToast();
@@ -153,7 +88,6 @@ function App() {
     tools: []
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [togglingServer, setTogglingServer] = useState<string | null>(null);
   const [preconfiguredServers, setPreconfiguredServers] = useState<
     Record<string, PreconfiguredServer>
   >({});
@@ -332,7 +266,6 @@ function App() {
     agent,
     resume: true,
     onToolCall: async ({ toolCall }) => {
-      // Handle client-side tools if needed
       console.log("Tool call:", toolCall);
     },
     onData: (part) => {
@@ -340,11 +273,9 @@ function App() {
       if (!progress) return;
       setLiveProgress((prev) => appendLiveProgressEntry(prev, progress, 6));
 
-      // Downsample high-frequency model snippet updates in event log
       const isModelSnippet = progress.phase === "model" && progress.status === "info" && progress.snippet;
       if (isModelSnippet) {
         snippetSampleCounterRef.current += 1;
-        // Only log every 2nd snippet update
         if (snippetSampleCounterRef.current % 2 !== 0) {
           return;
         }
@@ -398,6 +329,7 @@ function App() {
     triggerReconnectSyncRef.current = triggerReconnectSync;
   }, [triggerReconnectSync]);
 
+  // Apply session view reset state
   const applySessionViewReset = useCallback(() => {
     const next = buildSessionViewResetState<RuntimeApprovalItem, LiveProgressEntry>(readonlyMode);
     setConnectionStatus(next.connectionStatus);
@@ -423,7 +355,7 @@ function App() {
     }
   }, [chatTransport, readonlyMode]);
 
-  const loadHistory = useCallback(async (): Promise<ChatHistoryItem[]> => {
+  const loadHistory = useCallback(async () => {
     return await chatTransport.getHistory();
   }, [chatTransport]);
 
@@ -440,8 +372,7 @@ function App() {
     void loadPermissions();
   }, [connectionStatus, loadPermissions]);
 
-
-  // Hide live progress panel once assistant content starts arriving.
+  // Hide live progress panel once assistant content starts arriving
   useEffect(() => {
     if (!awaitingFirstAssistant) return;
     if (awaitingAssistantFromIndex === null) return;
@@ -450,12 +381,9 @@ function App() {
         index >= awaitingAssistantFromIndex &&
         msg.role === "assistant" &&
         getMessageText(msg)
-          // Ignore invisible keepalive/control characters.
           .replace(/[\u200b\u200c\u200d\ufeff]/g, "")
           .trim().length > 0
     );
-    // Keep live feed visible while the current reply is still streaming,
-    // then close it after stream completion.
     if (hasAssistantContent && status !== "streaming") {
       setAwaitingFirstAssistant(false);
       setAwaitingAssistantFromIndex(null);
@@ -469,7 +397,6 @@ function App() {
       const lastMsg = chatMessages[chatMessages.length - 1];
       const text = getMessageText(lastMsg);
 
-      // Only update on assistant messages
       if (lastMsg.role === "assistant" && text) {
         const firstUserMsg = chatMessages.find((m) => m.role === "user");
         const title = firstUserMsg
@@ -489,596 +416,108 @@ function App() {
     }
   }, [chatMessages, currentSessionId, enqueueSessionSync, userId]);
 
-  // Create new session
-  const handleNewSession = useCallback(() => {
-    const newId = nanoid(8);
-    stop();
-    setChatMessages([]);
-    updateSessionMeta(userId, newId, {
-      title: t("session_new"),
-      lastMessage: "",
-      timestamp: new Date().toISOString(),
-      messageCount: 0
-    });
-    setSessions(loadSessions(userId));
-    setCurrentSessionId(newId);
-    applySessionViewReset();
-  }, [applySessionViewReset, setChatMessages, stop, t, userId]);
+  // ============ Controllers ============
 
-  // Switch session
-  const handleSelectSession = useCallback(
+  // Session controller
+  const sessionController = useChatSessionController({
+    userId,
+    currentSessionId,
+    setCurrentSessionId,
+    sessions,
+    setSessions,
+    permissions,
+    chatTransport,
+    addToast,
+    t,
+    stop,
+    setChatMessages,
+    enqueueSessionSync,
+    readonlyMode
+  });
+
+  // Apply reset state after session operations
+  const wrappedHandleNewSession = useCallback(() => {
+    sessionController.handleNewSession();
+    applySessionViewReset();
+  }, [sessionController, applySessionViewReset]);
+
+  const wrappedHandleSelectSession = useCallback(
     (sessionId: string) => {
-      if (sessionId === currentSessionId) return;
-      stop();
-      setChatMessages([]);
-      setCurrentSessionId(sessionId);
+      sessionController.handleSelectSession(sessionId);
       applySessionViewReset();
     },
-    [applySessionViewReset, currentSessionId, setChatMessages, stop]
+    [sessionController, applySessionViewReset]
   );
 
-  // Delete session
-  const handleDeleteSession = useCallback(
-    async (sessionId: string) => {
-      if (!permissions.canEdit) {
-        addToast(t("readonly_action_blocked"), "info");
-        return;
-      }
+  // Message actions controller
+  const messageActions = useMessageActions({
+    userId,
+    currentSessionId,
+    permissions,
+    chatTransport,
+    chatMessages,
+    setChatMessages,
+    addToast,
+    t,
+    enqueueSessionSync,
+    setAwaitingFirstAssistant,
+    setAwaitingAssistantFromIndex,
+    setLiveProgress,
+    setSessions
+  });
 
-      try {
-        const deleteResult = await chatTransport.deleteSession(sessionId);
-        if (!isDeleteSessionResult(deleteResult) || !deleteResult.success) {
-          throw new Error(deleteResult?.error || "Invalid delete session response");
-        }
-
-        const nextSelection = getNextSessionAfterDelete(sessions, sessionId, currentSessionId);
-        deleteSessionMeta(userId, sessionId);
-        setSessions(loadSessions(userId));
-
-        if (nextSelection.action === "switch") {
-          handleSelectSession(nextSelection.sessionId);
-        } else if (nextSelection.action === "create-new") {
-          handleNewSession();
-        }
-
-        if (deleteResult.pendingDestroy) {
-          addToast(t("session_delete_pending_destroy"), "info");
-        }
-        addToast(t("session_deleted"), "success");
-        enqueueSessionSync("delete_session");
-      } catch (error) {
-        console.error("Failed to delete session:", error);
-        addToast(
-          t("session_delete_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      }
-    },
-    [
-      addToast,
-      chatTransport,
-      currentSessionId,
-      handleNewSession,
-      handleSelectSession,
-      permissions.canEdit,
-      enqueueSessionSync,
-      sessions,
-      t,
-      userId
-    ]
-  );
-
-  const handleDeleteMessage = useCallback(
-    async (messageId: UIMessage["id"]) => {
-      if (!permissions.canEdit) {
-        addToast(t("readonly_action_blocked"), "info");
-        return;
-      }
-      try {
-        const result = await chatTransport.deleteMessage(String(messageId));
-        if (!isDeleteMessageResult(result)) {
-          throw new Error("Invalid deleteMessage response");
-        }
-
-        if (!result.success) {
-          addToast(
-            t("message_delete_failed", {
-              reason: result.error || "Unknown error"
-            }),
-            "error"
-          );
-          return;
-        }
-
-        const nextMessages = chatMessages.filter((msg) => msg.id !== messageId);
-        setChatMessages(nextMessages);
-
-        const lastMsg = nextMessages[nextMessages.length - 1];
-        const lastText = lastMsg ? getMessageText(lastMsg) : "";
-        updateSessionMeta(userId, currentSessionId, {
-          lastMessage: lastText.slice(0, 50) + (lastText.length > 50 ? "..." : ""),
-          timestamp: new Date().toISOString(),
-          messageCount: nextMessages.length
-        });
-        setSessions(loadSessions(userId));
-        enqueueSessionSync("delete_message");
-
-        addToast(
-          result.deleted ? t("message_delete_success") : t("message_already_deleted"),
-          "success"
-        );
-      } catch (error) {
-        console.error("Failed to delete message:", error);
-        addToast(
-          t("message_delete_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      }
-    },
-    [
-      addToast,
-      chatMessages,
-      chatTransport,
-      currentSessionId,
-      permissions.canEdit,
-      enqueueSessionSync,
-      setChatMessages,
-      t,
-      userId
-    ]
-  );
-
-  const handleEditMessage = useCallback(
-    async (messageId: UIMessage["id"], content: string) => {
-      if (!permissions.canEdit) {
-        addToast(t("readonly_action_blocked"), "info");
-        return;
-      }
-      try {
-        const resolved = await chatTransport.editMessage(String(messageId), content);
-        if (!isEditMessageResult(resolved)) {
-          throw new Error("Invalid editUserMessage response");
-        }
-        if (!resolved.success) {
-          throw new Error(resolved.error || "Edit message failed");
-        }
-        if (!resolved.updated) {
-          addToast(t("message_edit_noop"), "info");
-          return;
-        }
-
-        const nextMessages = chatMessages.map((message) => {
-          if (message.id !== messageId || message.role !== "user" || !Array.isArray(message.parts)) {
-            return message;
-          }
-          const nextParts = message.parts.map((part) => {
-            if (part.type !== "text") return part;
-            return { ...part, text: content };
-          });
-          return { ...message, parts: nextParts };
-        });
-
-        setChatMessages(nextMessages);
-        addToast(t("message_edit_success"), "success");
-      } catch (error) {
-        console.error("Failed to edit message:", error);
-        addToast(
-          t("message_edit_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      }
-    },
-    [addToast, chatMessages, chatTransport, permissions.canEdit, setChatMessages, t]
-  );
-
-  const handleRegenerateMessage = useCallback(
-    async (messageId: UIMessage["id"]) => {
-      if (!permissions.canEdit) {
-        addToast(t("readonly_action_blocked"), "info");
-        return;
-      }
-      trackChatEvent("message_regenerate", { messageId });
-      setAwaitingFirstAssistant(true);
-      setAwaitingAssistantFromIndex(chatMessages.length);
-      setLiveProgress([
-        {
-          id: nanoid(10),
-          timestamp: new Date().toISOString(),
-          phase: "context",
-          message: t("message_actions_regenerate"),
-          status: "start",
-          severity: "low",
-          groupKey: "context"
-        }
-      ]);
-      try {
-        const previousCount = chatMessages.length;
-        const result = await chatTransport.regenerateMessage(String(messageId));
-        if (!isRegenerateMessageResult(result)) {
-          throw new Error("Invalid regenerateFrom response");
-        }
-        if (!result.success) {
-          throw new Error(result.error || "Regenerate failed");
-        }
-
-        const history = await loadHistory();
-        let hydrated = false;
-        if (Array.isArray(history)) {
-          const mapped = history.map((item, index) => ({
-            id: item.id ?? `history-${index}-${Date.now()}`,
-            role:
-              item.role === "user" || item.role === "assistant" || item.role === "system"
-                ? item.role
-                : "assistant",
-            parts: [{ type: "text", text: item.content ?? "" }]
-          })) as UIMessage[];
-          setChatMessages(mapped);
-          hydrated = mapped.length > previousCount;
-        }
-        if (!hydrated && typeof result.response === "string" && result.response.trim().length > 0) {
-          setChatMessages((prev) => [
-            ...prev,
-            {
-              id: nanoid(),
-              role: "assistant",
-              parts: [{ type: "text", text: result.response }]
-            } as UIMessage
-          ]);
-        }
-
-        setAwaitingFirstAssistant(false);
-        setAwaitingAssistantFromIndex(null);
-        setLiveProgress([]);
-        addToast(t("message_regenerate_success"), "success");
-      } catch (error) {
-        console.error("Failed to regenerate message:", error);
-        setAwaitingFirstAssistant(false);
-        setAwaitingAssistantFromIndex(null);
-        addToast(
-          t("message_regenerate_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      }
-    },
-    [
-      addToast,
-      chatTransport,
-      chatMessages.length,
-      loadHistory,
-      permissions.canEdit,
-      setChatMessages,
-      t
-    ]
-  );
-
-  const handleToggleServer = useCallback(
-    async (name: string) => {
-      if (!permissions.canEdit) {
-        addToast(t("readonly_action_blocked"), "info");
-        return;
-      }
-      setTogglingServer(name);
-      trackChatEvent("mcp_toggle", { name });
-      try {
-        const result = await chatTransport.toggleServer(name);
-        if (!isToggleServerResult(result)) {
-          throw new Error("Invalid toggleServer response");
-        }
-        if (result.success) {
-          addEventLog({
-            level: "success",
-            source: "client",
-            type: "mcp_toggle_success",
-            message: `Server ${name} toggled to ${result.active ? "active" : "inactive"}.`
-          });
-          addToast(
-            t("server_toggle_success", {
-              name,
-              state: result.active ? t("server_toggle_active") : t("server_toggle_inactive")
-            }),
-            "success"
-          );
-        } else {
-          addEventLog({
-            level: "error",
-            source: "client",
-            type: "mcp_toggle_failed",
-            message: result.error || "Toggle failed"
-          });
-          addToast(
-            t("server_toggle_failed", {
-              reason: result.error || "Unknown error"
-            }),
-            "error"
-          );
-        }
-      } catch (error) {
-        console.error("Failed to toggle server:", error);
-        addEventLog({
-          level: "error",
-          source: "client",
-          type: "mcp_toggle_failed",
-          message: error instanceof Error ? error.message : "Unknown error"
-        });
-        addToast(
-          t("server_toggle_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      } finally {
-        setTogglingServer(null);
-      }
-    },
-    [addEventLog, addToast, chatTransport, permissions.canEdit, t]
-  );
-
-  const handleApproveToolCall = useCallback(
-    async (approvalId: string) => {
-      if (!pendingApprovals.some((item) => item.id === approvalId)) return;
-      setApprovingApprovalId(approvalId);
-      try {
-        const success = await chatTransport.decideApproval(approvalId, "approve");
-        if (!success) {
-          addEventLog({
-            level: "error",
-            source: "client",
-            type: "tool_approval_failed",
-            message: `Approval failed for ${approvalId}`
-          });
-          addToast(t("approval_failed", { reason: "Approval failed" }), "error");
-          return;
-        }
-        setPendingApprovals((prev) => prev.filter((item) => item.id !== approvalId));
-        addEventLog({
-          level: "success",
-          source: "client",
-          type: "tool_approval_succeeded",
-          message: `Approval succeeded for ${approvalId}`
-        });
-        addToast(t("inspector_approvals_approve"), "success");
-      } catch (error) {
-        addEventLog({
-          level: "error",
-          source: "client",
-          type: "tool_approval_failed",
-          message: error instanceof Error ? error.message : "Unknown error",
-          data: { approvalId }
-        });
-        addToast(
-          t("approval_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      } finally {
-        setApprovingApprovalId((prev) => (prev === approvalId ? null : prev));
-      }
-    },
-    [addEventLog, addToast, chatTransport, pendingApprovals, t]
-  );
-
-  const handleRejectToolCall = useCallback(
-    async (approvalId: string) => {
-      if (!pendingApprovals.some((item) => item.id === approvalId)) return;
-      setApprovingApprovalId(approvalId);
-      try {
-        const success = await chatTransport.decideApproval(
-          approvalId,
-          "reject",
-          DEFAULT_APPROVAL_REJECTION_REASON
-        );
-        if (!success) {
-          addEventLog({
-            level: "error",
-            source: "client",
-            type: "tool_rejection_failed",
-            message: `Rejection failed for ${approvalId}`
-          });
-          addToast(t("approval_failed", { reason: "Rejection failed" }), "error");
-          return;
-        }
-        setPendingApprovals((prev) => prev.filter((item) => item.id !== approvalId));
-        addEventLog({
-          level: "success",
-          source: "client",
-          type: "tool_rejection_succeeded",
-          message: `Rejection succeeded for ${approvalId}`
-        });
-        addToast(t("inspector_approvals_reject"), "success");
-      } catch (error) {
-        addEventLog({
-          level: "error",
-          source: "client",
-          type: "tool_rejection_failed",
-          message: error instanceof Error ? error.message : "Unknown error",
-          data: { approvalId }
-        });
-        addToast(
-          t("approval_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      } finally {
-        setApprovingApprovalId((prev) => (prev === approvalId ? null : prev));
-      }
-    },
-    [addEventLog, addToast, chatTransport, pendingApprovals, t]
-  );
-
-  const handleSend = useCallback(() => {
-    const text = input.trim();
-    if (!text || isStreaming) return;
-    if (!permissions.canEdit) {
-      addToast(t("readonly_action_blocked"), "info");
-      return;
-    }
-    trackChatEvent("composer_send", { sessionId: currentSessionId, length: text.length });
-
-    if (text.includes("!new")) {
-      handleNewSession();
-      setInput("");
-      addToast(t("session_new"), "success");
-      return;
-    }
-
-    if (text.includes("!stop")) {
-      stop();
-      setInput("");
-      setAwaitingFirstAssistant(false);
-      setAwaitingAssistantFromIndex(null);
-      addToast(t("chat_input_action_stop"), "success");
-      return;
-    }
-
-    const sessionToken = text.match(/#([a-zA-Z0-9_-]{6,})/);
-    if (sessionToken) {
-      const targetSession = sessions.find((session) => session.id === sessionToken[1]);
-      if (targetSession) {
-        handleSelectSession(targetSession.id);
-        setInput("");
-        return;
-      }
-    }
-
-    // Handle slash commands
-    const slashCommand = text.match(/^\/(\w+)(?:\s+(.*))?$/);
-    if (slashCommand) {
-      const command = slashCommand[1].toLowerCase();
-      const args = slashCommand[2] || "";
-
-      switch (command) {
-        case "help":
-          addToast("Available commands: /help, /clear, /export, /new, /stop", "info");
-          setInput("");
-          return;
-        case "clear":
-          if (permissions.canEdit) {
-            handleNewSession();
-            setInput("");
-            addToast("Chat cleared", "success");
-          } else {
-            addToast(t("readonly_action_blocked"), "info");
-          }
-          return;
-        case "export":
-          addToast("Export feature - use the download toolbar", "info");
-          setInput("");
-          return;
-        case "new":
-          handleNewSession();
-          setInput("");
-          addToast(t("session_new"), "success");
-          return;
-        case "stop":
-          stop();
-          setInput("");
-          setAwaitingFirstAssistant(false);
-          setAwaitingAssistantFromIndex(null);
-          addToast(t("chat_input_action_stop"), "success");
-          return;
-        default:
-          // Unknown command - treat as regular message
-          break;
-      }
-    }
-
-    setInput("");
-    setAwaitingFirstAssistant(true);
-    setAwaitingAssistantFromIndex(chatMessages.length);
-    addEventLog({
-      level: "info",
-      source: "client",
-      type: "chat_send",
-      message: "User message sent.",
-      data: {
-        sessionId: currentSessionId,
-        length: text.length
-      }
-    });
-    setLiveProgress([
-      {
-        id: nanoid(10),
-        timestamp: new Date().toISOString(),
-        phase: "context",
-        message: t("live_feed_sent"),
-        status: "start",
-        severity: "low",
-        groupKey: "context"
-      }
-    ]);
-    sendMessage({ role: "user", parts: [{ type: "text", text }] });
-  }, [
+  // Tool approval controller
+  const toolApprovalController = useToolApprovalController({
+    pendingApprovals,
+    setPendingApprovals,
+    approvingApprovalId,
+    setApprovingApprovalId,
+    chatTransport,
     addEventLog,
     addToast,
-    handleNewSession,
-    handleSelectSession,
-    input,
-    isStreaming,
-    currentSessionId,
-    sendMessage,
-    sessions,
-    chatMessages.length,
-    stop,
-    permissions.canEdit,
     t
-  ]);
+  });
 
-  const handleStop = useCallback(() => {
-    stop();
-    setAwaitingFirstAssistant(false);
-    setAwaitingAssistantFromIndex(null);
-    trackChatEvent("composer_stop", { sessionId: currentSessionId });
-  }, [currentSessionId, stop]);
+  // Chat actions controller
+  const chatActions = useChatActions({
+    currentSessionId,
+    permissions,
+    chatTransport,
+    addEventLog,
+    addToast,
+    t,
+    input,
+    setInput,
+    isStreaming,
+    sessions,
+    chatMessagesLength: chatMessages.length,
+    sendMessage,
+    stop,
+    handleNewSession: wrappedHandleNewSession,
+    handleSelectSession: wrappedHandleSelectSession,
+    setAwaitingFirstAssistant,
+    setAwaitingAssistantFromIndex,
+    setLiveProgress
+  });
 
-  const serverEntries = useMemo(() => Object.entries(mcpState.servers), [mcpState.servers]);
-  const connectedServerCount = useMemo(
-    () => Object.values(preconfiguredServers).filter((server) => server.connected).length,
-    [preconfiguredServers]
-  );
-  const totalServerCount = useMemo(
-    () => Object.keys(preconfiguredServers).length,
-    [preconfiguredServers]
-  );
-  const telemetry = useChatTelemetry();
-  const telemetrySummary = useMemo(() => buildObservabilitySnapshot(telemetry), [telemetry]);
-  const pendingApprovalIds = useMemo(
-    () => new Set(pendingApprovals.map((item) => item.id)),
-    [pendingApprovals]
-  );
+  // Export actions controller
+  const exportActions = useExportActions({
+    currentSessionId,
+    chatMessages,
+    addToast,
+    t
+  });
+
+  // ============ Computed Values ============
+
   const approvalContextValue = useMemo(
     () => ({
-      pendingApprovalIds,
-      approvingApprovalId,
-      onApproveToolCall: handleApproveToolCall,
-      onRejectToolCall: handleRejectToolCall
+      pendingApprovalIds: toolApprovalController.pendingApprovalIds,
+      approvingApprovalId: toolApprovalController.approvingApprovalId,
+      onApproveToolCall: toolApprovalController.handleApproveToolCall,
+      onRejectToolCall: toolApprovalController.handleRejectToolCall
     }),
-    [pendingApprovalIds, approvingApprovalId, handleApproveToolCall, handleRejectToolCall]
-  );
-
-  const preconfiguredServerList = useMemo(
-    () => Object.entries(preconfiguredServers),
-    [preconfiguredServers]
-  );
-
-  const activeToolsCount = mcpState.tools.length;
-  const commandSuggestions = useMemo<CommandSuggestionItem[]>(
-    () =>
-      buildCommandSuggestions({
-        tools: mcpState.tools,
-        sessions,
-        t
-      }),
-    [mcpState.tools, sessions, t]
+    [toolApprovalController]
   );
 
   const phaseLabels: Record<ProgressPhase, string> = {
@@ -1091,192 +530,42 @@ function App() {
     error: t("live_feed_phase_error")
   };
 
-  const sourceGroupsCount = useMemo(
-    () =>
-      chatMessages.reduce((sum, message) => {
-        return sum + extractMessageSources(message.parts).length;
-      }, 0),
-    [chatMessages]
-  );
-  const exportCaptureRef = useRef<HTMLElement | null>(null);
-
-  // Format relative time
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return "now";
-    if (minutes < 60) return `${minutes}m`;
-    if (hours < 24) return `${hours}h`;
-    if (days < 7) return `${days}d`;
-    return date.toLocaleDateString();
-  };
-
-  const handleExportAllMessagesAsMarkdown = useCallback(() => {
-    if (chatMessages.length === 0) return;
-
-    const exportedAt = new Date();
-    const timestamp = exportedAt.toISOString().replace(/[:.]/g, "-");
-    const filename = `chat-${currentSessionId}-${timestamp}`;
-    const lines: string[] = [
-      "# Chat Export",
-      "",
-      `- Session ID: ${currentSessionId}`,
-      `- Exported At: ${exportedAt.toISOString()}`,
-      "",
-      "---",
-      ""
-    ];
-
-    chatMessages.forEach((message, index) => {
-      const role = message.role === "assistant" ? "Assistant" : message.role === "user" ? "User" : "System";
-      const content = getMessageText(message).trim();
-
-      lines.push(`## ${index + 1}. ${role}`);
-      lines.push("");
-      lines.push("````text");
-      lines.push(content || "(empty)");
-      lines.push("````");
-      lines.push("");
-    });
-
-    downloadTextFile(lines.join("\n"), `${filename}.md`, "text/markdown");
-    addToast(t("topbar_export_markdown_done"), "success");
-    trackChatEvent("chat_export_markdown", { messageCount: chatMessages.length, sessionId: currentSessionId });
-  }, [addToast, chatMessages, currentSessionId, t]);
-
-  const handleExportAllMessagesAsPdf = useCallback(async () => {
-    if (chatMessages.length === 0) return;
-
-    const exportedAt = new Date();
-    const timestamp = exportedAt.toISOString().replace(/[:.]/g, "-");
-    const filename = `chat-${currentSessionId}-${timestamp}.pdf`;
-    const lines: string[] = [
-      "Chat Export",
-      "",
-      `Session ID: ${currentSessionId}`,
-      `Exported At: ${exportedAt.toISOString()}`,
-      "",
-      "----------------------------------------",
-      ""
-    ];
-
-    chatMessages.forEach((message, index) => {
-      const role = message.role === "assistant" ? "Assistant" : message.role === "user" ? "User" : "System";
-      const content = getMessageText(message).trim();
-      lines.push(`${index + 1}. ${role}`);
-      lines.push(content || "(empty)");
-      lines.push("");
-    });
-
-    try {
-      await exportPlainTextToPdf(lines.join("\n"), {
-        filename,
-        margin: 12,
-        fontSize: 11,
-        title: "Chat Export"
-      });
-      addToast(t("topbar_export_pdf_done"), "success");
-      trackChatEvent("chat_export_pdf", { messageCount: chatMessages.length, sessionId: currentSessionId });
-    } catch (error) {
-      console.error("Failed to export PDF:", error);
-      addToast("Failed to export PDF", "error");
-    }
-  }, [addToast, chatMessages.length, currentSessionId, t]);
-
   return (
-    <div className="flex h-full bg-kumo-base/70 text-kumo-default">
-      {mobile && sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 lg:hidden"
-          style={{ background: "var(--app-overlay)" }}
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <WorkspaceSidebar
-        mobile={mobile}
-        sidebarOpen={sidebarOpen}
-        sessions={sessions}
-        currentSessionId={currentSessionId}
-        section={workspaceSection}
-        onSectionChange={setWorkspaceSection}
-        onClose={() => setSidebarOpen(false)}
-        onNewSession={() => {
-          handleNewSession();
-          if (mobile) {
-            setSidebarOpen(false);
-          }
-        }}
-        onSelectSession={(sessionId) => {
-          handleSelectSession(sessionId);
-          if (mobile) {
-            setSidebarOpen(false);
-          }
-        }}
-        onDeleteSession={handleDeleteSession}
-        formatTime={formatTime}
-        toolsCount={mcpState.tools.length}
-        resourcesCount={mcpState.resources.length}
-        observability={{
-          toolsCount: mcpState.tools.length,
-          sourcesCount: sourceGroupsCount,
-          liveProgress,
-          telemetry,
-          telemetrySummary
-        }}
-        lang={lang}
-        setLang={setLang}
-        t={t}
-      />
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <TopBar
-          mobile={mobile}
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onNewSession={handleNewSession}
-          onExportMarkdown={handleExportAllMessagesAsMarkdown}
-          onExportPdf={handleExportAllMessagesAsPdf}
-          disableExportAll={chatMessages.length === 0}
-          connectionStatus={connectionStatus}
-          t={t}
-        />
-
-
-        <div className="flex min-h-0 flex-1">
-          <main className="min-h-0 min-w-0 flex-1">
-            <ApprovalContext.Provider value={approvalContextValue}>
-              <ChatPane
-                messages={chatMessages}
-                isStreaming={isStreaming}
-                isConnected={isConnected}
-                canEdit={permissions.canEdit}
-                isReadonly={permissions.readonly}
-                activeToolsCount={activeToolsCount}
-                awaitingFirstAssistant={awaitingFirstAssistant}
-                liveProgress={liveProgress}
-                phaseLabels={phaseLabels}
-                input={input}
-                setInput={setInput}
-                commandSuggestions={commandSuggestions}
-                onSend={handleSend}
-                onStop={handleStop}
-                onDeleteMessage={handleDeleteMessage}
-                onEditMessage={handleEditMessage}
-                onRegenerateMessage={handleRegenerateMessage}
-                t={t}
-                getMessageText={getMessageText}
-                exportCaptureRef={exportCaptureRef}
-              />
-            </ApprovalContext.Provider>
-          </main>
-        </div>
-      </div>
-    </div>
+    <ChatWorkspace
+      mobile={mobile}
+      sidebarOpen={sidebarOpen}
+      setSidebarOpen={setSidebarOpen}
+      sessions={sessions}
+      currentSessionId={currentSessionId}
+      workspaceSection={workspaceSection}
+      setWorkspaceSection={setWorkspaceSection}
+      connectionStatus={connectionStatus}
+      permissions={permissions}
+      mcpState={mcpState}
+      chatMessages={chatMessages}
+      isStreaming={isStreaming}
+      isConnected={isConnected}
+      input={input}
+      setInput={setInput}
+      awaitingFirstAssistant={awaitingFirstAssistant}
+      liveProgress={liveProgress}
+      handleNewSession={wrappedHandleNewSession}
+      handleSelectSession={wrappedHandleSelectSession}
+      handleDeleteSession={sessionController.handleDeleteSession}
+      handleSend={chatActions.handleSend}
+      handleStop={chatActions.handleStop}
+      handleDeleteMessage={messageActions.handleDeleteMessage}
+      handleEditMessage={messageActions.handleEditMessage}
+      handleRegenerateMessage={messageActions.handleRegenerateMessage}
+      handleExportMarkdown={exportActions.handleExportMarkdown}
+      handleExportPdf={exportActions.handleExportPdf}
+      approvalContextValue={approvalContextValue}
+      preconfiguredServers={preconfiguredServers}
+      lang={lang}
+      setLang={setLang}
+      t={t}
+      phaseLabels={phaseLabels}
+    />
   );
 }
 

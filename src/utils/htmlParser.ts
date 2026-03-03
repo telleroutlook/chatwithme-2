@@ -12,6 +12,51 @@ export interface ParsedHtmlDocument {
 }
 
 /**
+ * Sanitize external style URLs to prevent XSS attacks
+ * Only allows:
+ * - HTTPS URLs
+ * - Relative paths (starting with / or ./)
+ * Explicitly rejects:
+ * - javascript: URLs
+ * - data: URLs
+ * - Other potentially dangerous protocols
+ */
+export function sanitizeExternalStyle(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // Allow HTTPS URLs
+  if (trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  // Allow relative paths
+  if (trimmed.startsWith('/') || trimmed.startsWith('./')) {
+    return trimmed;
+  }
+
+  // Block dangerous protocols
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('data:')) {
+    if (typeof console !== 'undefined') {
+      console.warn('Blocked unsafe external style URL:', url);
+    }
+    return null;
+  }
+
+  // Block other protocols (http:, ftp:, etc.) for security
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    if (typeof console !== 'undefined') {
+      console.warn('Blocked non-HTTPS external style URL:', url);
+    }
+    return null;
+  }
+
+  // Allow relative paths without leading ./ (e.g., "styles/main.css")
+  return trimmed;
+}
+
+/**
  * Parse a complete HTML document and extract its components
  */
 export function parseHtmlDocument(html: string): ParsedHtmlDocument {
@@ -27,10 +72,12 @@ export function parseHtmlDocument(html: string): ParsedHtmlDocument {
     .map((s) => s.textContent || "")
     .filter(Boolean);
 
-  // Extract external stylesheet links
+  // Extract and sanitize external stylesheet links
   const externalStyles = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'))
     .map((link) => link.getAttribute("href") || "")
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((url) => sanitizeExternalStyle(url))
+    .filter((url): url is string => url !== null);
 
   // Extract body content
   const bodyContent = doc.body?.innerHTML || "";

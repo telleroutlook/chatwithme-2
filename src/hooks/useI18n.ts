@@ -17,7 +17,7 @@ import {
   type UiMessageKey
 } from "../i18n/ui";
 
-interface TranslateParams {
+export interface TranslateParams {
   [key: string]: string;
 }
 
