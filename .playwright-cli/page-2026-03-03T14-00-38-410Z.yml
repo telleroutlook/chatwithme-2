@@ -1,0 +1,125 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e7]: Workspace
+      - generic [ref=e8]:
+        - button "Chats" [ref=e9]:
+          - generic [ref=e10]:
+            - img [ref=e11]
+            - text: Chats
+        - button "Tools" [ref=e13]:
+          - generic [ref=e14]:
+            - img [ref=e15]
+            - text: Tools
+        - button "Resources" [ref=e17]:
+          - generic [ref=e18]:
+            - img [ref=e19]
+            - text: Resources
+        - button "Settings" [ref=e21]:
+          - generic [ref=e22]:
+            - img [ref=e23]
+            - text: Settings
+      - button "New Chat" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: New Chat
+    - button "Hello, this is a test message ... now 2 Delete session" [ref=e109]:
+      - generic [ref=e110]:
+        - generic [ref=e111]:
+          - paragraph [ref=e113]: Hello, this is a test message ...
+          - paragraph [ref=e115]
+          - generic [ref=e116]:
+            - paragraph [ref=e117]: now
+            - generic [ref=e118]: "2"
+        - button "Delete session" [ref=e119]:
+          - img [ref=e120]
+  - generic [ref=e33]:
+    - banner [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - button "Toggle sidebar" [ref=e37]:
+            - img [ref=e38]
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - generic [ref=e43]:
+              - heading "Workchatly" [level=1] [ref=e44]
+              - paragraph [ref=e45]: AI Agent
+        - generic [ref=e46]:
+          - button "New Chat" [ref=e47]:
+            - img [ref=e48]
+            - generic [ref=e50]: New Chat
+          - button "Export" [ref=e51]:
+            - img [ref=e52]
+            - img [ref=e54]
+          - button "Toggle theme" [ref=e56]:
+            - img [ref=e57]
+          - generic [ref=e59]:
+            - img [ref=e99]
+            - generic [ref=e62]: connected
+    - main [ref=e64]:
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - button "Bubble" [ref=e68] [cursor=pointer]
+            - button "Docs" [ref=e69] [cursor=pointer]
+          - generic [ref=e70]:
+            - generic [ref=e124]:
+              - generic [ref=e127]:
+                - paragraph [ref=e130]: User:Hello, this is a test message from Playwright CLI
+                - generic [ref=e132]:
+                  - status [ref=e133]
+                  - button "Copy message" [disabled] [ref=e134]:
+                    - img [ref=e135]
+                  - button "Edit message" [disabled] [ref=e137]:
+                    - img [ref=e138]
+                  - button "Delete message" [disabled] [ref=e140]:
+                    - img [ref=e141]
+              - generic [ref=e145]:
+                - paragraph [ref=e148]: "AI:"
+                - generic [ref=e151]:
+                  - status [ref=e152]
+                  - button "Copy message" [disabled] [ref=e153]:
+                    - img [ref=e154]
+                  - button "Regenerate response" [disabled] [ref=e156]:
+                    - img [ref=e157]
+                  - button "Delete message" [disabled] [ref=e159]:
+                    - img [ref=e160]
+            - generic [ref=e163]:
+              - generic [ref=e164]:
+                - paragraph [ref=e165]: Live execution feed
+                - generic [ref=e166]: "3"
+              - generic [ref=e167]:
+                - generic "context | Message sent. Waiting for agent pipeline..." [ref=e168]:
+                  - generic [ref=e169]:
+                    - paragraph [ref=e171]: context
+                    - paragraph [ref=e173]: Message sent. Waiting for agent pipeline...
+                    - paragraph [ref=e175]: 10:00:37 PM
+                    - status "loading" [ref=e176]
+                - generic "context | Message received. Preparing response pipeline." [ref=e180]:
+                  - generic [ref=e181]:
+                    - paragraph [ref=e183]: context
+                    - paragraph [ref=e185]: Message received. Preparing response pipeline.
+                    - paragraph [ref=e187]: 10:00:37 PM
+                    - status "loading" [ref=e188]
+                - generic "context | Loading system prompt and tool context." [ref=e192]:
+                  - generic [ref=e193]:
+                    - paragraph [ref=e195]: context
+                    - paragraph [ref=e197]: Loading system prompt and tool context.
+                    - paragraph [ref=e199]: 10:00:37 PM
+                    - status "loading" [ref=e200]
+          - button "Back to top" [ref=e77] [cursor=pointer]:
+            - img [ref=e78]
+            - text: Back to top
+          - button "Back to bottom · Following" [ref=e80] [cursor=pointer]:
+            - img [ref=e81]
+            - text: Back to bottom · Following
+        - generic [ref=e85]:
+          - generic [ref=e86]:
+            - generic "Multiline input enabled" [ref=e87]:
+              - img [ref=e88]
+            - textbox "Waiting for response..." [ref=e204]
+            - button "Stop" [ref=e205] [cursor=pointer]:
+              - img [ref=e206]
+              - generic [ref=e94]: Stop
+          - generic [ref=e208]:
+            - paragraph [ref=e210]: Shift+Enter new line, Enter/Ctrl+Enter/Cmd+Enter send
+            - paragraph [ref=e211]: 0/4000

@@ -9,6 +9,16 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/agents/*", "/api/*"]
   },
+
+  // D1 Database for user authentication (reusing existing token_db)
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "token_db",
+      "database_id": "ba1ebf73-d24b-45b6-882f-45f25c0fc692"
+    }
+  ],
+
   "durable_objects": {
     "bindings": [
       {

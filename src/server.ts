@@ -14,6 +14,8 @@ import { registerMcpRoutes } from "./server/routes/mcp";
 import { registerRuntimeRoutes } from "./server/routes/runtime";
 import { registerHealthRoutes } from "./server/routes/health";
 import { registerAgentsRoutes } from "./server/routes/agents";
+import { registerAuthRoutes } from "./server/routes/auth";
+import { registerChatSyncRoutes } from "./server/routes/chat-sync";
 
 // Re-exports for backward compatibility
 export { ChatAgentV2 };
@@ -78,6 +80,8 @@ app.use("*", async (c, next) => {
 
 // ============ Route Registration ============
 
+registerAuthRoutes(app);
+registerChatSyncRoutes(app);
 registerChatRoutes(app);
 registerMcpRoutes(app);
 registerRuntimeRoutes(app);

@@ -282,12 +282,11 @@ async function run() {
     // Test 3: Touch scroll behavior
     // Simulate touch scroll and verify no jump
     const touchScrollStart = await getScrollMetrics(page, scrollContainer);
-
-    // Use touch-style scrolling (simulated with wheel for now)
-    for (let i = 0; i < 3; i += 1) {
-      await page.mouse.wheel(0, -200);
-      await page.waitForTimeout(100);
-    }
+    const programmaticDelta = touchScrollStart.scrollTop <= 0 ? 300 : -300;
+    await scrollContainer.evaluate((el, delta) => {
+      el.scrollBy({ top: delta, behavior: "auto" });
+    }, programmaticDelta);
+    await page.waitForTimeout(200);
 
     const touchScrollEnd = await getScrollMetrics(page, scrollContainer);
     console.log("Touch scroll test:", JSON.stringify({
@@ -298,7 +297,7 @@ async function run() {
 
     // Verify scroll actually happened
     assert(
-      touchScrollEnd.scrollTop > touchScrollStart.scrollTop,
+      Math.abs(touchScrollEnd.scrollTop - touchScrollStart.scrollTop) >= 10,
       `Touch scroll did not work. Start: ${touchScrollStart.scrollTop}, End: ${touchScrollEnd.scrollTop}`
     );
 

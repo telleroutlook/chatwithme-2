@@ -109,10 +109,13 @@ describe("MarkdownRenderer", () => {
   it("falls back to code block for html while streaming to avoid iframe jitter", () => {
     const content = ["```html", "<!DOCTYPE html>", "<html><body><h1>Hi</h1></body></html>", "```"].join("\n");
 
-    render(<MarkdownRenderer content={content} isStreaming={true} />);
+    const { container } = render(<MarkdownRenderer content={content} isStreaming={true} />);
 
     expect(screen.queryByText("HTML Preview")).not.toBeInTheDocument();
-    expect(screen.getByText("html")).toBeInTheDocument();
+    expect(document.querySelector(".html-preview-content")).not.toBeInTheDocument();
+    expect(
+      container.querySelector(".shiki-container, .animate-pulse")
+    ).toBeInTheDocument();
   });
 
   it("strips empty sourceMappingURL directives in html preview", async () => {

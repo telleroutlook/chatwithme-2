@@ -18,6 +18,10 @@ declare namespace Cloudflare {
     AGENT_IDLE_TIMEOUT_SECONDS?: string;
     CHAT_CHART_PRIMARY?: string;
     ALLOWED_ORIGINS?: string;
+    // D1 Database for authentication
+    DB: D1Database;
+    // JWT secret for authentication tokens
+    AUTH_JWT_SECRET: string;
     ChatAgentV2: DurableObjectNamespace<import("./src/demos/chat/chat-agent").ChatAgentV2>;
   }
 }

@@ -11,9 +11,10 @@ function normalizeBaseUrl(value) {
 async function parseWranglerHost() {
   try {
     const raw = await readFile("wrangler.jsonc", "utf8");
-    const parsed = JSON.parse(raw);
-    const host = parsed?.vars?.HOST;
-    if (typeof host === "string" && host.trim()) {
+    // wrangler.jsonc may contain comments; extract HOST via regex to avoid JSONC parser dependency.
+    const hostMatch = raw.match(/"HOST"\s*:\s*"([^"]+)"/);
+    const host = hostMatch?.[1];
+    if (host && host.trim()) {
       return normalizeBaseUrl(`https://${host.trim()}`);
     }
   } catch {

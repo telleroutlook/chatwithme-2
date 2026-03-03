@@ -1,68 +1,192 @@
 /**
  * Authentication utilities for the server.
  */
+import { verifyJwt } from "./jwt";
 
 /**
- * Authentication result from middleware
+ * Authentication mode indicating how the user was identified.
+ */
+export type AuthMode = "guest" | "authenticated";
+
+/**
+ * Source of the authentication token.
+ */
+export type TokenSource = "header" | "query" | "cookie" | "none";
+
+/**
+ * Extended authentication context with full auth information.
+ */
+export interface AuthContext {
+  /** User identifier */
+  userId: string;
+  /** Whether user is guest or authenticated */
+  authMode: AuthMode;
+  /** Where the token was extracted from */
+  tokenSource: TokenSource;
+  /** Original token value (for debugging) */
+  _token?: string;
+}
+
+/**
+ * Legacy authentication result (backward compatible).
  */
 export interface AuthResult {
   userId: string;
 }
 
+interface ResolveAuthOptions {
+  jwtSecret?: string | null;
+}
+
+interface TokenInfo {
+  token: string;
+  source: Exclude<TokenSource, "none">;
+}
+
 /**
- * Validate simple token format.
- * Token should be a UUID format string.
- * Returns user ID derived from token, or "anonymous" if invalid.
+ * Authentication error types for proper HTTP status codes.
  */
-export function validateSimpleToken(token: string): string {
+export type AuthErrorType = "token_missing" | "token_invalid_format" | "token_expired" | "token_revoked" | "user_not_found";
+
+/**
+ * Authentication error with detailed information.
+ */
+export class AuthError extends Error {
+  constructor(
+    public readonly type: AuthErrorType,
+    message: string
+  ) {
+    super(message);
+    this.name = "AuthError";
+  }
+}
+
+/**
+ * Validate simple token format (UUID for guest tokens).
+ * Returns user ID derived from token, or null if invalid.
+ */
+export function validateSimpleToken(token: string): string | null {
   // UUID format validation
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
     // Derive a stable user ID from token
     return `user-${token.slice(0, 8)}`;
   }
-  return "anonymous";
+  return null;
 }
 
-/**
- * Extract authentication info from request.
- * Checks: 1) Authorization header, 2) URL query param, 3) Cookie
- */
-export function authMiddleware(request: Request): AuthResult {
-  const url = new URL(request.url);
+function looksLikeJwt(token: string): boolean {
+  const parts = token.split(".");
+  return parts.length === 3 && parts.every((part) => /^[A-Za-z0-9_-]+$/.test(part));
+}
 
-  // 1. Try Authorization header (Bearer token)
+function extractToken(request: Request): TokenInfo | null {
+  const url = new URL(request.url);
   const authHeader = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice(7);
-    const userId = validateSimpleToken(token);
-    if (userId !== "anonymous") {
-      return { userId };
-    }
+    return { token: authHeader.slice(7), source: "header" };
   }
 
-  // 2. Try URL query parameter (for WebSocket connections)
   const tokenParam = url.searchParams.get("token");
   if (tokenParam) {
-    const userId = validateSimpleToken(tokenParam);
-    if (userId !== "anonymous") {
-      return { userId };
-    }
+    return { token: tokenParam, source: "query" };
   }
 
-  // 3. Try Cookie
   const cookie = request.headers.get("Cookie");
   if (cookie) {
     const match = cookie.match(/auth_token=([^;]+)/);
     if (match?.[1]) {
-      const userId = validateSimpleToken(match[1]);
-      if (userId !== "anonymous") {
-        return { userId };
-      }
+      return { token: match[1], source: "cookie" };
     }
   }
 
-  // Default to anonymous user
-  return { userId: "anonymous" };
+  return null;
+}
+
+/**
+ * Resolve full authentication context from request.
+ * Checks: 1) Authorization header, 2) URL query param, 3) Cookie
+ *
+ * Returns AuthContext with authMode indicating guest vs authenticated.
+ */
+export async function resolveAuthContext(request: Request, options: ResolveAuthOptions = {}): Promise<AuthContext> {
+  const tokenInfo = extractToken(request);
+  if (!tokenInfo) {
+    return {
+      userId: "anonymous",
+      authMode: "guest",
+      tokenSource: "none",
+    };
+  }
+
+  const { token, source } = tokenInfo;
+  const userId = validateSimpleToken(token);
+  if (userId) {
+    return {
+      userId,
+      authMode: "guest",
+      tokenSource: source,
+      _token: token.slice(0, 8) + "...",
+    };
+  }
+
+  if (looksLikeJwt(token) && options.jwtSecret) {
+    const payload = await verifyJwt(token, options.jwtSecret);
+    if (payload?.sub) {
+      return {
+        userId: payload.sub,
+        authMode: "authenticated",
+        tokenSource: source,
+        _token: token.slice(0, 20) + "...",
+      };
+    }
+  }
+
+  return {
+    userId: "anonymous",
+    authMode: "guest",
+    tokenSource: source,
+  };
+}
+
+/**
+ * Legacy auth middleware for backward compatibility.
+ * Delegates to resolveAuthContext and returns simplified result.
+ */
+export async function authMiddleware(request: Request, options: ResolveAuthOptions = {}): Promise<AuthResult> {
+  const ctx = await resolveAuthContext(request, options);
+  return { userId: ctx.userId };
+}
+
+/**
+ * Create an auth middleware that requires authentication.
+ * Returns 401 for guest users.
+ */
+export async function requireAuth(request: Request, options: ResolveAuthOptions = {}): Promise<AuthContext> {
+  const tokenInfo = extractToken(request);
+  if (!tokenInfo) {
+    throw new AuthError("token_missing", "Authentication required");
+  }
+
+  const ctx = await resolveAuthContext(request, options);
+  if (ctx.authMode !== "authenticated") {
+    const { token } = tokenInfo;
+    if (validateSimpleToken(token)) {
+      throw new AuthError("token_invalid_format", "Guest token cannot access this endpoint");
+    }
+    if (looksLikeJwt(token)) {
+      throw new AuthError("token_expired", "Token invalid or expired");
+    }
+    throw new AuthError("token_invalid_format", "Invalid authentication token");
+  }
+  return ctx;
+}
+
+/**
+ * Create an auth middleware that allows guests.
+ * Returns full AuthContext for logging.
+ */
+export async function allowGuest(request: Request, options: ResolveAuthOptions = {}): Promise<AuthContext> {
+  return resolveAuthContext(request, options);
 }
 
 /**
@@ -84,4 +208,29 @@ export function parseAgentName(fullName: string): { userId: string; sessionId: s
  */
 export function buildAgentName(userId: string, sessionId: string): string {
   return `${userId}:${sessionId}`;
+}
+
+/**
+ * Generate request ID for logging correlation.
+ */
+export function generateRequestId(): string {
+  return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Log auth context for observability.
+ */
+export function logAuthContext(
+  requestId: string,
+  ctx: AuthContext,
+  endpoint: string
+): void {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    requestId,
+    endpoint,
+    authMode: ctx.authMode,
+    userId: ctx.userId,
+    tokenSource: ctx.tokenSource,
+  }));
 }

@@ -17,7 +17,7 @@ export function registerRuntimeRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const { userId } = authMiddleware(c.req.raw);
+      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const snapshot = await agent.getRuntimeSnapshot();
@@ -35,7 +35,7 @@ export function registerRuntimeRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const { userId } = authMiddleware(c.req.raw);
+      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const approvals = await agent.listToolApprovals();
@@ -53,7 +53,7 @@ export function registerRuntimeRoutes(app: Hono<AppBindings>): void {
     try {
       const body = c.req.valid("json") as z.infer<typeof toolApprovalDecisionBodySchema>;
       const sessionId = resolveSessionId(body);
-      const { userId } = authMiddleware(c.req.raw);
+      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
 
