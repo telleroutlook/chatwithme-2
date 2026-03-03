@@ -1,24 +1,49 @@
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "./utils";
+import { useScrollLock } from "../../hooks/useScrollLock";
+import { useResponsive } from "../../hooks/useResponsive";
+import { BottomSheet } from "./BottomSheet";
 
-interface DialogProps {
+// ============ Types ============
+
+export interface DialogProps {
+  /** Whether the dialog is open */
   open: boolean;
+  /** Called when dialog should close */
   onClose: () => void;
+  /** Optional title */
   title?: string;
+  /** Dialog content */
   children: React.ReactNode;
+  /** Optional footer */
   footer?: React.ReactNode;
+  /** Mobile rendering mode */
+  mobileMode?: "modal" | "sheet";
+  /** Custom z-index */
+  zIndex?: number;
 }
 
-export function Dialog({ open, onClose, title, children, footer }: DialogProps) {
+// ============ Desktop Modal Component ============
+
+const DesktopModal = memo(function DesktopModal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  zIndex = 1000
+}: Omit<DialogProps, "mobileMode">) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Fixed-body scroll lock
+  useScrollLock(open);
+
   useEffect(() => {
-    if (!open) {
-      return;
-    }
+    if (!open) return;
 
     const previous = document.activeElement as HTMLElement | null;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
@@ -47,12 +72,10 @@ export function Dialog({ open, onClose, title, children, footer }: DialogProps) 
     };
 
     document.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
     queueMicrotask(() => panelRef.current?.focus());
 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
       previous?.focus();
     };
   }, [onClose, open]);
@@ -62,7 +85,7 @@ export function Dialog({ open, onClose, title, children, footer }: DialogProps) 
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex }}>
       <div
         className="absolute inset-0"
         style={{ background: "var(--app-overlay)" }}
@@ -92,4 +115,51 @@ export function Dialog({ open, onClose, title, children, footer }: DialogProps) 
     </div>,
     document.body
   );
+});
+
+// ============ Dialog Component (Responsive) ============
+
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  mobileMode = "sheet",
+  zIndex
+}: DialogProps) {
+  const { mobile } = useResponsive();
+
+  // On mobile with sheet mode, render BottomSheet
+  if (mobile && mobileMode === "sheet") {
+    return (
+      <BottomSheet
+        open={open}
+        onClose={onClose}
+        title={title}
+        footer={footer}
+        snap="content"
+        enableSwipeToClose={true}
+        zIndex={zIndex ?? 1100}
+      >
+        {children}
+      </BottomSheet>
+    );
+  }
+
+  // Desktop or modal mode
+  return (
+    <DesktopModal
+      open={open}
+      onClose={onClose}
+      title={title}
+      footer={footer}
+      zIndex={zIndex ?? 1000}
+    >
+      {children}
+    </DesktopModal>
+  );
 }
+
+// Export sub-components for direct use
+export { DesktopModal };

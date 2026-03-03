@@ -1232,7 +1232,12 @@ function App() {
           </main>
         </div>
 
-        <footer className={`app-glass shrink-0 border-t border-kumo-line/80 bg-kumo-base/55 py-3 ${mobile ? "pb-16" : ""}`}>
+        <footer
+          className="app-glass shrink-0 border-t border-kumo-line/80 bg-kumo-base/55 py-3"
+          style={{
+            paddingBottom: mobile ? "calc(0.75rem + var(--safe-area-inset-bottom) + 44px)" : undefined
+          }}
+        >
           <div className="flex justify-center">
             <PoweredByAgents label={t("app_powered_by")} />
           </div>

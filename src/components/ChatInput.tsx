@@ -264,7 +264,8 @@ export const ChatInput = memo(function ChatInput({
             variant="secondary"
             onClick={handleStop}
             icon={<StopIcon size={16} weight="fill" />}
-            className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4"
+            className="rounded-lg px-3 sm:px-4"
+            style={{ minHeight: 44, minWidth: 44, padding: "10px 12px" }}
             aria-label={t("chat_input_action_stop")}
           >
             <span className="hidden sm:inline">{t("chat_input_action_stop")}</span>
@@ -276,8 +277,8 @@ export const ChatInput = memo(function ChatInput({
             onClick={handleSubmit}
             disabled={!canSubmit}
             icon={<PaperPlaneTiltIcon size={16} />}
-            className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4 text-white hover:text-white"
-            style={{ color: "#fff" }}
+            className="rounded-lg px-3 sm:px-4 text-white hover:text-white"
+            style={{ minHeight: 44, minWidth: 44, padding: "10px 12px", color: "#fff" }}
             aria-label={t("chat_input_action_send")}
           >
             <span className="hidden sm:inline">{t("chat_input_action_send")}</span>
@@ -382,6 +383,7 @@ export function SimpleChatInput({
           variant="secondary"
           onClick={onStop}
           icon={<StopIcon size={16} weight="fill" />}
+          style={{ minHeight: 44, minWidth: 44, padding: "10px 12px" }}
           aria-label={t("chat_input_action_stop")}
         >
           {t("chat_input_action_stop")}
@@ -394,7 +396,7 @@ export function SimpleChatInput({
           disabled={!value.trim() || !isConnected || isReadOnly}
           icon={<PaperPlaneTiltIcon size={16} />}
           className="text-white hover:text-white"
-          style={{ color: "#fff" }}
+          style={{ minHeight: 44, minWidth: 44, padding: "10px 12px", color: "#fff" }}
           aria-label={t("chat_input_action_send")}
         >
           {t("chat_input_action_send")}

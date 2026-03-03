@@ -1,5 +1,5 @@
-import { useCallback, useRef, memo } from "react";
-import { Virtuoso } from "react-virtuoso";
+import { useCallback, useRef, memo, useEffect } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Empty } from "@cloudflare/kumo";
 import { ChatCircleIcon } from "@phosphor-icons/react";
 import type { UIMessage } from "ai";
@@ -24,6 +24,10 @@ interface ChatMessageListProps {
   onForkMessage: (messageId: UIMessage["id"]) => Promise<void>;
   getMessageText: (message: UIMessage) => string;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
+  /** Callback when the scroller element is ready */
+  onScrollerReady?: (el: HTMLElement | null) => void;
+  /** Additional bottom padding for keyboard/safe-area */
+  bottomInset?: number;
 }
 
 /**
@@ -33,6 +37,7 @@ interface ChatMessageListProps {
  * - Only renders visible messages (supports 1000+ messages)
  * - Auto-scrolls to bottom during streaming
  * - Smooth follow output behavior
+ * - Keyboard-aware with bottom inset support
  */
 function ChatMessageListInner({
   messages,
@@ -48,8 +53,11 @@ function ChatMessageListInner({
   onForkMessage,
   getMessageText,
   t,
+  onScrollerReady,
+  bottomInset = 0
 }: ChatMessageListProps) {
-  const virtuosoRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
 
   // Render individual message item
   const itemContent = useCallback(
@@ -87,6 +95,26 @@ function ChatMessageListInner({
     ]
   );
 
+  // Custom scroller ref handler to expose the actual scrollable element
+  const handleScrollerRef = useCallback(
+    (ref: HTMLElement | Window | null) => {
+      // Virtuoso may pass Window, but we only want HTMLElement
+      const el = ref instanceof HTMLElement ? ref : null;
+      scrollerRef.current = el;
+      onScrollerReady?.(el);
+    },
+    [onScrollerReady]
+  );
+
+  // Notify parent when scroller is ready on mount
+  useEffect(() => {
+    // Initial notification - the actual ref will be set by Virtuoso
+    return () => {
+      // Cleanup: notify parent that scroller is gone
+      onScrollerReady?.(null);
+    };
+  }, [onScrollerReady]);
+
   // Empty state
   if (messages.length === 0) {
     if (isLoading) {
@@ -113,8 +141,12 @@ function ChatMessageListInner({
   }
 
   return (
-    <div className="h-full w-full px-1 py-1 pb-4" ref={virtuosoRef}>
+    <div
+      className="h-full w-full px-1 py-1"
+      style={{ paddingBottom: bottomInset > 0 ? `${bottomInset}px` : undefined }}
+    >
       <Virtuoso
+        ref={virtuosoRef}
         data={messages}
         itemContent={itemContent}
         // Auto-follow during streaming
@@ -127,6 +159,8 @@ function ChatMessageListInner({
         overscan={5}
         // Custom scroller styling
         className="h-full"
+        // Expose the scroller element for unified scroll ownership
+        scrollerRef={handleScrollerRef}
       />
     </div>
   );

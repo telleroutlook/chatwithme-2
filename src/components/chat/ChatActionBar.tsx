@@ -7,7 +7,9 @@ import {
   ArticleIcon,
   RobotIcon,
   FileIcon,
+  HandTapIcon,
 } from "@phosphor-icons/react";
+import { useResponsive } from "../../hooks/useResponsive";
 import type { CommandSuggestionItem, CommandSection } from "../../types/command";
 
 interface ChatActionBarProps {
@@ -38,10 +40,14 @@ const SECTION_LABELS: Record<CommandSection, string> = {
 };
 
 export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActionBarProps) {
+  const { mobile, touch } = useResponsive();
   let globalIndex = -1;
 
   // Calculate total items for keyboard navigation hint
   const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
+
+  // On mobile/touch, use touch-friendly hints and larger tap areas
+  const isTouchDevice = mobile || touch;
 
   return (
     <div className="mx-2.5 mb-2 rounded-xl border border-[var(--app-border-default)] bg-[var(--app-surface-primary)]/95 p-2 shadow-[var(--app-shadow-soft)] backdrop-blur-sm">
@@ -85,7 +91,9 @@ export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActi
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => onSelect(item)}
-                      className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                      className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 text-left transition-colors active:scale-[0.98] ${
+                        isTouchDevice ? "py-3 min-h-[44px]" : "py-2"
+                      } ${
                         isActive
                           ? "bg-[var(--app-surface-secondary)] ring-1 ring-[var(--app-border-default)]"
                           : "hover:bg-[var(--app-surface-secondary)]/60"
@@ -131,27 +139,36 @@ export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActi
         })}
       </div>
 
-      {/* Keyboard hint */}
-      <div className="mt-2 flex items-center justify-center gap-2 border-t border-[var(--app-border-default)] pt-1.5">
-        <Text size="xs" variant="secondary">
-          <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
-            ↑↓
-          </kbd>{" "}
-          navigate
-        </Text>
-        <Text size="xs" variant="secondary">
-          <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
-            Tab
-          </kbd>{" "}
-          select
-        </Text>
-        <Text size="xs" variant="secondary">
-          <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
-            Esc
-          </kbd>{" "}
-          close
-        </Text>
-      </div>
+      {/* Keyboard/Touch hint - responsive based on device type */}
+      {isTouchDevice ? (
+        <div className="mt-2 flex items-center justify-center gap-2 border-t border-[var(--app-border-default)] pt-1.5">
+          <HandTapIcon size={12} className="text-[var(--app-text-muted)]" />
+          <Text size="xs" variant="secondary">
+            Tap to select
+          </Text>
+        </div>
+      ) : (
+        <div className="mt-2 flex items-center justify-center gap-2 border-t border-[var(--app-border-default)] pt-1.5">
+          <Text size="xs" variant="secondary">
+            <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
+              ↑↓
+            </kbd>{" "}
+            navigate
+          </Text>
+          <Text size="xs" variant="secondary">
+            <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
+              Tab
+            </kbd>{" "}
+            select
+          </Text>
+          <Text size="xs" variant="secondary">
+            <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
+              Esc
+            </kbd>{" "}
+            close
+          </Text>
+        </div>
+      )}
     </div>
   );
 }

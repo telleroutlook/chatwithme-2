@@ -16,6 +16,10 @@ interface ChatInputAreaProps {
   commandSuggestions: CommandSuggestionItem[];
   topAddons?: ReactNode;
   bottomAddons?: ReactNode;
+  /** Whether the virtual keyboard is visible */
+  keyboardVisible?: boolean;
+  /** Visual viewport offset from top (for keyboard-aware positioning) */
+  viewportOffsetTop?: number;
 }
 
 export function ChatInputArea({
@@ -29,7 +33,9 @@ export function ChatInputArea({
   placeholder,
   commandSuggestions,
   topAddons,
-  bottomAddons
+  bottomAddons,
+  keyboardVisible = false,
+  viewportOffsetTop = 0
 }: ChatInputAreaProps) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(() => {
@@ -42,8 +48,16 @@ export function ChatInputArea({
     window.localStorage.setItem("chatwithme:composer:expanded", expanded ? "1" : "0");
   }, [expanded]);
 
+  // Dynamic styles for keyboard-aware positioning
+  const containerStyle = keyboardVisible
+    ? {
+        transform: `translateY(-${viewportOffsetTop}px)`,
+        transition: "transform 0.15s ease-out"
+      }
+    : undefined;
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" style={containerStyle}>
       {topAddons}
       <div className="flex justify-end">
         <Button
@@ -51,6 +65,7 @@ export function ChatInputArea({
           variant="secondary"
           onClick={() => setExpanded((value) => !value)}
           aria-label={expanded ? t("chat_input_collapse") : t("chat_input_expand")}
+          style={{ minHeight: 44, minWidth: 44 }}
         >
           {expanded ? t("chat_input_collapse") : t("chat_input_expand")}
         </Button>

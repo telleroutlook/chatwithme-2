@@ -1,8 +1,9 @@
-import { useEffect, useCallback, memo } from "react";
+import { useEffect, useCallback, memo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useModalStack } from "./useModalStack";
 import { Button, Text } from "@cloudflare/kumo";
 import { XIcon } from "@phosphor-icons/react";
+import { useResponsive, isMobile } from "../../hooks/useResponsive";
 
 // ============ Dev Singleton Guard ============
 
@@ -40,7 +41,45 @@ function resolveZIndex(id: string | number, zIndex?: number): number {
   return 4000 + safeOffset;
 }
 
-// ============ Modal Component ============
+// ============ Fixed-Body Scroll Lock ============
+
+/**
+ * Global scroll lock manager using fixed-body technique
+ * Prevents iOS viewport jump when opening/closing modals
+ */
+class ScrollLockManager {
+  private scrollY = 0;
+  private lockCount = 0;
+
+  lock(): void {
+    if (this.lockCount === 0) {
+      this.scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${this.scrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+    }
+    this.lockCount++;
+  }
+
+  unlock(): void {
+    this.lockCount--;
+    if (this.lockCount <= 0) {
+      this.lockCount = 0;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      window.scrollTo(0, this.scrollY);
+    }
+  }
+}
+
+const scrollLockManager = new ScrollLockManager();
+
+// ============ Desktop Modal Component ============
 
 interface ModalProps {
   id: string | number;
@@ -60,7 +99,7 @@ interface ModalProps {
   animationDuration?: number;
 }
 
-const Modal = memo(function Modal({
+const DesktopModal = memo(function Modal({
   id,
   title,
   content,
@@ -78,6 +117,7 @@ const Modal = memo(function Modal({
   animationDuration = 200
 }: ModalProps) {
   const titleId = `modal-title-${String(id)}`;
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // Handle mask click
   const handleMaskClick = useCallback(() => {
@@ -86,8 +126,13 @@ const Modal = memo(function Modal({
     }
   }, [maskClosable, onClose]);
 
-  // Handle Escape key
+  // Handle keyboard and scroll lock
   useEffect(() => {
+    if (!visible) return;
+
+    // Store previous focus
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && closable) {
         onClose();
@@ -121,19 +166,20 @@ const Modal = memo(function Modal({
       }
     };
 
-    if (visible) {
-      document.addEventListener("keydown", handleKeyDown);
-      // Prevent body scroll
-      document.body.style.overflow = "hidden";
-      queueMicrotask(() => {
-        const dialog = document.querySelector<HTMLElement>(`[data-modal-id=\"${String(id)}\"]`);
-        dialog?.focus();
-      });
-    }
+    document.addEventListener("keydown", handleKeyDown);
+
+    // Use fixed-body scroll lock
+    scrollLockManager.lock();
+
+    queueMicrotask(() => {
+      const dialog = document.querySelector<HTMLElement>(`[data-modal-id=\"${String(id)}\"]`);
+      dialog?.focus();
+    });
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
+      scrollLockManager.unlock();
+      previousFocusRef.current?.focus();
     };
   }, [visible, closable, onClose, id]);
 
@@ -220,16 +266,262 @@ const Modal = memo(function Modal({
   );
 });
 
+// ============ Mobile Bottom Sheet Component ============
+
+interface MobileSheetProps extends ModalProps {
+  snap?: "content" | "half" | "full";
+  enableSwipeToClose?: boolean;
+}
+
+const MobileSheet = memo(function MobileSheet({
+  id,
+  title,
+  content,
+  footer,
+  visible,
+  closable = true,
+  maskClosable = true,
+  mask = true,
+  snap = "content",
+  enableSwipeToClose = true,
+  animationDuration = 200,
+  onClose
+}: MobileSheetProps) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number>(0);
+  const currentDragY = useRef<number>(0);
+  const isDragging = useRef<boolean>(false);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  const SWIPE_CLOSE_THRESHOLD = 100;
+  const SWIPE_VELOCITY_THRESHOLD = 0.3;
+
+  // Handle keyboard and scroll lock
+  useEffect(() => {
+    if (!visible) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && closable) {
+        onClose();
+      }
+
+      if (e.key !== "Tab") return;
+
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+
+      const focusables = sheet.querySelectorAll<HTMLElement>(
+        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
+      );
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const current = document.activeElement;
+      if (e.shiftKey && current === first) {
+        e.preventDefault();
+        last.focus();
+      }
+      if (!e.shiftKey && current === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    scrollLockManager.lock();
+
+    queueMicrotask(() => sheetRef.current?.focus());
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      scrollLockManager.unlock();
+      previousFocusRef.current?.focus();
+    };
+  }, [visible, closable, onClose]);
+
+  // Touch handlers for swipe-to-close
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!enableSwipeToClose) return;
+
+      const target = e.target as HTMLElement;
+      const isDragHandle = target.closest("[data-drag-handle]");
+      const scrollableEl = target.closest("[data-sheet-scrollable]") as HTMLElement | null;
+
+      if (scrollableEl && scrollableEl.scrollTop > 0) return;
+      if (!isDragHandle && scrollableEl) return;
+
+      dragStartY.current = e.touches[0].clientY;
+      currentDragY.current = e.touches[0].clientY;
+      isDragging.current = true;
+    },
+    [enableSwipeToClose]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging.current || !enableSwipeToClose || !sheetRef.current) return;
+
+      currentDragY.current = e.touches[0].clientY;
+      const deltaY = currentDragY.current - dragStartY.current;
+
+      if (deltaY < 0) return;
+
+      sheetRef.current.style.transform = `translateY(${deltaY}px)`;
+      sheetRef.current.style.transition = "none";
+    },
+    [enableSwipeToClose]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current || !enableSwipeToClose || !sheetRef.current) return;
+
+    isDragging.current = false;
+    const deltaY = currentDragY.current - dragStartY.current;
+    const velocity = deltaY / 200;
+
+    const shouldClose =
+      deltaY > SWIPE_CLOSE_THRESHOLD || (deltaY > 20 && velocity > SWIPE_VELOCITY_THRESHOLD);
+
+    if (shouldClose) {
+      onClose();
+    }
+
+    sheetRef.current.style.transform = "";
+    sheetRef.current.style.transition = "";
+  }, [enableSwipeToClose, onClose]);
+
+  // Calculate snap height
+  const getSnapHeight = useCallback(() => {
+    const viewportHeight = window.innerHeight;
+    const safeAreaBottom = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue("--safe-area-inset-bottom") || "0",
+      10
+    );
+
+    switch (snap) {
+      case "full":
+        return viewportHeight - safeAreaBottom - 48;
+      case "half":
+        return viewportHeight * 0.5;
+      default:
+        return undefined;
+    }
+  }, [snap]);
+
+  if (!visible && !content) return null;
+
+  return (
+    <div
+      className={`fixed inset-0 ${visible ? "pointer-events-auto" : "pointer-events-none"}`}
+      style={{ zIndex: resolveZIndex(id) }}
+    >
+      {/* Backdrop */}
+      {mask && (
+        <div
+          className={`
+            absolute inset-0 bg-[var(--app-overlay)] transition-opacity
+            ${visible ? "opacity-100" : "opacity-0"}
+          `}
+          style={{ transitionDuration: `${animationDuration}ms` }}
+          onClick={maskClosable ? onClose : undefined}
+        />
+      )}
+
+      {/* Sheet */}
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title ? String(title) : "Bottom sheet"}
+        aria-labelledby={title ? `sheet-title-${String(id)}` : undefined}
+        tabIndex={-1}
+        data-modal-id={String(id)}
+        data-drag-handle
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`
+          fixed bottom-0 left-0 right-0 flex flex-col
+          bg-[var(--app-surface-primary)] rounded-t-2xl
+          shadow-[var(--app-shadow-medium)]
+          transition-transform ease-out
+          ${visible ? "translate-y-0" : "translate-y-full"}
+        `}
+        style={{
+          height: getSnapHeight(),
+          maxHeight: snap === "full" ? undefined : "90vh",
+          paddingBottom: "var(--safe-area-inset-bottom, 0px)",
+          transitionDuration: `${animationDuration}ms`
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Drag Handle */}
+        <div
+          data-drag-handle
+          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+        >
+          <div className="w-10 h-1 rounded-full bg-[var(--app-border-strong)]" />
+        </div>
+
+        {/* Header */}
+        {(title || closable) && (
+          <div className="flex items-center justify-between px-5 py-4 border-b border-kumo-line">
+            {title && (
+              <Text size="lg" bold id={`sheet-title-${String(id)}`}>
+                {title}
+              </Text>
+            )}
+            {closable && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1 rounded-md text-kumo-subtle hover:text-kumo-default hover:bg-kumo-control transition-colors"
+                aria-label="Close"
+              >
+                <XIcon size={20} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Body */}
+        <div data-sheet-scrollable className="flex-1 overflow-y-auto px-5 py-4">
+          {content}
+        </div>
+
+        {/* Footer */}
+        {footer !== null && (
+          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-kumo-line">
+            {footer || (
+              <Button variant="secondary" onClick={onClose}>
+                Close
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
 // ============ Modal Host ============
 
 /**
  * Modal Host Component
  *
  * Renders all modals in the stack via React Portal.
+ * On mobile, renders as bottom sheet; on desktop, renders as centered modal.
  * Must be rendered only once in the app.
  */
 export function ModalHost() {
   const { modals } = useModalStack();
+  const { mobile } = useResponsive();
 
   // Dev singleton guard
   useEffect(() => {
@@ -246,29 +538,33 @@ export function ModalHost() {
 
   return createPortal(
     <>
-      {modals.map((modal) => (
-        <Modal
-          key={modal.id}
-          id={modal.id}
-          title={modal.title}
-          content={modal.content}
-          footer={modal.footer}
-          visible={modal.visible}
-          closable={modal.closable}
-          maskClosable={modal.maskClosable}
-          mask={modal.mask}
-          width={modal.width}
-          maxWidth={modal.maxWidth}
-          className={modal.className}
-          zIndex={modal.zIndex}
-          centered={modal.centered}
-          onClose={modal.close}
-          animationDuration={modal.animationDuration}
-        />
-      ))}
+      {modals.map((modal) => {
+        const ModalComponent = mobile ? MobileSheet : DesktopModal;
+
+        return (
+          <ModalComponent
+            key={modal.id}
+            id={modal.id}
+            title={modal.title}
+            content={modal.content}
+            footer={modal.footer}
+            visible={modal.visible}
+            closable={modal.closable}
+            maskClosable={modal.maskClosable}
+            mask={modal.mask}
+            width={modal.width}
+            maxWidth={modal.maxWidth}
+            className={modal.className}
+            zIndex={modal.zIndex}
+            centered={modal.centered}
+            onClose={modal.close}
+            animationDuration={modal.animationDuration}
+          />
+        );
+      })}
     </>,
     target
   );
 }
 
-export { Modal };
+export { DesktopModal, MobileSheet };

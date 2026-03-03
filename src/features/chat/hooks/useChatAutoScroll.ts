@@ -8,6 +8,12 @@ interface UseChatAutoScrollOptions {
   visibilityThreshold?: number;
   nearBottomThreshold?: number;
   showTopThreshold?: number;
+  /** Additional bottom offset (e.g., keyboard height + safe-area) */
+  bottomInset?: number;
+  /** Whether the virtual keyboard is visible (from useVirtualViewport) */
+  keyboardVisible?: boolean;
+  /** Time to suspend follow mode after keyboard visibility change (default: 250ms) */
+  suspendFollowMsAfterKeyboard?: number;
 }
 
 interface UseChatAutoScrollResult {
@@ -25,21 +31,36 @@ export function useChatAutoScroll({
   messagesLength,
   visibilityThreshold = 240,
   nearBottomThreshold = 80,
-  showTopThreshold = 200
+  showTopThreshold = 200,
+  bottomInset = 0,
+  keyboardVisible = false,
+  suspendFollowMsAfterKeyboard = 250
 }: UseChatAutoScrollOptions): UseChatAutoScrollResult {
   const [mode, setMode] = useState<AutoScrollMode>("follow");
   const [unreadCount, setUnreadCount] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const lastManualScrollAtRef = useRef(0);
   const lastObservedScrollHeightRef = useRef(0);
+  const keyboardSuspendUntilRef = useRef(0);
+  const prevKeyboardVisibleRef = useRef(keyboardVisible);
+
+  // Suspend follow mode when keyboard visibility changes
+  useEffect(() => {
+    if (keyboardVisible !== prevKeyboardVisibleRef.current) {
+      prevKeyboardVisibleRef.current = keyboardVisible;
+      keyboardSuspendUntilRef.current = Date.now() + suspendFollowMsAfterKeyboard;
+    }
+  }, [keyboardVisible, suspendFollowMsAfterKeyboard]);
 
   const isNearBottom = useCallback(() => {
     const element = scrollRef.current;
     if (!element) {
       return true;
     }
-    return element.scrollHeight - element.scrollTop - element.clientHeight < nearBottomThreshold;
-  }, [nearBottomThreshold, scrollRef]);
+    // Include bottomInset in the threshold calculation
+    const effectiveThreshold = nearBottomThreshold + bottomInset;
+    return element.scrollHeight - element.scrollTop - element.clientHeight < effectiveThreshold;
+  }, [nearBottomThreshold, bottomInset, scrollRef]);
 
   const scrollToBottom = useCallback(() => {
     const element = scrollRef.current;
@@ -101,6 +122,10 @@ export function useChatAutoScroll({
       }
       // Respect recent manual upward scrolls and avoid snapping user back.
       if (Date.now() - lastManualScrollAtRef.current < 280) {
+        return;
+      }
+      // Respect keyboard suspend period to avoid jump during keyboard animation
+      if (Date.now() < keyboardSuspendUntilRef.current) {
         return;
       }
       element.scrollTop = element.scrollHeight;

@@ -12,6 +12,9 @@ interface ChatSendButtonProps {
 export function ChatSendButton({ disabled, isStreaming, onSend, onStop }: ChatSendButtonProps) {
   const { t } = useI18n();
 
+  // Ensure 44x44 touch target for mobile - use padding to guarantee size
+  const touchTargetStyle = { minHeight: 44, minWidth: 44, padding: "10px 12px" };
+
   if (isStreaming) {
     return (
       <Button
@@ -19,7 +22,8 @@ export function ChatSendButton({ disabled, isStreaming, onSend, onStop }: ChatSe
         variant="secondary"
         onClick={onStop}
         icon={<StopIcon size={16} weight="fill" />}
-        className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4"
+        className="rounded-lg"
+        style={touchTargetStyle}
         aria-label={t("chat_input_action_stop")}
       >
         <span className="hidden sm:inline">{t("chat_input_action_stop")}</span>
@@ -34,8 +38,8 @@ export function ChatSendButton({ disabled, isStreaming, onSend, onStop }: ChatSe
       onClick={onSend}
       disabled={disabled}
       icon={<PaperPlaneTiltIcon size={16} />}
-      className="min-h-10 min-w-10 rounded-lg px-3 sm:px-4 text-white hover:text-white"
-      style={{ color: "#fff" }}
+      className="rounded-lg text-white hover:text-white"
+      style={{ ...touchTargetStyle, color: "#fff" }}
       aria-label={t("chat_input_action_send")}
     >
       <span className="hidden sm:inline">{t("chat_input_action_send")}</span>

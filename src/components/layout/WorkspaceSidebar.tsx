@@ -10,6 +10,7 @@ import {
   XIcon,
   GlobeHemisphereWestIcon
 } from "@phosphor-icons/react";
+import { useResponsive } from "../../hooks/useResponsive";
 import type { UiLang } from "../../i18n/ui";
 import { confirm } from "../modal";
 
@@ -77,6 +78,11 @@ export function WorkspaceSidebar({
   t
 }: WorkspaceSidebarProps) {
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  const { touch } = useResponsive();
+
+  // Use touch-optimized styles on mobile or touch devices
+  const isTouchDevice = mobile || touch;
+
   const sections: Array<{
     id: WorkspaceSection;
     label: string;
@@ -131,7 +137,7 @@ export function WorkspaceSidebar({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-2 transition-colors hover:bg-kumo-control focus-visible:outline-none"
+              className="rounded-lg p-2 transition-colors hover:bg-kumo-control focus-visible:outline-none min-w-[44px] min-h-[44px] flex items-center justify-center active:scale-95"
               aria-label={t("sidebar_close")}
             >
               <XIcon size={20} className="text-kumo-subtle" />
@@ -145,7 +151,9 @@ export function WorkspaceSidebar({
               key={item.id}
               type="button"
               onClick={() => onSectionChange(item.id)}
-              className={`flex items-center justify-between rounded-lg border px-2 py-1.5 text-xs transition-colors ${
+              className={`flex items-center justify-between rounded-lg border px-2 text-xs transition-colors active:scale-[0.98] ${
+                isTouchDevice ? "py-2.5 min-h-[44px]" : "py-1.5"
+              } ${
                 section === item.id
                   ? "border-kumo-accent bg-kumo-accent/12 text-kumo-accent"
                   : "border-kumo-line text-kumo-subtle hover:bg-kumo-control"
@@ -198,7 +206,7 @@ export function WorkspaceSidebar({
                 role="button"
                 tabIndex={0}
                 aria-current={currentSessionId === session.id ? "page" : undefined}
-                className={`group w-full rounded-xl p-3 text-left transition-all duration-200 ${
+                className={`group w-full rounded-xl p-3 text-left transition-all duration-200 active:scale-[0.98] ${
                   currentSessionId === session.id
                     ? "bg-kumo-accent/10 ring-1 ring-kumo-accent shadow-[var(--app-shadow-soft)]"
                     : "ring-1 ring-transparent hover:bg-kumo-control/75 hover:ring-kumo-line"
@@ -249,7 +257,11 @@ export function WorkspaceSidebar({
                         setDeletingSessionId((prev) => (prev === session.id ? null : prev));
                       }
                     }}
-                    className="rounded p-1 text-kumo-subtle opacity-0 transition-all hover:bg-kumo-danger/20 hover:text-kumo-danger group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-100"
+                    className={`rounded text-kumo-subtle transition-all hover:bg-kumo-danger/20 hover:text-kumo-danger focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-100 active:scale-95 ${
+                      isTouchDevice
+                        ? "opacity-100 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                        : "opacity-0 p-1 group-hover:opacity-100"
+                    }`}
                     aria-label={t("session_delete")}
                   >
                     <TrashIcon size={14} />
@@ -273,7 +285,9 @@ export function WorkspaceSidebar({
                     key={option.value}
                     type="button"
                     onClick={() => setLang(option.value)}
-                    className={`flex w-full items-center rounded-lg border px-2 py-1.5 text-left text-xs transition-colors ${
+                    className={`flex w-full items-center rounded-lg border px-2 text-left text-xs transition-colors active:scale-[0.98] ${
+                      isTouchDevice ? "py-2.5 min-h-[44px]" : "py-1.5"
+                    } ${
                       active
                         ? "border-kumo-accent bg-kumo-accent/12 text-kumo-accent"
                         : "border-kumo-line text-kumo-subtle hover:bg-kumo-control"

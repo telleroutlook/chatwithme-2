@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Badge, Button, Surface, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
@@ -6,6 +6,8 @@ import { ChatInputArea, ChatMessageList, LoadingDots } from "../chat";
 import { ScrollJumpControls } from "../chat/ScrollJumpControls";
 import { useChatAutoScroll } from "../../features/chat/hooks/useChatAutoScroll";
 import { trackChatEvent } from "../../features/chat/services/trackChatEvent";
+import { useResponsive } from "../../hooks/useResponsive";
+import { useVirtualViewport } from "../../hooks/useVirtualViewport";
 
 interface ProgressEntry {
   id: string;
@@ -71,13 +73,33 @@ export function ChatPane({
   getMessageText
 }: ChatPaneProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const virtuosoScrollerRef = useRef<HTMLElement | null>(null);
   const onAccentTextClass = "text-white hover:text-white";
   const [messageVariant, setMessageVariant] = useState<"bubble" | "docs">("bubble");
   const markdownPrefs = DEFAULT_MARKDOWN_PREFS;
+  const { mobile } = useResponsive();
+
+  // Keyboard detection for mobile UX
+  const { keyboardVisible, keyboardHeight, offsetTop } = useVirtualViewport({
+    keyboardThreshold: 120,
+    debounceMs: 50
+  });
+
+  // Calculate bottom inset for keyboard + safe-area
+  const bottomInset = keyboardVisible ? keyboardHeight : 0;
+
   const { mode, unreadCount, showBackToBottom, showBackToTop, onScroll, scrollToBottom, scrollToTop } = useChatAutoScroll({
     scrollRef,
-    messagesLength: messages.length
+    messagesLength: messages.length,
+    bottomInset,
+    keyboardVisible,
+    suspendFollowMsAfterKeyboard: 250
   });
+
+  // Handle scroller ready callback from ChatMessageList
+  const handleScrollerReady = useCallback((el: HTMLElement | null) => {
+    virtuosoScrollerRef.current = el;
+  }, []);
 
   // Auto-scroll to show Live execution feed when user sends a message
   useEffect(() => {
@@ -102,8 +124,8 @@ export function ChatPane({
           <Button
             variant={messageVariant === "bubble" ? "primary" : "secondary"}
             size="xs"
-            className={messageVariant === "bubble" ? onAccentTextClass : undefined}
-            style={messageVariant === "bubble" ? { color: "#fff" } : undefined}
+            className={messageVariant === "bubble" ? onAccentTextClass : ""}
+            style={{ minHeight: 44, minWidth: 44, color: messageVariant === "bubble" ? "#fff" : undefined }}
             onClick={() => setMessageVariant("bubble")}
             aria-label={t("chat_message_variant_bubble")}
           >
@@ -112,8 +134,8 @@ export function ChatPane({
           <Button
             variant={messageVariant === "docs" ? "primary" : "secondary"}
             size="xs"
-            className={messageVariant === "docs" ? onAccentTextClass : undefined}
-            style={messageVariant === "docs" ? { color: "#fff" } : undefined}
+            className={messageVariant === "docs" ? onAccentTextClass : ""}
+            style={{ minHeight: 44, minWidth: 44, color: messageVariant === "docs" ? "#fff" : undefined }}
             onClick={() => setMessageVariant("docs")}
             aria-label={t("chat_message_variant_docs")}
           >
@@ -138,6 +160,8 @@ export function ChatPane({
             onForkMessage={onForkMessage}
             getMessageText={getMessageText}
             t={t}
+            onScrollerReady={handleScrollerReady}
+            bottomInset={bottomInset}
           />
           {awaitingFirstAssistant && (
             <div className="mt-3">
@@ -203,7 +227,12 @@ export function ChatPane({
         />
       </div>
 
-      <div className="shrink-0 border-t border-kumo-line/80 bg-kumo-base/80 px-3 py-3 app-glass sm:px-5">
+      <div
+        className="shrink-0 border-t border-kumo-line/80 bg-kumo-base/80 px-3 py-3 app-glass sm:px-5"
+        style={{
+          paddingBottom: mobile ? "calc(0.75rem + var(--safe-area-inset-bottom) + 44px)" : undefined
+        }}
+      >
         <ChatInputArea
           value={input}
           onChange={setInput}
@@ -216,6 +245,8 @@ export function ChatPane({
           placeholder={
             activeToolsCount > 0 ? t("chat_placeholder_tools") : t("chat_placeholder_default")
           }
+          keyboardVisible={keyboardVisible}
+          viewportOffsetTop={offsetTop}
         />
       </div>
     </section>

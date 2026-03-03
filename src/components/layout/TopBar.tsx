@@ -1,6 +1,7 @@
 import { Text } from "@cloudflare/kumo";
 import { ListIcon, MoonIcon, PlusIcon, PlugsConnectedIcon, SunIcon } from "@phosphor-icons/react";
 import { ConnectionIndicator, type ConnectionStatus, useThemeMode } from "../AgentsUiCompat";
+import { useResponsive } from "../../hooks/useResponsive";
 
 interface TopBarProps {
   mobile: boolean;
@@ -12,22 +13,34 @@ interface TopBarProps {
 
 export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus, t }: TopBarProps) {
   const { mode, setMode } = useThemeMode();
+  const { touch } = useResponsive();
   const resolvedMode =
     mode === "system" ? (document.documentElement.getAttribute("data-mode") ?? "light") : mode;
   const isDark = resolvedMode === "dark";
+
+  // Apply touch feedback on mobile or touch devices
+  const isTouchDevice = mobile || touch;
 
   const handleToggleTheme = () => {
     setMode(isDark ? "light" : "dark");
   };
 
   return (
-    <header className="app-glass border-b border-kumo-line/80 bg-kumo-base/70 px-3 py-3 sm:px-5">
+    <header
+      className="app-glass border-b border-kumo-line/80 bg-kumo-base/70 px-3 py-3 sm:px-5"
+      style={{
+        paddingTop: mobile ? "calc(0.75rem + var(--safe-area-inset-top))" : undefined
+      }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="rounded-lg p-2 transition-colors hover:bg-kumo-control focus-visible:outline-none"
+            className={`rounded-lg p-2 transition-colors hover:bg-kumo-control focus-visible:outline-none ${
+              isTouchDevice ? "active:scale-95" : ""
+            }`}
+            style={{ minHeight: 44, minWidth: 44 }}
             aria-label={mobile ? t("sidebar_open") : t("sidebar_toggle")}
           >
             <ListIcon size={20} className="text-kumo-subtle" />
@@ -49,7 +62,10 @@ export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus
           <button
             type="button"
             onClick={onNewSession}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-kumo-line px-2.5 py-2 text-xs font-medium text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40"
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-kumo-line px-2.5 py-2 text-xs font-medium text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
+              isTouchDevice ? "active:scale-95" : ""
+            }`}
+            style={{ minHeight: 44, minWidth: 44 }}
             aria-label={t("session_new")}
             title={t("session_new")}
           >
@@ -59,7 +75,10 @@ export function TopBar({ mobile, onToggleSidebar, onNewSession, connectionStatus
           <button
             type="button"
             onClick={handleToggleTheme}
-            className="rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40"
+            className={`rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
+              isTouchDevice ? "active:scale-95" : ""
+            }`}
+            style={{ minHeight: 44, minWidth: 44 }}
             aria-label={t("theme_toggle")}
             title={t("theme_toggle")}
           >

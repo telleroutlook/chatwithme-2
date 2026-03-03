@@ -10,6 +10,7 @@ import {
   DownloadIcon
 } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
+import { useResponsive } from "../hooks/useResponsive";
 import { downloadTextFile } from "../utils/exporters/image";
 
 interface MessageActionsProps {
@@ -75,6 +76,7 @@ export const MessageActions = memo(function MessageActions({
   const [copyAnnouncement, setCopyAnnouncement] = useState("");
   const copiedTimerRef = useRef<number | null>(null);
   const { t } = useI18n();
+  const { mobile, touch } = useResponsive();
 
   useEffect(() => {
     return () => {
@@ -145,8 +147,16 @@ export const MessageActions = memo(function MessageActions({
   const buttonSize = compact ? "xs" : "sm";
   const iconSize = compact ? 12 : 14;
 
+  // On mobile/touch devices, ensure buttons are always visible (not hover-dependent)
+  // and have adequate touch targets (min 44x44)
+  const isTouchDevice = mobile || touch;
+
   return (
-    <div className="mt-0.5 inline-flex items-center gap-1 rounded-lg bg-kumo-base/60 px-1 py-1 backdrop-blur-sm opacity-95 md:opacity-70 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity duration-200">
+    <div className={`mt-0.5 inline-flex items-center gap-1 rounded-lg bg-kumo-base/60 px-1 py-1 backdrop-blur-sm transition-opacity duration-200 ${
+      isTouchDevice
+        ? "opacity-95"
+        : "opacity-95 md:opacity-70 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+    }`}>
       <span className="sr-only" role="status" aria-live="polite">
         {copyAnnouncement}
       </span>
@@ -159,6 +169,7 @@ export const MessageActions = memo(function MessageActions({
           disabled={disabled}
           icon={copied ? <CheckIcon size={iconSize} /> : <CopyIcon size={iconSize} />}
           aria-label={copied ? t("message_actions_copied") : t("message_actions_copy_message")}
+          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
         >
           {!compact && (copied ? t("message_actions_copied") : t("message_actions_copy"))}
         </Button>
@@ -173,6 +184,7 @@ export const MessageActions = memo(function MessageActions({
           disabled={disabled || disableMutations}
           icon={<ArrowClockwiseIcon size={iconSize} />}
           aria-label={t("message_actions_regenerate_response")}
+          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
         >
           {!compact && t("message_actions_regenerate")}
         </Button>
@@ -187,6 +199,7 @@ export const MessageActions = memo(function MessageActions({
           disabled={disabled || disableMutations}
           icon={<PencilSimpleIcon size={iconSize} />}
           aria-label={t("message_actions_edit_message")}
+          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
         >
           {!compact && t("message_actions_edit")}
         </Button>
@@ -201,7 +214,9 @@ export const MessageActions = memo(function MessageActions({
           disabled={disabled || disableMutations || !onDelete}
           icon={<TrashIcon size={iconSize} />}
           aria-label={t("message_actions_delete_message")}
-          className="hover:!bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:!text-[var(--app-color-danger)] focus-visible:!ring-[color-mix(in_oklab,var(--app-color-danger)_45%,transparent)]"
+          className={`hover:!bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:!text-[var(--app-color-danger)] focus-visible:!ring-[color-mix(in_oklab,var(--app-color-danger)_45%,transparent)] ${
+            isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""
+          }`}
         >
           {!compact && t("message_actions_delete")}
         </Button>
@@ -215,6 +230,7 @@ export const MessageActions = memo(function MessageActions({
           disabled={disabled || disableMutations}
           icon={<GitBranchIcon size={iconSize} />}
           aria-label={t("message_actions_fork_message")}
+          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
         >
           {!compact && t("message_actions_fork")}
         </Button>
@@ -229,6 +245,7 @@ export const MessageActions = memo(function MessageActions({
           disabled={disabled}
           icon={<DownloadIcon size={iconSize} />}
           aria-label={t("message_actions_export")}
+          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
         >
           {!compact && t("message_actions_export")}
         </Button>
@@ -265,6 +282,9 @@ export function ActionIcon({
       title={title}
       className={`
         p-1.5 rounded-md transition-colors
+        min-w-[44px] min-h-[44px]
+        flex items-center justify-center
+        active:scale-95
         ${
           disabled
             ? "opacity-50 cursor-not-allowed"

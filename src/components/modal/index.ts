@@ -12,7 +12,7 @@ export { createModal, confirm, alert } from "./createModal";
 export type { ConfirmConfig, AlertConfig } from "./createModal";
 
 // Host component (render once in app root)
-export { ModalHost, Modal } from "./ModalHost";
+export { ModalHost, DesktopModal, MobileSheet } from "./ModalHost";
 
 // Store (for advanced usage)
 export { globalModalStore, createModalStore, generateModalId } from "./types";
