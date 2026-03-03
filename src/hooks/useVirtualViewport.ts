@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 // ============ Types ============
 
@@ -95,8 +95,8 @@ export function useVirtualViewport(
     return 1;
   });
 
-  // Debounce timer ref
-  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  // Debounce timer ref - use useRef to avoid stale closure issues
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Handle visual viewport changes
   const handleVisualViewportChange = useCallback(() => {
@@ -105,30 +105,28 @@ export function useVirtualViewport(
     const vv = window.visualViewport;
 
     // Clear existing timer
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
 
     // Debounce the update
-    const timer = setTimeout(() => {
+    debounceTimerRef.current = setTimeout(() => {
       setVisualHeight(vv.height);
       setVisualWidth(vv.width);
       setOffsetTop(vv.offsetTop);
       setScale(vv.scale);
     }, debounceMs);
-
-    setDebounceTimer(timer);
-  }, [debounceMs, debounceTimer]);
+  }, [debounceMs]);
 
   // Handle window resize (fallback)
   const handleWindowResize = useCallback(() => {
     if (typeof window === "undefined") return;
 
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
 
-    const timer = setTimeout(() => {
+    debounceTimerRef.current = setTimeout(() => {
       setLayoutHeight(window.innerHeight);
 
       // If visualViewport is not available, use window dimensions
@@ -137,9 +135,7 @@ export function useVirtualViewport(
         setVisualWidth(window.innerWidth);
       }
     }, debounceMs);
-
-    setDebounceTimer(timer);
-  }, [debounceMs, debounceTimer]);
+  }, [debounceMs]);
 
   // Set up event listeners
   useEffect(() => {
@@ -162,7 +158,7 @@ export function useVirtualViewport(
       return () => {
         vv.removeEventListener("resize", handleVisualViewportChange);
         vv.removeEventListener("scroll", handleVisualViewportChange);
-        if (debounceTimer) clearTimeout(debounceTimer);
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       };
     }
 
@@ -170,9 +166,9 @@ export function useVirtualViewport(
     window.addEventListener("resize", handleWindowResize);
     return () => {
       window.removeEventListener("resize", handleWindowResize);
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [handleVisualViewportChange, handleWindowResize, debounceTimer]);
+  }, [handleVisualViewportChange, handleWindowResize]);
 
   // Calculate keyboard state
   const { keyboardVisible, keyboardHeight } = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSyncExternalStore, useMemo, useEffect, useRef } from "react";
 
 // ============ Types ============
 
@@ -35,74 +35,51 @@ export const BREAKPOINTS = {
 
 type BreakpointName = keyof typeof BREAKPOINTS;
 
-// ============ Hook ============
+// ============ SSR Defaults ============
+
+const SSR_DEFAULTS: ResponsiveInfo = {
+  mobile: false,
+  tablet: false,
+  desktop: true,
+  breakpoint: "desktop",
+  width: 1024,
+  height: 768,
+  touch: false,
+  landscape: true,
+  portrait: false
+};
+
+// ============ Singleton Responsive Store ============
+
+type Listener = () => void;
 
 /**
- * Hook for responsive design breakpoints and device detection
+ * Global singleton store for responsive state
  *
- * Features:
- * - Mobile/tablet/desktop detection
- * - Current breakpoint info
- * - Touch device detection
- * - Orientation detection
- * - SSR-safe
- *
- * @example
- * ```tsx
- * const { mobile, tablet, desktop, breakpoint } = useResponsive();
- *
- * if (mobile) {
- *   return <Drawer {...props} />;
- * }
- * return <Modal {...props} />;
- * ```
+ * Uses a single ResizeObserver and resize listener regardless of how many
+ * components subscribe. Updates are throttled using requestAnimationFrame
+ * to prevent excessive re-renders during orientation changes or keyboard events.
  */
-export function useResponsive(): ResponsiveInfo {
-  const [dimensions, setDimensions] = useState<{
-    width: number;
-    height: number;
-  }>({
-    width: typeof window !== "undefined" ? window.innerWidth : 1024,
-    height: typeof window !== "undefined" ? window.innerHeight : 768
-  });
+class ResponsiveStore {
+  private listeners = new Set<Listener>();
+  private state: ResponsiveInfo;
+  private resizeObserver: ResizeObserver | null = null;
+  private rafId: number | null = null;
+  private pendingUpdate = false;
+  private initialized = false;
 
-  const [touch, setTouch] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return "ontouchstart" in window || navigator.maxTouchPoints > 0;
-  });
+  constructor() {
+    // Initialize with SSR defaults
+    this.state = SSR_DEFAULTS;
+  }
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  private computeState(): ResponsiveInfo {
+    if (typeof window === "undefined") return SSR_DEFAULTS;
 
-    const handleResize = () => {
-      setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const touch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
-    const handleTouch = () => {
-      setTouch(true);
-    };
-
-    // Use ResizeObserver for better performance
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(document.documentElement);
-
-    // Fallback to resize event
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("touchstart", handleTouch, { once: true });
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("touchstart", handleTouch);
-    };
-  }, []);
-
-  const { width, height } = dimensions;
-
-  const responsive = useMemo<ResponsiveInfo>(() => {
     const mobile = width < BREAKPOINTS.sm;
     const tablet = width >= BREAKPOINTS.sm && width < BREAKPOINTS.lg;
     const desktop = width >= BREAKPOINTS.lg;
@@ -127,9 +104,141 @@ export function useResponsive(): ResponsiveInfo {
       landscape: width > height,
       portrait: width <= height
     };
-  }, [width, height, touch]);
+  }
 
-  return responsive;
+  private scheduleUpdate = (): void => {
+    // Throttle updates using rAF
+    if (this.pendingUpdate) return;
+    this.pendingUpdate = true;
+
+    this.rafId = requestAnimationFrame(() => {
+      this.pendingUpdate = false;
+      const newState = this.computeState();
+
+      // Only notify if state actually changed
+      if (this.hasStateChanged(newState)) {
+        this.state = newState;
+        this.notify();
+      }
+    });
+  };
+
+  private hasStateChanged(newState: ResponsiveInfo): boolean {
+    return (
+      this.state.width !== newState.width ||
+      this.state.height !== newState.height ||
+      this.state.touch !== newState.touch
+    );
+  }
+
+  private notify = (): void => {
+    this.listeners.forEach((listener) => listener());
+  };
+
+  private setupListeners(): void {
+    if (typeof window === "undefined" || this.initialized) return;
+
+    this.initialized = true;
+
+    // Initialize state
+    this.state = this.computeState();
+
+    // Single ResizeObserver for the document
+    this.resizeObserver = new ResizeObserver(this.scheduleUpdate);
+    this.resizeObserver.observe(document.documentElement);
+
+    // Fallback resize listener
+    window.addEventListener("resize", this.scheduleUpdate, { passive: true });
+
+    // Touch detection (one-time)
+    const handleTouch = () => {
+      if (!this.state.touch) {
+        this.state = { ...this.state, touch: true };
+        this.notify();
+      }
+    };
+    window.addEventListener("touchstart", handleTouch, { once: true, passive: true });
+  }
+
+  private cleanupListeners(): void {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+    window.removeEventListener("resize", this.scheduleUpdate);
+    this.initialized = false;
+  }
+
+  subscribe = (listener: Listener): (() => void) => {
+    // Setup listeners on first subscription
+    if (this.listeners.size === 0) {
+      this.setupListeners();
+    }
+
+    this.listeners.add(listener);
+
+    // Return cleanup function
+    return () => {
+      this.listeners.delete(listener);
+
+      // Cleanup when no more listeners
+      if (this.listeners.size === 0) {
+        this.cleanupListeners();
+      }
+    };
+  };
+
+  getSnapshot = (): ResponsiveInfo => {
+    return this.state;
+  };
+
+  getServerSnapshot = (): ResponsiveInfo => {
+    return SSR_DEFAULTS;
+  };
+}
+
+// Global singleton instance
+const responsiveStore = new ResponsiveStore();
+
+// ============ Hook ============
+
+/**
+ * Hook for responsive design breakpoints and device detection
+ *
+ * Features:
+ * - Mobile/tablet/desktop detection
+ * - Current breakpoint info
+ * - Touch device detection
+ * - Orientation detection
+ * - SSR-safe
+ * - Singleton pattern for optimal performance
+ *
+ * Uses useSyncExternalStore for concurrent-safe subscriptions.
+ * All components share a single ResizeObserver and resize listener.
+ *
+ * @example
+ * ```tsx
+ * const { mobile, tablet, desktop, breakpoint } = useResponsive();
+ *
+ * if (mobile) {
+ *   return <Drawer {...props} />;
+ * }
+ * return <Modal {...props} />;
+ * ```
+ */
+export function useResponsive(): ResponsiveInfo {
+  // useSyncExternalStore for concurrent-safe subscriptions
+  const state = useSyncExternalStore(
+    responsiveStore.subscribe,
+    responsiveStore.getSnapshot,
+    responsiveStore.getServerSnapshot
+  );
+
+  return state;
 }
 
 // ============ Media Query Hook ============
@@ -144,26 +253,24 @@ export function useResponsive(): ResponsiveInfo {
  * ```
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia(query).matches;
-  });
+  const subscribe = useMemo(() => {
+    return (callback: () => void) => {
+      if (typeof window === "undefined") return () => {};
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mediaQuery = window.matchMedia(query);
-    setMatches(mediaQuery.matches);
-
-    const handler = (event: MediaQueryListEvent) => {
-      setMatches(event.matches);
+      const mediaQuery = window.matchMedia(query);
+      mediaQuery.addEventListener("change", callback);
+      return () => mediaQuery.removeEventListener("change", callback);
     };
-
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
   }, [query]);
 
-  return matches;
+  const getSnapshot = useMemo(() => {
+    return () => {
+      if (typeof window === "undefined") return false;
+      return window.matchMedia(query).matches;
+    };
+  }, [query]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }
 
 // ============ Breakpoint Hook ============
@@ -211,29 +318,58 @@ export function useContainerQuery(options: UseContainerQueryOptions): {
 } {
   const { ref, width: widthThreshold, height: heightThreshold } = options;
 
-  const [size, setSize] = useState<{ width: number; height: number }>({
-    width: 0,
-    height: 0
-  });
+  // Use a unique store per container ref
+  const storeRef = useRef<{
+    listeners: Set<() => void>;
+    size: { width: number; height: number };
+    observer: ResizeObserver | null;
+  } | null>(null);
 
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
+  if (!storeRef.current) {
+    storeRef.current = {
+      listeners: new Set(),
+      size: { width: 0, height: 0 },
+      observer: null
+    };
+  }
 
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        const { inlineSize: width, blockSize: height } = entry.contentBoxSize[0] || {
-          inlineSize: entry.contentRect.width,
-          blockSize: entry.contentRect.height
-        };
-        setSize({ width, height });
+  const store = storeRef.current;
+
+  const subscribe = useMemo(() => {
+    return (callback: () => void) => {
+      store.listeners.add(callback);
+
+      // Setup observer on first subscription
+      if (store.listeners.size === 1 && ref.current) {
+        store.observer = new ResizeObserver((entries) => {
+          const entry = entries[0];
+          if (entry) {
+            const { inlineSize: width, blockSize: height } = entry.contentBoxSize[0] || {
+              inlineSize: entry.contentRect.width,
+              blockSize: entry.contentRect.height
+            };
+            store.size = { width, height };
+            store.listeners.forEach((l) => l());
+          }
+        });
+        store.observer.observe(ref.current);
       }
-    });
 
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [ref]);
+      return () => {
+        store.listeners.delete(callback);
+        if (store.listeners.size === 0 && store.observer) {
+          store.observer.disconnect();
+          store.observer = null;
+        }
+      };
+    };
+  }, [ref, store]);
+
+  const getSnapshot = useMemo(() => {
+    return () => store.size;
+  }, [store]);
+
+  const size = useSyncExternalStore(subscribe, getSnapshot, () => ({ width: 0, height: 0 }));
 
   const matches = useMemo(() => {
     if (widthThreshold !== undefined && size.width < widthThreshold) {

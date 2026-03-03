@@ -1,9 +1,8 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState, lazy, Suspense, type ComponentType } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { CodeBlock } from "./CodeBlock";
 import {
   LazyMermaidRenderer,
   LazyG2ChartRenderer,
@@ -24,6 +23,48 @@ import {
   looksLikeHtmlDocument,
   stripEmptySourceMapDirectives,
 } from "../utils/htmlParser";
+
+// Lazy load CodeBlock to avoid loading Shiki highlighter on initial page load
+// This reduces the initial bundle by ~800KB (vendor-highlight chunk)
+const LazyCodeBlock = lazy(() =>
+  import("./CodeBlock").then((mod) => ({ default: mod.CodeBlock }))
+);
+
+// Simple loading skeleton for code blocks
+function CodeBlockSkeleton() {
+  return (
+    <div className="my-3 w-full rounded-xl ring ring-kumo-line overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/50 border-b border-kumo-line">
+        <div className="h-3 w-16 bg-kumo-control rounded animate-pulse" />
+        <div className="h-5 w-14 bg-kumo-control rounded animate-pulse" />
+      </div>
+      <div className="p-4 space-y-2 bg-[var(--surface-2)]">
+        {[...Array(3)].map((_, i) => (
+          <div
+            key={i}
+            className="h-4 bg-kumo-control/50 rounded animate-pulse"
+            style={{ width: `${60 + Math.random() * 30}%` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Wrapper component that provides Suspense boundary
+function SuspenseCodeBlock(props: {
+  language: string;
+  code: string;
+  showCopy?: boolean;
+  showLineNumbers?: boolean;
+  highlights?: number[];
+}) {
+  return (
+    <Suspense fallback={<CodeBlockSkeleton />}>
+      <LazyCodeBlock {...props} />
+    </Suspense>
+  );
+}
 
 interface MarkdownRendererProps {
   content: string;
@@ -74,7 +115,7 @@ const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
         </div>
       ) : (
         <div className="max-h-[600px] overflow-auto">
-          <CodeBlock language="markdown" code={code} showCopy={false} />
+          <SuspenseCodeBlock language="markdown" code={code} showCopy={false} />
         </div>
       )}
     </div>
@@ -239,7 +280,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             if (language === "html") {
               // During streaming, show code block to avoid jitter
               if (isStreaming) {
-                return <CodeBlock language={language} code={codeString} />;
+                return <SuspenseCodeBlock language={language} code={codeString} />;
               }
               // If HTML contains SVG, render both
               if (isHtmlDocument && svgFromHtmlDocument) {
@@ -259,7 +300,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             }
 
             // Default code block
-            return <CodeBlock language={language} code={codeString} />;
+            return <SuspenseCodeBlock language={language} code={codeString} />;
           },
           p({ children }) {
             return (

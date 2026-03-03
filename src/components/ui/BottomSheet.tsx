@@ -47,8 +47,10 @@ export const BottomSheet = memo(function BottomSheet({
 }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number>(0);
+  const dragStartTime = useRef<number>(0);
   const currentDragY = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
+  const rafId = useRef<number | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // Fixed-body scroll lock
@@ -141,6 +143,7 @@ export const BottomSheet = memo(function BottomSheet({
       if (!isDragHandle && isScrollable) return;
 
       dragStartY.current = e.touches[0].clientY;
+      dragStartTime.current = Date.now();
       currentDragY.current = e.touches[0].clientY;
       isDragging.current = true;
     },
@@ -157,9 +160,17 @@ export const BottomSheet = memo(function BottomSheet({
       // Only allow downward drag
       if (deltaY < 0) return;
 
-      // Apply transform
-      sheetRef.current.style.transform = `translateY(${deltaY}px)`;
-      sheetRef.current.style.transition = "none";
+      // Use rAF for smooth transform updates
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+      }
+
+      rafId.current = requestAnimationFrame(() => {
+        if (sheetRef.current) {
+          sheetRef.current.style.transform = `translateY(${deltaY}px)`;
+          sheetRef.current.style.transition = "none";
+        }
+      });
     },
     [enableSwipeToClose]
   );
@@ -167,9 +178,15 @@ export const BottomSheet = memo(function BottomSheet({
   const handleTouchEnd = useCallback(() => {
     if (!isDragging.current || !enableSwipeToClose || !sheetRef.current) return;
 
+    // Cancel any pending rAF
+    if (rafId.current !== null) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
+    }
+
     isDragging.current = false;
     const deltaY = currentDragY.current - dragStartY.current;
-    const deltaTime = Date.now() - (dragStartY.current as unknown as number);
+    const deltaTime = Date.now() - dragStartTime.current;
     const velocity = deltaY / Math.max(deltaTime, 1);
 
     // Check if should close
@@ -184,6 +201,19 @@ export const BottomSheet = memo(function BottomSheet({
     sheetRef.current.style.transform = "";
     sheetRef.current.style.transition = "";
   }, [enableSwipeToClose, onClose]);
+
+  // Handle touchcancel for consistency
+  const handleTouchCancel = useCallback(() => {
+    if (rafId.current !== null) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
+    }
+    isDragging.current = false;
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = "";
+      sheetRef.current.style.transition = "";
+    }
+  }, []);
 
   // Portal target
   const target = typeof document !== "undefined" ? document.body : null;
@@ -219,6 +249,7 @@ export const BottomSheet = memo(function BottomSheet({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         className={cn(
           "fixed bottom-0 left-0 right-0",
           "flex flex-col",

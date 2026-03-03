@@ -4,6 +4,7 @@ import { useModalStack } from "./useModalStack";
 import { Button, Text } from "@cloudflare/kumo";
 import { XIcon } from "@phosphor-icons/react";
 import { useResponsive, isMobile } from "../../hooks/useResponsive";
+import { useSheetSwipeClose } from "../../hooks/useSheetSwipeClose";
 
 // ============ Dev Singleton Guard ============
 
@@ -288,13 +289,15 @@ const MobileSheet = memo(function MobileSheet({
   onClose
 }: MobileSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
-  const dragStartY = useRef<number>(0);
-  const currentDragY = useRef<number>(0);
-  const isDragging = useRef<boolean>(false);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const SWIPE_CLOSE_THRESHOLD = 100;
-  const SWIPE_VELOCITY_THRESHOLD = 0.3;
+  // Use shared swipe-to-close hook
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel } =
+    useSheetSwipeClose({
+      enabled: enableSwipeToClose,
+      onClose,
+      sheetRef
+    });
 
   // Handle keyboard and scroll lock
   useEffect(() => {
@@ -343,58 +346,6 @@ const MobileSheet = memo(function MobileSheet({
       previousFocusRef.current?.focus();
     };
   }, [visible, closable, onClose]);
-
-  // Touch handlers for swipe-to-close
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      if (!enableSwipeToClose) return;
-
-      const target = e.target as HTMLElement;
-      const isDragHandle = target.closest("[data-drag-handle]");
-      const scrollableEl = target.closest("[data-sheet-scrollable]") as HTMLElement | null;
-
-      if (scrollableEl && scrollableEl.scrollTop > 0) return;
-      if (!isDragHandle && scrollableEl) return;
-
-      dragStartY.current = e.touches[0].clientY;
-      currentDragY.current = e.touches[0].clientY;
-      isDragging.current = true;
-    },
-    [enableSwipeToClose]
-  );
-
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isDragging.current || !enableSwipeToClose || !sheetRef.current) return;
-
-      currentDragY.current = e.touches[0].clientY;
-      const deltaY = currentDragY.current - dragStartY.current;
-
-      if (deltaY < 0) return;
-
-      sheetRef.current.style.transform = `translateY(${deltaY}px)`;
-      sheetRef.current.style.transition = "none";
-    },
-    [enableSwipeToClose]
-  );
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current || !enableSwipeToClose || !sheetRef.current) return;
-
-    isDragging.current = false;
-    const deltaY = currentDragY.current - dragStartY.current;
-    const velocity = deltaY / 200;
-
-    const shouldClose =
-      deltaY > SWIPE_CLOSE_THRESHOLD || (deltaY > 20 && velocity > SWIPE_VELOCITY_THRESHOLD);
-
-    if (shouldClose) {
-      onClose();
-    }
-
-    sheetRef.current.style.transform = "";
-    sheetRef.current.style.transition = "";
-  }, [enableSwipeToClose, onClose]);
 
   // Calculate snap height
   const getSnapHeight = useCallback(() => {
@@ -446,6 +397,7 @@ const MobileSheet = memo(function MobileSheet({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         className={`
           fixed bottom-0 left-0 right-0 flex flex-col
           bg-[var(--app-surface-primary)] rounded-t-2xl

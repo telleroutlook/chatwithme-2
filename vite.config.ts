@@ -14,19 +14,67 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React ecosystem
-          'vendor-react': ['react', 'react-dom'],
-          // Markdown processing
-          'vendor-markdown': ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'rehype-highlight', 'highlight.js'],
-          // Chart libraries - loaded on demand but grouped when used
-          'vendor-chart': ['mermaid', '@antv/g2', 'echarts', '@ant-design/charts'],
+        // Use function-based manualChunks to prevent static imports of heavy chunks
+        manualChunks(id) {
+          // React ecosystem - core framework, keep in entry
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'vendor-react';
+          }
+
+          // Chart libraries - lazy loaded, never in entry chunk
+          // These should only be loaded when actually needed
+          if (
+            id.includes('node_modules/mermaid/') ||
+            id.includes('node_modules/@antv/') ||
+            id.includes('node_modules/echarts/') ||
+            id.includes('node_modules/@ant-design/charts/')
+          ) {
+            return 'vendor-chart';
+          }
+
+          // Export utilities - lazy loaded for PDF/image export
+          if (id.includes('node_modules/jspdf/') || id.includes('node_modules/html-to-image/')) {
+            return 'vendor-export';
+          }
+
+          // Code highlighting - lazy loaded when code blocks appear
+          if (id.includes('node_modules/shiki/') || id.includes('node_modules/vscode-oniguruma/')) {
+            return 'vendor-highlight';
+          }
+
+          // Markdown processing - moderate size, commonly used
+          if (
+            id.includes('node_modules/react-markdown/') ||
+            id.includes('node_modules/remark-gfm/') ||
+            id.includes('node_modules/remark-math/') ||
+            id.includes('node_modules/rehype-katex/') ||
+            id.includes('node_modules/rehype-highlight/') ||
+            id.includes('node_modules/highlight.js/')
+          ) {
+            return 'vendor-markdown';
+          }
+
           // UI utilities
-          'vendor-ui': ['@cloudflare/kumo', '@phosphor-icons/react'],
+          if (id.includes('node_modules/@cloudflare/kumo/') || id.includes('node_modules/@phosphor-icons/react/')) {
+            return 'vendor-ui';
+          }
+
           // Virtual scrolling
-          'vendor-virtual': ['react-virtuoso', 'virtua'],
+          if (id.includes('node_modules/react-virtuoso/') || id.includes('node_modules/virtua/')) {
+            return 'vendor-virtual';
+          }
+
           // AI SDK
-          'vendor-ai': ['ai', '@ai-sdk/react', '@ai-sdk/openai-compatible'],
+          if (
+            id.includes('node_modules/ai/') ||
+            id.includes('node_modules/@ai-sdk/react/') ||
+            id.includes('node_modules/@ai-sdk/openai-compatible/')
+          ) {
+            return 'vendor-ai';
+          }
+
+          // No chunk assignment - stays in main bundle or follows dynamic imports
+          return undefined;
         }
       }
     },

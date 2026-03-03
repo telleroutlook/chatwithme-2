@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { Surface, Button } from "@cloudflare/kumo";
 import { CopyIcon, CheckIcon, CodeIcon } from "@phosphor-icons/react";
 import {
@@ -7,7 +7,26 @@ import {
   sanitizeHtmlContent,
   stripEmptySourceMapDirectives,
 } from "../../utils/htmlParser";
-import { CodeBlock } from "../CodeBlock";
+
+// Lazy load CodeBlock to avoid loading Shiki on initial page load
+const LazyCodeBlock = lazy(() =>
+  import("../CodeBlock").then((mod) => ({ default: mod.CodeBlock }))
+);
+
+// Simple loading skeleton for code blocks
+function CodeBlockSkeleton() {
+  return (
+    <div className="p-4 space-y-2">
+      {[...Array(3)].map((_, i) => (
+        <div
+          key={i}
+          className="h-4 bg-kumo-control/50 rounded animate-pulse"
+          style={{ width: `${60 + Math.random() * 30}%` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 interface HtmlDirectRendererProps {
   code: string;
@@ -131,7 +150,11 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
 
   // During streaming, show code block to avoid jitter
   if (isStreaming && activeTab === "preview") {
-    return <CodeBlock language="html" code={code} />;
+    return (
+      <Suspense fallback={<CodeBlockSkeleton />}>
+        <LazyCodeBlock language="html" code={code} />
+      </Suspense>
+    );
   }
 
   return (
@@ -190,7 +213,9 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
         />
       ) : (
         <div className="max-h-[600px] overflow-auto">
-          <CodeBlock language="html" code={code} showCopy={false} />
+          <Suspense fallback={<CodeBlockSkeleton />}>
+            <LazyCodeBlock language="html" code={code} showCopy={false} />
+          </Suspense>
         </div>
       )}
     </Surface>
