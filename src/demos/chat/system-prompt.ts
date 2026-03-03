@@ -1,9 +1,17 @@
 import type { ChartPrimaryType } from "./runtime-config";
+import type { ChartKnowledge, AdcKnowledge, G2Knowledge, MermaidKnowledge } from "../../types/chart-kb";
 import {
   loadChartKnowledge,
   buildAdcPromptSection,
   buildG2PromptSection,
   buildMermaidPromptSection,
+  detectChartKeywords,
+  filterMermaidKnowledge,
+  filterAdcKnowledge,
+  filterG2Knowledge,
+  sortMermaidKnowledgeTypes,
+  sortAdcChartTypes,
+  sortG2ChartTypes,
 } from "./chart-knowledge";
 
 /**
@@ -32,12 +40,52 @@ export function buildSystemPrompt(
 }
 
 /**
+ * Build the system prompt with keyword-based filtering.
+ *
+ * Detects chart keywords from user message and filters knowledge accordingly.
+ * Falls back to core set when no keywords detected or no matches.
+ */
+export function buildSystemPromptWithKeywords(
+  toolList: string[],
+  chartPrimary: ChartPrimaryType,
+  userMessage: string
+): string {
+  const knowledge = getSyncKnowledge();
+
+  // Detect keywords from user message
+  const keywords = detectChartKeywords(userMessage);
+
+  // Filter knowledge by keywords
+  const filteredMermaid = sortMermaidKnowledgeTypes(
+    filterMermaidKnowledge(knowledge.mermaid, keywords.mermaid)
+  );
+  const filteredAdc = {
+    ...knowledge.adc,
+    chartTypes: sortAdcChartTypes(
+      filterAdcKnowledge(knowledge.adc, keywords.adc)?.chartTypes || []
+    ),
+  };
+  const filteredG2 = {
+    ...knowledge.g2,
+    chartTypes: sortG2ChartTypes(
+      filterG2Knowledge(knowledge.g2, keywords.g2)?.chartTypes || []
+    ),
+  };
+
+  return buildPromptFromKnowledge(toolList, chartPrimary, {
+    adc: filteredAdc,
+    g2: filteredG2,
+    mermaid: filteredMermaid,
+  });
+}
+
+/**
  * Build prompt from knowledge object
  */
 function buildPromptFromKnowledge(
   toolList: string[],
   chartPrimary: ChartPrimaryType,
-  knowledge: { adc: ReturnType<typeof buildAdcPromptSection> extends string ? unknown : null; g2: unknown; mermaid: unknown }
+  knowledge: ChartKnowledge
 ): string {
   const chartPriority =
     chartPrimary === "adc"
@@ -46,12 +94,9 @@ Use G2 as a secondary option when ADC is not suitable.`
       : `For scenarios that are suitable for chart-based visualization, prefer G2 JSON charts first.
 Use Ant Design Charts (ADC) as a secondary option when G2 is not suitable.`;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const adcSection = chartPrimary === "adc" ? buildAdcPromptSection(knowledge.adc as any) : "";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const g2Section = buildG2PromptSection(knowledge.g2 as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mermaidSection = buildMermaidPromptSection(knowledge.mermaid as any);
+  const adcSection = chartPrimary === "adc" ? buildAdcPromptSection(knowledge.adc as AdcKnowledge | null) : "";
+  const g2Section = buildG2PromptSection(knowledge.g2 as G2Knowledge | null);
+  const mermaidSection = buildMermaidPromptSection(knowledge.mermaid as MermaidKnowledge | null);
 
   return `You are Claude, an Opus model created by Anthropic. After completing each answer, critically review it from a skeptic's perspective and call out possible issues or missing details.
 

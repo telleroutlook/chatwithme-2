@@ -3,6 +3,7 @@ import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
 import { useDelayedTransition } from "../hooks/useDelayedTransition";
 import { parseG2SpecFromCode } from "../utils/g2SpecParser";
+import { validateMermaidCode } from "../utils/mermaidValidator";
 
 // ============ Theme Detection Hook ============
 
@@ -45,7 +46,22 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
   // Delay animation during streaming
   const showAnimation = useDelayedTransition(animated);
 
+  // Pre-render validation
+  const validationError = useMemo(() => {
+    const result = validateMermaidCode(code);
+    if (!result.valid) {
+      return result.error || "Invalid Mermaid code";
+    }
+    return null;
+  }, [code]);
+
   useEffect(() => {
+    // Skip rendering if pre-validation failed
+    if (validationError) {
+      setIsLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     const renderMermaid = async () => {
@@ -95,7 +111,24 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
     return () => {
       mounted = false;
     };
-  }, [code, isDark, showAnimation]);
+  }, [code, isDark, showAnimation, validationError]);
+
+  // Pre-validation error display
+  if (validationError) {
+    return (
+      <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+        <Text size="xs">
+          <span className="app-text-danger">Mermaid Validation Error: {validationError}</span>
+        </Text>
+        <details className="mt-2">
+          <summary className="text-xs text-kumo-subtle cursor-pointer">View code</summary>
+          <pre className="mt-1 text-xs bg-kumo-control p-2 rounded overflow-auto max-h-32">
+            {code}
+          </pre>
+        </details>
+      </Surface>
+    );
+  }
 
   if (error) {
     return (
