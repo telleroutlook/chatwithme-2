@@ -21,6 +21,7 @@ import type { CommandSuggestionItem } from "./types/command";
 import { extractMessageSources } from "./types/message-sources";
 import { getMessageText } from "./utils/message-text";
 import { downloadTextFile } from "./utils/exporters/image";
+import { exportToPdf } from "./utils/exporters/pdf";
 import { nanoid } from "nanoid";
 import { trackChatEvent } from "./features/chat/services/trackChatEvent";
 import {
@@ -1097,6 +1098,7 @@ function App() {
       }, 0),
     [chatMessages]
   );
+  const exportCaptureRef = useRef<HTMLElement | null>(null);
 
   // Format relative time
   const formatTime = (timestamp: string) => {
@@ -1146,6 +1148,32 @@ function App() {
     addToast(t("topbar_export_markdown_done"), "success");
     trackChatEvent("chat_export_markdown", { messageCount: chatMessages.length, sessionId: currentSessionId });
   }, [addToast, chatMessages, currentSessionId, t]);
+
+  const handleExportAllMessagesAsPdf = useCallback(async () => {
+    if (chatMessages.length === 0) return;
+
+    const exportTarget = exportCaptureRef.current;
+    if (!exportTarget) {
+      addToast("Failed to export PDF: chat content is not ready", "error");
+      return;
+    }
+
+    const exportedAt = new Date();
+    const timestamp = exportedAt.toISOString().replace(/[:.]/g, "-");
+    const filename = `chat-${currentSessionId}-${timestamp}.pdf`;
+
+    try {
+      await exportToPdf(exportTarget, {
+        filename,
+        margin: 8
+      });
+      addToast(t("topbar_export_pdf_done"), "success");
+      trackChatEvent("chat_export_pdf", { messageCount: chatMessages.length, sessionId: currentSessionId });
+    } catch (error) {
+      console.error("Failed to export PDF:", error);
+      addToast("Failed to export PDF", "error");
+    }
+  }, [addToast, chatMessages.length, currentSessionId, t]);
 
   return (
     <div className="flex h-full bg-kumo-base/70 text-kumo-default">
@@ -1198,8 +1226,9 @@ function App() {
           mobile={mobile}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           onNewSession={handleNewSession}
-          onExportAllMarkdown={handleExportAllMessagesAsMarkdown}
-          disableExportAllMarkdown={chatMessages.length === 0}
+          onExportMarkdown={handleExportAllMessagesAsMarkdown}
+          onExportPdf={handleExportAllMessagesAsPdf}
+          disableExportAll={chatMessages.length === 0}
           connectionStatus={connectionStatus}
           t={t}
         />
@@ -1228,6 +1257,7 @@ function App() {
                 onRegenerateMessage={handleRegenerateMessage}
                 t={t}
                 getMessageText={getMessageText}
+                exportCaptureRef={exportCaptureRef}
               />
             </ApprovalContext.Provider>
           </main>

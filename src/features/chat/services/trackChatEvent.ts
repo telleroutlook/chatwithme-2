@@ -14,7 +14,8 @@ export type ChatEventName =
   | "connection_error"
   | "history_fetch_deduped"
   | "sessions_sync"
-  | "chat_export_markdown";
+  | "chat_export_markdown"
+  | "chat_export_pdf";
 
 export function trackChatEvent(name: ChatEventName, payload: Record<string, unknown> = {}): void {
   trackChatBusEvent(name, payload);

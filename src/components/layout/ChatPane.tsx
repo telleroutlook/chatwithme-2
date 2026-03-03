@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type MutableRefObject } from "react";
 import { Badge, Button, Surface, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
@@ -47,6 +47,7 @@ interface ChatPaneProps {
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
   getMessageText: (message: UIMessage) => string;
+  exportCaptureRef?: MutableRefObject<HTMLElement | null>;
 }
 
 export function ChatPane({
@@ -68,7 +69,8 @@ export function ChatPane({
   onEditMessage,
   onRegenerateMessage,
   t,
-  getMessageText
+  getMessageText,
+  exportCaptureRef
 }: ChatPaneProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoScrollerRef = useRef<HTMLElement | null>(null);
@@ -100,6 +102,16 @@ export function ChatPane({
   const handleScrollerReady = useCallback((el: HTMLElement | null) => {
     virtuosoScrollerRef.current = el;
   }, []);
+
+  const handleScrollContainerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      scrollRef.current = el;
+      if (exportCaptureRef) {
+        exportCaptureRef.current = el;
+      }
+    },
+    [exportCaptureRef]
+  );
 
   // Keep the live feed panel visible as new progress entries arrive.
   useEffect(() => {
@@ -161,7 +173,7 @@ export function ChatPane({
           </div>
         )}
         <div
-          ref={scrollRef}
+          ref={handleScrollContainerRef}
           onScroll={onScroll}
           className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 [overflow-anchor:none]"
         >

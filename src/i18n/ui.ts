@@ -17,8 +17,11 @@ export const uiMessages = {
     theme_system: "System mode",
     theme_group: "Theme mode",
     theme_toggle: "Toggle theme",
+    topbar_export_options: "Export",
     topbar_export_markdown: "Download all messages (.md)",
+    topbar_export_pdf: "Download all messages (.pdf)",
     topbar_export_markdown_done: "All messages exported as Markdown",
+    topbar_export_pdf_done: "All messages exported as PDF",
 
     lang_en: "EN",
     lang_zh: "中",
@@ -171,8 +174,11 @@ export const uiMessages = {
     theme_system: "跟随系统",
     theme_group: "主题模式",
     theme_toggle: "切换主题",
+    topbar_export_options: "导出",
     topbar_export_markdown: "下载全部消息（.md）",
+    topbar_export_pdf: "下载全部消息（.pdf）",
     topbar_export_markdown_done: "已导出全部消息为 Markdown",
+    topbar_export_pdf_done: "已导出全部消息为 PDF",
 
     lang_en: "EN",
     lang_zh: "中",

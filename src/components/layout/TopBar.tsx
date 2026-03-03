@@ -1,5 +1,7 @@
-import { Text } from "@cloudflare/kumo";
+import { useState } from "react";
+import { Popover, Text } from "@cloudflare/kumo";
 import {
+  CaretDownIcon,
   DownloadSimpleIcon,
   ListIcon,
   MoonIcon,
@@ -14,8 +16,9 @@ interface TopBarProps {
   mobile: boolean;
   onToggleSidebar: () => void;
   onNewSession: () => void;
-  onExportAllMarkdown: () => void;
-  disableExportAllMarkdown?: boolean;
+  onExportMarkdown: () => void;
+  onExportPdf: () => void;
+  disableExportAll?: boolean;
   connectionStatus: ConnectionStatus;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
@@ -24,13 +27,15 @@ export function TopBar({
   mobile,
   onToggleSidebar,
   onNewSession,
-  onExportAllMarkdown,
-  disableExportAllMarkdown = false,
+  onExportMarkdown,
+  onExportPdf,
+  disableExportAll = false,
   connectionStatus,
   t
 }: TopBarProps) {
   const { mode, setMode } = useThemeMode();
   const { touch } = useResponsive();
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const resolvedMode =
     mode === "system" ? (document.documentElement.getAttribute("data-mode") ?? "light") : mode;
   const isDark = resolvedMode === "dark";
@@ -89,19 +94,47 @@ export function TopBar({
             <PlusIcon size={16} />
             <span className="hidden sm:inline">{t("session_new")}</span>
           </button>
-          <button
-            type="button"
-            onClick={onExportAllMarkdown}
-            disabled={disableExportAllMarkdown}
-            className={`inline-flex items-center justify-center rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
-              isTouchDevice ? "active:scale-95" : ""
-            } ${disableExportAllMarkdown ? "cursor-not-allowed opacity-50" : ""}`}
-            style={{ minHeight: 44, minWidth: 44 }}
-            aria-label={t("topbar_export_markdown")}
-            title={t("topbar_export_markdown")}
-          >
-            <DownloadSimpleIcon size={18} />
-          </button>
+          <Popover open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
+            <Popover.Trigger asChild>
+              <button
+                type="button"
+                disabled={disableExportAll}
+                className={`inline-flex items-center justify-center gap-1 rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
+                  isTouchDevice ? "active:scale-95" : ""
+                } ${disableExportAll ? "cursor-not-allowed opacity-50" : ""}`}
+                style={{ minHeight: 44, minWidth: 44 }}
+                aria-label={t("topbar_export_options")}
+                title={t("topbar_export_options")}
+              >
+                <DownloadSimpleIcon size={18} />
+                <CaretDownIcon size={14} />
+              </button>
+            </Popover.Trigger>
+            <Popover.Content className="w-56 p-2">
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-left text-sm text-kumo-default transition-colors hover:bg-kumo-control"
+                  onClick={() => {
+                    onExportMarkdown();
+                    setExportMenuOpen(false);
+                  }}
+                >
+                  {t("topbar_export_markdown")}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-left text-sm text-kumo-default transition-colors hover:bg-kumo-control"
+                  onClick={() => {
+                    onExportPdf();
+                    setExportMenuOpen(false);
+                  }}
+                >
+                  {t("topbar_export_pdf")}
+                </button>
+              </div>
+            </Popover.Content>
+          </Popover>
           <button
             type="button"
             onClick={handleToggleTheme}
