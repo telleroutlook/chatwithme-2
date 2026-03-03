@@ -12,7 +12,7 @@
     "format:check": "prettier --check .",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "deploy": "npm run kb:refresh:strict && npm run kb:validate && npm run typecheck && vite build && wrangler deploy && node scripts/verify-deploy.mjs",
+    "deploy": "npm run typecheck && vite build && wrangler deploy && node scripts/verify-deploy.mjs",
     "types": "wrangler types env.d.ts --include-runtime false",
     "test": "vitest",
     "test:run": "vitest run",

@@ -17,6 +17,8 @@ export interface MermaidTemplate {
 
 /** Mermaid knowledge base */
 export interface MermaidKnowledge {
+  /** Universal rules for all Mermaid diagrams */
+  universalRules?: string[];
   /** Supported diagram types */
   diagramTypes: Record<string, MermaidTemplate>;
 }

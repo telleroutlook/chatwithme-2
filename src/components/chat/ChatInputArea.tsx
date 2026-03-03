@@ -1,8 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Button } from "@cloudflare/kumo";
+import { type ReactNode } from "react";
 import { ChatInput } from "../ChatInput";
 import type { CommandSuggestionItem } from "../../types/command";
-import { useI18n } from "../../hooks/useI18n";
 
 interface ChatInputAreaProps {
   value: string;
@@ -37,17 +35,6 @@ export function ChatInputArea({
   keyboardVisible = false,
   viewportOffsetTop = 0
 }: ChatInputAreaProps) {
-  const { t } = useI18n();
-  const [expanded, setExpanded] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("chatwithme:composer:expanded") === "1";
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("chatwithme:composer:expanded", expanded ? "1" : "0");
-  }, [expanded]);
-
   // Dynamic styles for keyboard-aware positioning
   const containerStyle = keyboardVisible
     ? {
@@ -59,17 +46,6 @@ export function ChatInputArea({
   return (
     <div className="space-y-2" style={containerStyle}>
       {topAddons}
-      <div className="flex justify-end">
-        <Button
-          size="xs"
-          variant="secondary"
-          onClick={() => setExpanded((value) => !value)}
-          aria-label={expanded ? t("chat_input_collapse") : t("chat_input_expand")}
-          style={{ minHeight: 44, minWidth: 44 }}
-        >
-          {expanded ? t("chat_input_collapse") : t("chat_input_expand")}
-        </Button>
-      </div>
       <ChatInput
         value={value}
         onChange={onChange}
@@ -81,8 +57,8 @@ export function ChatInputArea({
         isReadOnly={isReadOnly}
         placeholder={placeholder}
         multiline={true}
-        minRows={expanded ? 6 : 3}
-        maxRows={expanded ? 12 : 6}
+        minRows={3}
+        maxRows={6}
         showCharCount={true}
       />
       {bottomAddons}

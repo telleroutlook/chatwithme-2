@@ -1,4 +1,9 @@
 {
+  "universalRules": [
+    "NEVER use HTML tags (<br/>, <b>, etc.) - Mermaid does not support HTML",
+    "Use pure text only - create new lines by adding separate entries",
+    "Avoid special characters that may break parsing"
+  ],
   "diagramTypes": {
     "flowchart": {
       "whenToUse": "Process flows, decision trees, algorithm visualization, system architecture",
@@ -91,11 +96,11 @@
     },
     "timeline": {
       "whenToUse": "Historical events, project milestones, chronological sequences",
-      "minimalTemplate": "timeline\n    title Project History\n    2024-01 : Kickoff\n    2024-02 : Phase 1 Complete\n    2024-03 : Launch",
+      "minimalTemplate": "timeline\n    title Project History\n    section Phase 1\n        2024-01 : Kickoff\n        2024-02 : Development\n    section Phase 2\n        2024-03 : Launch",
       "commonErrors": [
         "Missing title",
-        "Wrong date format",
-        "Not using colon separator"
+        "Not using colon separator between time and event",
+        "Putting multiple items on one line instead of separate entries"
       ]
     },
     "gitGraph": {
