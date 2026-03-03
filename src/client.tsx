@@ -687,6 +687,19 @@ function App() {
         return;
       }
       trackChatEvent("message_regenerate", { messageId });
+      setAwaitingFirstAssistant(true);
+      setAwaitingAssistantFromIndex(chatMessages.length);
+      setLiveProgress([
+        {
+          id: nanoid(10),
+          timestamp: new Date().toISOString(),
+          phase: "context",
+          message: t("message_actions_regenerate"),
+          status: "start",
+          severity: "low",
+          groupKey: "context"
+        }
+      ]);
       try {
         const result = await chatTransport.regenerateMessage(String(messageId));
         if (!isRegenerateMessageResult(result)) {
@@ -722,6 +735,8 @@ function App() {
         addToast(t("message_regenerate_success"), "success");
       } catch (error) {
         console.error("Failed to regenerate message:", error);
+        setAwaitingFirstAssistant(false);
+        setAwaitingAssistantFromIndex(null);
         addToast(
           t("message_regenerate_failed", {
             reason: error instanceof Error ? error.message : "Unknown error"
@@ -733,6 +748,7 @@ function App() {
     [
       addToast,
       chatTransport,
+      chatMessages.length,
       loadHistory,
       permissions.canEdit,
       setChatMessages,

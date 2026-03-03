@@ -74,6 +74,7 @@ export function ChatPane({
 }: ChatPaneProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoScrollerRef = useRef<HTMLElement | null>(null);
+  const liveFeedScrollRef = useRef<HTMLDivElement>(null);
   const onAccentTextClass = "text-white hover:text-white";
   const [messageVariant, setMessageVariant] = useState<"bubble" | "docs">("bubble");
   const markdownPrefs = DEFAULT_MARKDOWN_PREFS;
@@ -110,6 +111,23 @@ export function ChatPane({
       });
     }
   }, [awaitingFirstAssistant, scrollToBottom]);
+
+  // Keep inner Live execution feed pinned to latest progress entry.
+  useEffect(() => {
+    if (!awaitingFirstAssistant) {
+      return;
+    }
+    const liveFeedScroller = liveFeedScrollRef.current;
+    if (!liveFeedScroller) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      liveFeedScroller.scrollTo({
+        top: liveFeedScroller.scrollHeight,
+        behavior: "smooth"
+      });
+    });
+  }, [awaitingFirstAssistant, liveProgress.length]);
 
   const formatProgressTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -178,7 +196,7 @@ export function ChatPane({
                     <LoadingDots />
                   </div>
                 )}
-                <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                <div ref={liveFeedScrollRef} className="max-h-40 space-y-1.5 overflow-y-auto">
                   {liveProgress.slice(-4).map((entry) => (
                     <div
                       key={entry.id}

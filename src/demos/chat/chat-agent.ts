@@ -1303,10 +1303,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         return { success: false, error: "User message content is empty" };
       }
 
-      const preservedMessages = currentMessages.slice(0, anchorIndex + 1);
-      await this.persistMessages(preservedMessages);
-
-      // Regeneration can race with in-memory history updates after persistence.
+      // Keep full history and append a regenerated answer instead of truncating messages.
       // If history does not currently end with a user message, inject the prompt again.
       const latestMessages = Array.isArray(this.messages) ? this.messages : [];
       const historyEndsWithUser = latestMessages[latestMessages.length - 1]?.role === "user";
@@ -1316,7 +1313,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         role: "assistant" as const,
         parts: [{ type: "text" as const, text: regenerated }]
       };
-      await this.persistMessages([...preservedMessages, assistantMessage]);
+      await this.persistMessages([...latestMessages, assistantMessage]);
 
       return { success: true, response: regenerated };
     } catch (error) {
