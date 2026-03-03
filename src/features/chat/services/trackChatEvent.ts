@@ -13,7 +13,8 @@ export type ChatEventName =
   | "connection_close"
   | "connection_error"
   | "history_fetch_deduped"
-  | "sessions_sync";
+  | "sessions_sync"
+  | "chat_export_markdown";
 
 export function trackChatEvent(name: ChatEventName, payload: Record<string, unknown> = {}): void {
   trackChatBusEvent(name, payload);
