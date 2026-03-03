@@ -229,7 +229,7 @@
   - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionLifecycle.ts`
 - Updated `/home/dev/github/chatwithme-2/src/client.tsx` to:
   - consume `useSessionSync` instead of inline sync refs/timers
-  - reuse `buildSessionViewResetState` for `new/select/fork` reset flows
+  - reuse `buildSessionViewResetState` for `new/select` reset flows
 - Improved observability for fallback paths:
   - `/home/dev/github/chatwithme-2/src/server.ts` now logs failed per-session aggregation in `/api/chat/sessions`
   - `/home/dev/github/chatwithme-2/src/features/chat/services/sessionMeta.ts` now logs localStorage parse failures
@@ -581,3 +581,14 @@
   - `npm run test:e2e` ✅
   - `npm run test:e2e:session-delete` ✅
   - `npm run test:e2e:scroll-lock` ✅
+
+### 2026-03-03 Mobile message-variant policy + deployment
+
+- Mobile UX policy updated in `/home/dev/github/chatwithme-2/src/components/layout/ChatPane.tsx`:
+  - hide `Bubble/Docs` toggle buttons on mobile
+  - force message rendering variant to `docs` on mobile
+  - keep desktop toggle behavior unchanged
+- User message background in docs view now follows theme via shared `app-user-bubble` class in `/home/dev/github/chatwithme-2/src/components/chat/ChatMessageItem.tsx`.
+- Production deployment completed:
+  - URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+  - Version ID: `813a6048-42f7-4721-8b06-1fd654f77735`

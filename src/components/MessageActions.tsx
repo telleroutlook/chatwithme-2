@@ -6,7 +6,6 @@ import {
   ArrowClockwiseIcon,
   TrashIcon,
   PencilSimpleIcon,
-  GitBranchIcon,
   DownloadIcon
 } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
@@ -30,8 +29,6 @@ interface MessageActionsProps {
   showEdit?: boolean;
   /** Show delete button */
   showDelete?: boolean;
-  /** Show fork button */
-  showFork?: boolean;
   /** Show export button */
   showExport?: boolean;
   /** Whether actions are disabled */
@@ -40,8 +37,6 @@ interface MessageActionsProps {
   disableMutations?: boolean;
   /** Compact mode for smaller buttons */
   compact?: boolean;
-  /** Called when user requests session fork from this message */
-  onFork?: () => void;
   /** Optional message ID for export filename */
   messageId?: string;
 }
@@ -64,12 +59,10 @@ export const MessageActions = memo(function MessageActions({
   showRegenerate = true,
   showEdit = false,
   showDelete = false,
-  showFork = false,
   showExport = true,
   disabled = false,
   disableMutations = false,
   compact = true,
-  onFork,
   messageId
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
@@ -123,11 +116,6 @@ export const MessageActions = memo(function MessageActions({
     if (disabled || disableMutations || !onDelete) return;
     onDelete();
   }, [onDelete, disabled, disableMutations]);
-
-  const handleFork = useCallback(() => {
-    if (disabled || disableMutations || !onFork) return;
-    onFork();
-  }, [disabled, disableMutations, onFork]);
 
   const handleExport = useCallback(() => {
     if (disabled) return;
@@ -219,20 +207,6 @@ export const MessageActions = memo(function MessageActions({
           }`}
         >
           {!compact && t("message_actions_delete")}
-        </Button>
-      )}
-
-      {showFork && onFork && (
-        <Button
-          variant="secondary"
-          size={buttonSize}
-          onClick={handleFork}
-          disabled={disabled || disableMutations}
-          icon={<GitBranchIcon size={iconSize} />}
-          aria-label={t("message_actions_fork_message")}
-          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
-        >
-          {!compact && t("message_actions_fork")}
         </Button>
       )}
 

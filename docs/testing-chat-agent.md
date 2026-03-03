@@ -35,7 +35,6 @@ This matrix validates lifecycle stability, MCP connectivity, tool execution cont
 5. Chat flows
 - Send message -> receive streamed response.
 - Edit user message and regenerate from edited point.
-- Fork session from a message and verify new session history.
 
 6. API contract checks
 - All validation failures return:

@@ -23,12 +23,6 @@ export interface RegenerateMessageResult {
   error?: string;
 }
 
-export interface ForkSessionResult {
-  success: boolean;
-  newSessionId?: string;
-  error?: string;
-}
-
 export interface DeleteSessionResult {
   success: boolean;
   destroyed: boolean;
@@ -90,18 +84,6 @@ export function isRegenerateMessageResult(value: unknown): value is RegenerateMe
   return (
     typeof candidate.success === "boolean" &&
     (candidate.response === undefined || typeof candidate.response === "string") &&
-    (candidate.error === undefined || typeof candidate.error === "string")
-  );
-}
-
-export function isForkSessionResult(value: unknown): value is ForkSessionResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const candidate = value as { success?: unknown; newSessionId?: unknown; error?: unknown };
-  return (
-    typeof candidate.success === "boolean" &&
-    (candidate.newSessionId === undefined || typeof candidate.newSessionId === "string") &&
     (candidate.error === undefined || typeof candidate.error === "string")
   );
 }

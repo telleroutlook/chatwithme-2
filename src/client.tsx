@@ -2,13 +2,11 @@ import { Toaster } from "./components/Toaster";
 import { ModalHost } from "./components/modal";
 import {
   ChatPane,
-  McpPane,
-  MobileTabBar,
   TopBar,
   WorkspaceSidebar,
   type WorkspaceSection
 } from "./components/layout";
-import { PoweredByAgents, ThemeProvider, type ConnectionStatus } from "./components/AgentsUiCompat";
+import { ThemeProvider, type ConnectionStatus } from "./components/AgentsUiCompat";
 import { ToastProvider, useToast } from "./hooks/useToast";
 import { I18nProvider, useI18n } from "./hooks/useI18n";
 import { useResponsive } from "./hooks/useResponsive";
@@ -43,7 +41,6 @@ import {
   isDeleteSessionResult,
   isDeleteMessageResult,
   isEditMessageResult,
-  isForkSessionResult,
   isRegenerateMessageResult,
   isToggleServerResult
 } from "./features/chat/services/apiContracts";
@@ -67,7 +64,6 @@ import "./styles.css";
 
 // ============ Main App ============
 
-type Tab = "chat" | "mcp";
 const DEFAULT_APPROVAL_REJECTION_REASON = "Rejected in chat message card";
 
 function readPreconfiguredServersFromState(
@@ -141,7 +137,6 @@ function App() {
     return id;
   });
 
-  const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>("chats");
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const readonlyMode = useMemo(() => isReadonlyModeQueryEnabled(), []);
@@ -701,6 +696,7 @@ function App() {
         }
       ]);
       try {
+        const previousCount = chatMessages.length;
         const result = await chatTransport.regenerateMessage(String(messageId));
         if (!isRegenerateMessageResult(result)) {
           throw new Error("Invalid regenerateFrom response");
@@ -710,18 +706,20 @@ function App() {
         }
 
         const history = await loadHistory();
+        let hydrated = false;
         if (Array.isArray(history)) {
-          setChatMessages(
-            history.map((item, index) => ({
-              id: item.id ?? `history-${index}-${Date.now()}`,
-              role:
-                item.role === "user" || item.role === "assistant" || item.role === "system"
-                  ? item.role
-                  : "assistant",
-              parts: [{ type: "text", text: item.content ?? "" }]
-            })) as UIMessage[]
-          );
-        } else if (result.response !== undefined) {
+          const mapped = history.map((item, index) => ({
+            id: item.id ?? `history-${index}-${Date.now()}`,
+            role:
+              item.role === "user" || item.role === "assistant" || item.role === "system"
+                ? item.role
+                : "assistant",
+            parts: [{ type: "text", text: item.content ?? "" }]
+          })) as UIMessage[];
+          setChatMessages(mapped);
+          hydrated = mapped.length > previousCount;
+        }
+        if (!hydrated && typeof result.response === "string" && result.response.trim().length > 0) {
           setChatMessages((prev) => [
             ...prev,
             {
@@ -732,6 +730,9 @@ function App() {
           ]);
         }
 
+        setAwaitingFirstAssistant(false);
+        setAwaitingAssistantFromIndex(null);
+        setLiveProgress([]);
         addToast(t("message_regenerate_success"), "success");
       } catch (error) {
         console.error("Failed to regenerate message:", error);
@@ -754,45 +755,6 @@ function App() {
       setChatMessages,
       t
     ]
-  );
-
-  const handleForkSession = useCallback(
-    async (messageId: UIMessage["id"]) => {
-      if (!permissions.canEdit) {
-        addToast(t("readonly_action_blocked"), "info");
-        return;
-      }
-      try {
-        const result = await chatTransport.forkSession(String(messageId));
-        if (!isForkSessionResult(result)) {
-          throw new Error("Invalid forkSession response");
-        }
-        if (!result.success || !result.newSessionId) {
-          throw new Error(result.error || "Fork session failed");
-        }
-
-        updateSessionMeta(userId, result.newSessionId, {
-          title: t("session_fork_title"),
-          lastMessage: "",
-          timestamp: new Date().toISOString(),
-          messageCount: 0
-        });
-        setSessions(loadSessions(userId));
-        enqueueSessionSync("fork_session");
-        setCurrentSessionId(result.newSessionId);
-        applySessionViewReset();
-        addToast(t("message_fork_success"), "success");
-      } catch (error) {
-        console.error("Failed to fork session:", error);
-        addToast(
-          t("message_fork_failed", {
-            reason: error instanceof Error ? error.message : "Unknown error"
-          }),
-          "error"
-        );
-      }
-    },
-    [addToast, applySessionViewReset, chatTransport, permissions.canEdit, enqueueSessionSync, t, userId]
   );
 
   const handleToggleServer = useCallback(
@@ -1209,64 +1171,32 @@ function App() {
 
         <div className="flex min-h-0 flex-1">
           <main className="min-h-0 min-w-0 flex-1">
-            {activeTab === "chat" ? (
-              <ApprovalContext.Provider value={approvalContextValue}>
-                <ChatPane
-                  messages={chatMessages}
-                  isStreaming={isStreaming}
-                  isConnected={isConnected}
-                  canEdit={permissions.canEdit}
-                  isReadonly={permissions.readonly}
-                  activeToolsCount={activeToolsCount}
-                  awaitingFirstAssistant={awaitingFirstAssistant}
-                  liveProgress={liveProgress}
-                  phaseLabels={phaseLabels}
-                  input={input}
-                  setInput={setInput}
-                  commandSuggestions={commandSuggestions}
-                  onSend={handleSend}
-                  onStop={handleStop}
-                  onDeleteMessage={handleDeleteMessage}
-                  onEditMessage={handleEditMessage}
-                  onRegenerateMessage={handleRegenerateMessage}
-                  onForkMessage={handleForkSession}
-                  t={t}
-                  getMessageText={getMessageText}
-                />
-              </ApprovalContext.Provider>
-            ) : (
-              <McpPane
-                isLoading={isLoading}
-                preconfiguredServerList={preconfiguredServerList}
-                togglingServer={togglingServer}
-                onToggleServer={handleToggleServer}
+            <ApprovalContext.Provider value={approvalContextValue}>
+              <ChatPane
+                messages={chatMessages}
+                isStreaming={isStreaming}
+                isConnected={isConnected}
                 canEdit={permissions.canEdit}
-                mcpTools={mcpState.tools}
+                isReadonly={permissions.readonly}
+                activeToolsCount={activeToolsCount}
+                awaitingFirstAssistant={awaitingFirstAssistant}
+                liveProgress={liveProgress}
+                phaseLabels={phaseLabels}
+                input={input}
+                setInput={setInput}
+                commandSuggestions={commandSuggestions}
+                onSend={handleSend}
+                onStop={handleStop}
+                onDeleteMessage={handleDeleteMessage}
+                onEditMessage={handleEditMessage}
+                onRegenerateMessage={handleRegenerateMessage}
                 t={t}
+                getMessageText={getMessageText}
               />
-            )}
+            </ApprovalContext.Provider>
           </main>
         </div>
-
-        <footer
-          className="app-glass shrink-0 border-t border-kumo-line/80 bg-kumo-base/55 py-3"
-          style={{
-            paddingBottom: mobile ? "calc(0.75rem + var(--safe-area-inset-bottom) + 44px)" : undefined
-          }}
-        >
-          <div className="flex justify-center">
-            <PoweredByAgents label={t("app_powered_by")} />
-          </div>
-        </footer>
       </div>
-
-      {mobile && (
-        <MobileTabBar
-          value={activeTab}
-          onChange={setActiveTab}
-          labels={{ chat: t("tabs_chat"), mcp: t("tabs_mcp") }}
-        />
-      )}
     </div>
   );
 }

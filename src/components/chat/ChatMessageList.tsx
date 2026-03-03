@@ -21,7 +21,6 @@ interface ChatMessageListProps {
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
-  onForkMessage: (messageId: UIMessage["id"]) => Promise<void>;
   getMessageText: (message: UIMessage) => string;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
   /** Callback when the scroller element is ready */
@@ -50,7 +49,6 @@ function ChatMessageListInner({
   onDeleteMessage,
   onEditMessage,
   onRegenerateMessage,
-  onForkMessage,
   getMessageText,
   t,
   onScrollerReady,
@@ -74,7 +72,6 @@ function ChatMessageListInner({
           onDelete={onDeleteMessage}
           onEdit={onEditMessage}
           onRegenerate={onRegenerateMessage}
-          onFork={onForkMessage}
           getMessageText={getMessageText}
           t={t}
         />
@@ -89,7 +86,6 @@ function ChatMessageListInner({
       onDeleteMessage,
       onEditMessage,
       onRegenerateMessage,
-      onForkMessage,
       getMessageText,
       t,
     ]

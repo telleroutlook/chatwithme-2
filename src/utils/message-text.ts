@@ -57,7 +57,7 @@ export function getMessageText(message: UIMessage): string {
 }
 
 export function formatMessageWithRolePrefix(role: UIMessage["role"], text: string): string {
-  const prefix = role === "user" ? "[Usr:]" : "[AI:]";
+  const prefix = role === "user" ? "User:" : "AI:";
   if (text.startsWith("```")) {
     return `${prefix}\n${text}`;
   }

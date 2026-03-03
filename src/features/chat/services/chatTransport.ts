@@ -3,7 +3,6 @@ import type {
   DeleteSessionResult,
   DeleteMessageResult,
   EditMessageResult,
-  ForkSessionResult,
   RegenerateMessageResult,
   ToggleServerResult
 } from "./apiContracts";
@@ -52,7 +51,6 @@ export interface ChatTransport {
   deleteMessage: (messageId: string) => Promise<DeleteMessageResult>;
   editMessage: (messageId: string, content: string) => Promise<EditMessageResult>;
   regenerateMessage: (messageId: string) => Promise<RegenerateMessageResult>;
-  forkSession: (messageId: string) => Promise<ForkSessionResult>;
   toggleServer: (name: string) => Promise<ToggleServerResult>;
   listApprovals: () => Promise<unknown[]>;
   decideApproval: (approvalId: string, decision: "approve" | "reject", reason?: string) => Promise<boolean>;
@@ -83,6 +81,10 @@ export function createChatTransport({
   const encodedSessionId = encodeURIComponent(sessionId);
   let historyInFlight: Promise<ChatHistoryItem[]> | null = null;
   let historyCache: { at: number; value: ChatHistoryItem[] } | null = null;
+  const invalidateHistoryCache = () => {
+    historyCache = null;
+    historyInFlight = null;
+  };
 
   return {
     async getPermissions() {
@@ -173,7 +175,7 @@ export function createChatTransport({
     },
 
     async deleteMessage(messageId: string) {
-      return await withAgentFallback(
+      const result = await withAgentFallback(
         async () => (await agent.call("deleteMessage", [messageId])) as DeleteMessageResult,
         async () => {
           const response = await callApi<DeleteMessageResult>(
@@ -189,10 +191,14 @@ export function createChatTransport({
           } as DeleteMessageResult;
         }
       );
+      if (result.success && result.deleted) {
+        invalidateHistoryCache();
+      }
+      return result;
     },
 
     async editMessage(messageId: string, content: string) {
-      return await withAgentFallback(
+      const result = await withAgentFallback(
         async () => (await agent.call("editUserMessage", [messageId, content])) as EditMessageResult,
         async () => {
           const response = await callApi<EditMessageResult>("/api/chat/edit", {
@@ -211,10 +217,14 @@ export function createChatTransport({
           } as EditMessageResult;
         }
       );
+      if (result.success && result.updated) {
+        invalidateHistoryCache();
+      }
+      return result;
     },
 
     async regenerateMessage(messageId: string) {
-      return await withAgentFallback(
+      const result = await withAgentFallback(
         async () => (await agent.call("regenerateFrom", [messageId])) as RegenerateMessageResult,
         async () => {
           const response = await callApi<RegenerateMessageResult>("/api/chat/regenerate", {
@@ -232,27 +242,10 @@ export function createChatTransport({
           } as RegenerateMessageResult;
         }
       );
-    },
-
-    async forkSession(messageId: string) {
-      return await withAgentFallback(
-        async () => (await agent.call("forkSession", [messageId])) as ForkSessionResult,
-        async () => {
-          const response = await callApi<ForkSessionResult>("/api/chat/fork", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              sessionId,
-              messageId
-            })
-          });
-          return {
-            success: response.success,
-            newSessionId: response.newSessionId,
-            error: response.error
-          } as ForkSessionResult;
-        }
-      );
+      if (result.success) {
+        invalidateHistoryCache();
+      }
+      return result;
     },
 
     async toggleServer(name: string) {

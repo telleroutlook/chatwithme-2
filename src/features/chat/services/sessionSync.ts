@@ -9,7 +9,6 @@ export type SessionSyncReason =
   | "assistant_message"
   | "delete_session"
   | "delete_message"
-  | "fork_session"
   | "reconnect"
   | "manual";
 

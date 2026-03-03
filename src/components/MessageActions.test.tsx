@@ -85,7 +85,6 @@ describe("MessageActions", () => {
     const onRegenerate = vi.fn();
     const onEdit = vi.fn();
     const onDelete = vi.fn();
-    const onFork = vi.fn();
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
 
     render(
@@ -94,12 +93,10 @@ describe("MessageActions", () => {
         showRegenerate={true}
         showEdit={true}
         showDelete={true}
-        showFork={true}
         disableMutations={true}
         onRegenerate={onRegenerate}
         onEdit={onEdit}
         onDelete={onDelete}
-        onFork={onFork}
       />
     );
 
@@ -112,7 +109,6 @@ describe("MessageActions", () => {
     expect(screen.getByLabelText("Regenerate response")).toBeDisabled();
     expect(screen.getByLabelText("Edit message")).toBeDisabled();
     expect(screen.getByLabelText("Delete message")).toBeDisabled();
-    expect(screen.getByLabelText("Fork session from message")).toBeDisabled();
   });
 
   it("should show edit button when showEdit is true", () => {

@@ -24,10 +24,6 @@ export const regenerateBodySchema = requiredSessionBodySchema.extend({
   messageId: z.string().trim().min(1, "messageId is required")
 });
 
-export const forkBodySchema = requiredSessionBodySchema.extend({
-  messageId: z.string().trim().min(1, "messageId is required")
-});
-
 export const mcpServerBodySchema = requiredSessionBodySchema.extend({
   name: z.string().trim().min(1, "name is required")
 });
@@ -59,7 +55,6 @@ export const deleteMessageQuerySchema = chatHistoryQuerySchema.extend({
 export type ChatBody = z.infer<typeof chatBodySchema>;
 export type EditBody = z.infer<typeof editBodySchema>;
 export type RegenerateBody = z.infer<typeof regenerateBodySchema>;
-export type ForkBody = z.infer<typeof forkBodySchema>;
 export type McpServerBody = z.infer<typeof mcpServerBodySchema>;
 export type ChatHistoryQuery = z.infer<typeof chatHistoryQuerySchema>;
 export type ChatSessionsQuery = z.infer<typeof chatSessionsQuerySchema>;

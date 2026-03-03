@@ -1335,50 +1335,6 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     }
   }
 
-  @callable({ description: "Fork current session into a new session from a specific message" })
-  async forkSession(
-    messageId: string
-  ): Promise<{ success: boolean; newSessionId?: string; error?: string }> {
-    if (!messageId) {
-      return { success: false, error: "Message ID is required" };
-    }
-
-    try {
-      const currentMessages = Array.isArray(this.messages) ? this.messages : [];
-      const index = currentMessages.findIndex((message) => message.id === messageId);
-      if (index < 0) {
-        return { success: false, error: "Message not found" };
-      }
-
-      const forkedHistory = currentMessages.slice(0, index + 1);
-      const newSessionId = crypto.randomUUID().slice(0, 8);
-      const targetAgent = (await getAgentByName(this.runtimeEnv.ChatAgentV2, newSessionId)) as {
-        seedHistory: (
-          messages: Array<{
-            id: string;
-            role: "user" | "assistant" | "system";
-            parts: Array<{ type: "text"; text: string }>;
-          }>
-        ) => Promise<{ success: boolean; error?: string }>;
-      };
-      const result = await targetAgent.seedHistory(
-        forkedHistory as Array<{
-          id: string;
-          role: "user" | "assistant" | "system";
-          parts: Array<{ type: "text"; text: string }>;
-        }>
-      );
-      if (!result?.success) {
-        return { success: false, error: result?.error || "Failed to seed forked session" };
-      }
-
-      return { success: true, newSessionId };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return { success: false, error: message };
-    }
-  }
-
   // ============ MCP Server Management (callable methods) ============
 
   @callable({ description: "Get list of pre-configured MCP servers" })

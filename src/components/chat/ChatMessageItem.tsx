@@ -27,7 +27,6 @@ interface ChatMessageItemProps {
   onDelete: (messageId: UIMessage["id"]) => void;
   onEdit: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerate: (messageId: UIMessage["id"]) => Promise<void>;
-  onFork: (messageId: UIMessage["id"]) => Promise<void>;
   getMessageText: (message: UIMessage) => string;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
@@ -42,7 +41,6 @@ function ChatMessageItemInner({
   onDelete,
   onEdit,
   onRegenerate,
-  onFork,
   getMessageText,
   t
 }: ChatMessageItemProps) {
@@ -65,6 +63,9 @@ function ChatMessageItemInner({
         : hasRenderableBlock
           ? "w-full max-w-full"
           : "w-fit max-w-[95%] sm:max-w-[85%]";
+  const bubbleToneClass = isUser
+    ? "app-user-bubble"
+    : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line";
 
   const toolCalls = useMemo(
     () =>
@@ -132,13 +133,7 @@ function ChatMessageItemInner({
       )}
 
       <div
-        className={`${bubbleWidthClass} rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] ${
-          variant === "docs"
-            ? "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
-            : isUser
-              ? "app-user-bubble"
-              : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
-        }`}
+        className={`${bubbleWidthClass} rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] ${bubbleToneClass}`}
       >
         {isUser ? (
           <span className="block whitespace-pre-wrap">
@@ -193,7 +188,6 @@ function ChatMessageItemInner({
           showRegenerate={!isUser}
           showEdit={isUser}
           showDelete={true}
-          showFork={true}
           onEdit={() => {
             setDraft(text);
             setIsEditing(true);
@@ -204,7 +198,6 @@ function ChatMessageItemInner({
             return onRegenerate(message.id);
           }}
           onDelete={() => onDelete(message.id)}
-          onFork={() => onFork(message.id)}
           disabled={isStreaming}
           disableMutations={!canEdit}
           compact={actionsLayout !== "stack"}

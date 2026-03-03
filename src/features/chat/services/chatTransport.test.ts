@@ -39,5 +39,57 @@ describe("createChatTransport", () => {
     expect(b).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
-});
 
+  it("invalidates cached history after regenerate", async () => {
+    const agent = {
+      call: vi.fn(async (method: string) => {
+        if (method === "regenerateFrom") {
+          return { success: true, response: "new answer" };
+        }
+        throw new Error("agent unavailable");
+      })
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            history: [{ role: "assistant", content: "old", id: "m1" }]
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            history: [{ role: "assistant", content: "new", id: "m2" }]
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          }
+        )
+      );
+
+    const transport = createChatTransport({
+      agent,
+      sessionId: "s1",
+      readonlyMode: false
+    });
+
+    const first = await transport.getHistory();
+    expect(first[0]?.content).toBe("old");
+
+    await transport.regenerateMessage("m1");
+
+    const second = await transport.getHistory();
+    expect(second[0]?.content).toBe("new");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

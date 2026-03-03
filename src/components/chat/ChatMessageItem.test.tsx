@@ -11,7 +11,6 @@ const t = (key: string) => {
     message_actions_edit: "Edit",
     message_actions_copy_message: "Copy message",
     message_actions_delete_message: "Delete message",
-    message_actions_fork_message: "Fork session from message",
     chat_sources_title: "Sources",
     chat_sources_empty: "No snippets available"
   };
@@ -40,7 +39,6 @@ describe("ChatMessageItem", () => {
         onDelete={vi.fn()}
         onEdit={onEdit}
         onRegenerate={vi.fn()}
-        onFork={vi.fn()}
         getMessageText={(m) =>
           m.parts
             .filter((part) => part.type === "text")
@@ -65,7 +63,7 @@ describe("ChatMessageItem", () => {
   });
 
   it("renders docs variant in full width", () => {
-    render(
+    const { container } = render(
       <ChatMessageItem
         message={createUserMessage("hello")}
         isStreaming={false}
@@ -75,7 +73,6 @@ describe("ChatMessageItem", () => {
         onDelete={vi.fn()}
         onEdit={vi.fn()}
         onRegenerate={vi.fn()}
-        onFork={vi.fn()}
         getMessageText={(m) =>
           m.parts
             .filter((part) => part.type === "text")
@@ -86,7 +83,8 @@ describe("ChatMessageItem", () => {
       />
     );
 
-    expect(screen.getByText("[Usr:]hello")).toBeInTheDocument();
+    expect(screen.getByText("User:hello")).toBeInTheDocument();
+    expect(container.querySelector(".app-user-bubble")).not.toBeNull();
   });
 
   it("renders user message with role prefix", () => {
@@ -99,7 +97,6 @@ describe("ChatMessageItem", () => {
         onDelete={vi.fn()}
         onEdit={vi.fn()}
         onRegenerate={vi.fn()}
-        onFork={vi.fn()}
         getMessageText={(m) =>
           m.parts
             .filter((part) => part.type === "text")
@@ -110,6 +107,6 @@ describe("ChatMessageItem", () => {
       />
     );
 
-    expect(screen.getByText("[Usr:]plain text")).toBeInTheDocument();
+    expect(screen.getByText("User:plain text")).toBeInTheDocument();
   });
 });

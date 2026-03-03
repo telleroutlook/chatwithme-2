@@ -10,7 +10,6 @@ import {
   deleteSessionQuerySchema,
   deleteMessageQuerySchema,
   editBodySchema,
-  forkBodySchema,
   mcpServerBodySchema,
   regenerateBodySchema,
   toolApprovalDecisionBodySchema
@@ -368,28 +367,6 @@ app.post("/api/chat/regenerate", validateJson(regenerateBodySchema), async (c) =
     });
   } catch (error) {
     return errorJson(c, 500, "CHAT_REGENERATE_FAILED", unknownErrorMessage(error));
-  }
-});
-
-app.post("/api/chat/fork", validateJson(forkBodySchema), async (c) => {
-  try {
-    const body = c.req.valid("json") as z.infer<typeof forkBodySchema>;
-    const sessionId = resolveSessionId(body);
-    const { userId } = authMiddleware(c.req.raw);
-    const agentName = buildAgentName(userId, sessionId);
-    const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
-    const result = await agent.forkSession(body.messageId);
-
-    if (!result.success || !result.newSessionId) {
-      return errorJson(c, 400, "CHAT_FORK_FAILED", result.error || "Fork failed");
-    }
-
-    return successJson(c, {
-      newSessionId: result.newSessionId,
-      sessionId
-    });
-  } catch (error) {
-    return errorJson(c, 500, "CHAT_FORK_FAILED", unknownErrorMessage(error));
   }
 });
 

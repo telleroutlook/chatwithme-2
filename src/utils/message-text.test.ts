@@ -53,13 +53,13 @@ describe("message-text", () => {
   });
 
   it("formats role prefix inline for normal content", () => {
-    expect(formatMessageWithRolePrefix("assistant", "hello")).toBe("[AI:]hello");
-    expect(formatMessageWithRolePrefix("user", "hello")).toBe("[Usr:]hello");
+    expect(formatMessageWithRolePrefix("assistant", "hello")).toBe("AI:hello");
+    expect(formatMessageWithRolePrefix("user", "hello")).toBe("User:hello");
   });
 
   it("inserts newline after role prefix when content starts with fenced code", () => {
     expect(formatMessageWithRolePrefix("assistant", "```ts\nconst a = 1\n```")).toBe(
-      "[AI:]\n```ts\nconst a = 1\n```"
+      "AI:\n```ts\nconst a = 1\n```"
     );
   });
 });

@@ -1,4 +1,4 @@
-export type ChatMessageAction = "copy" | "edit" | "regenerate" | "delete" | "fork";
+export type ChatMessageAction = "copy" | "edit" | "regenerate" | "delete";
 
 export interface ChatActionItem {
   key: ChatMessageAction;

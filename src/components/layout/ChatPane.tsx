@@ -45,7 +45,6 @@ interface ChatPaneProps {
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
-  onForkMessage: (messageId: UIMessage["id"]) => Promise<void>;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
   getMessageText: (message: UIMessage) => string;
 }
@@ -68,7 +67,6 @@ export function ChatPane({
   onDeleteMessage,
   onEditMessage,
   onRegenerateMessage,
-  onForkMessage,
   t,
   getMessageText
 }: ChatPaneProps) {
@@ -79,6 +77,7 @@ export function ChatPane({
   const [messageVariant, setMessageVariant] = useState<"bubble" | "docs">("bubble");
   const markdownPrefs = DEFAULT_MARKDOWN_PREFS;
   const { mobile } = useResponsive();
+  const activeMessageVariant: "bubble" | "docs" = mobile ? "docs" : messageVariant;
 
   // Keyboard detection for mobile UX
   const { keyboardVisible, keyboardHeight, offsetTop } = useVirtualViewport({
@@ -137,28 +136,30 @@ export function ChatPane({
   return (
     <section className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
       <div className="relative flex min-h-0 flex-col overflow-hidden px-3 pb-2 pt-3 sm:px-5">
-        <div className="mb-2 flex items-center justify-end gap-2">
-          <Button
-            variant={messageVariant === "bubble" ? "primary" : "secondary"}
-            size="xs"
-            className={messageVariant === "bubble" ? onAccentTextClass : ""}
-            style={{ minHeight: 44, minWidth: 44, color: messageVariant === "bubble" ? "#fff" : undefined }}
-            onClick={() => setMessageVariant("bubble")}
-            aria-label={t("chat_message_variant_bubble")}
-          >
-            {t("chat_message_variant_bubble")}
-          </Button>
-          <Button
-            variant={messageVariant === "docs" ? "primary" : "secondary"}
-            size="xs"
-            className={messageVariant === "docs" ? onAccentTextClass : ""}
-            style={{ minHeight: 44, minWidth: 44, color: messageVariant === "docs" ? "#fff" : undefined }}
-            onClick={() => setMessageVariant("docs")}
-            aria-label={t("chat_message_variant_docs")}
-          >
-            {t("chat_message_variant_docs")}
-          </Button>
-        </div>
+        {!mobile && (
+          <div className="mb-2 flex items-center justify-end gap-2">
+            <Button
+              variant={messageVariant === "bubble" ? "primary" : "secondary"}
+              size="xs"
+              className={messageVariant === "bubble" ? onAccentTextClass : ""}
+              style={{ minHeight: 44, minWidth: 44, color: messageVariant === "bubble" ? "#fff" : undefined }}
+              onClick={() => setMessageVariant("bubble")}
+              aria-label={t("chat_message_variant_bubble")}
+            >
+              {t("chat_message_variant_bubble")}
+            </Button>
+            <Button
+              variant={messageVariant === "docs" ? "primary" : "secondary"}
+              size="xs"
+              className={messageVariant === "docs" ? onAccentTextClass : ""}
+              style={{ minHeight: 44, minWidth: 44, color: messageVariant === "docs" ? "#fff" : undefined }}
+              onClick={() => setMessageVariant("docs")}
+              aria-label={t("chat_message_variant_docs")}
+            >
+              {t("chat_message_variant_docs")}
+            </Button>
+          </div>
+        )}
         <div
           ref={scrollRef}
           onScroll={onScroll}
@@ -168,13 +169,12 @@ export function ChatPane({
             messages={messages}
             isStreaming={isStreaming}
             canEdit={canEdit}
-            variant={messageVariant}
+            variant={activeMessageVariant}
             markdownPrefs={markdownPrefs}
             activeToolsCount={activeToolsCount}
             onDeleteMessage={onDeleteMessage}
             onEditMessage={onEditMessage}
             onRegenerateMessage={onRegenerateMessage}
-            onForkMessage={onForkMessage}
             getMessageText={getMessageText}
             t={t}
             onScrollerReady={handleScrollerReady}
