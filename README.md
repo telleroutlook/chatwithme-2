@@ -89,6 +89,17 @@ npm install
 npm run dev
 ```
 
+Database migrations:
+
+```sh
+npm run db:migrate:local
+npm run db:migrate:prod
+```
+
+`db:migrate:*` now discovers SQL files from common migration folders and applies them one by one.
+If no migration files exist, the command fails with a clear message. Local auth tables are still
+auto-initialized in [src/server/auth-db.ts](src/server/auth-db.ts).
+
 The UI lets you add MCP server URLs, see their connection state, and browse their tools, prompts, and resources.
 
 To test with an authenticated server, run the [`mcp-worker-authenticated`](../mcp-worker-authenticated/) example alongside this one and add its URL.

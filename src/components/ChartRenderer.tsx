@@ -4,31 +4,9 @@ import { ChartBar } from "@phosphor-icons/react";
 import { useDelayedTransition } from "../hooks/useDelayedTransition";
 import { parseG2SpecFromCode } from "../utils/g2SpecParser";
 import { validateMermaidCode } from "../utils/mermaidValidator";
-
-// ============ Theme Detection Hook ============
-
-function useThemeDetector() {
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return document.documentElement.getAttribute("data-mode") === "dark";
-  });
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const dark = document.documentElement.getAttribute("data-mode") === "dark";
-      setIsDark(dark);
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-mode"]
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
+import { trackChatEvent } from "../features/chat/services/trackChatEvent";
+import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
+import { useThemeDetector } from "../hooks/useThemeDetector";
 
 // ============ Mermaid Renderer ============
 
@@ -42,6 +20,7 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isDark = useThemeDetector();
+  const { currentSessionId } = useChatSessionContext();
 
   // Delay animation during streaming
   const showAnimation = useDelayedTransition(animated);
@@ -90,6 +69,11 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
           containerRef.current.innerHTML = "";
           containerRef.current.innerHTML = svg;
 
+          trackChatEvent("chart_render_success", {
+            engine: "mermaid",
+            sessionId: currentSessionId
+          });
+
           // Apply animation class after render
           if (showAnimation && mounted) {
             containerRef.current.classList.add("animate-fade-in");
@@ -97,7 +81,13 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
         }
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : "Failed to render diagram");
+          const errorMessage = err instanceof Error ? err.message : "Failed to render diagram";
+          setError(errorMessage);
+          trackChatEvent("chart_render_failure", {
+            engine: "mermaid",
+            errorCode: errorMessage,
+            sessionId: currentSessionId
+          });
         }
       } finally {
         if (mounted) {
@@ -111,7 +101,7 @@ export function MermaidRenderer({ code, animated = true }: MermaidRendererProps)
     return () => {
       mounted = false;
     };
-  }, [code, isDark, showAnimation, validationError]);
+  }, [code, isDark, showAnimation, validationError, currentSessionId]);
 
   // Pre-validation error display
   if (validationError) {
@@ -347,6 +337,7 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
   const [isLoading, setIsLoading] = useState(true);
   const chartRef = useRef<G2ChartInstance | null>(null);
   const isDark = useThemeDetector();
+  const { currentSessionId } = useChatSessionContext();
 
   // Delay animation during streaming
   const showAnimation = useDelayedTransition(animated);
@@ -484,6 +475,11 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
 
         await chart.render();
 
+        trackChatEvent("chart_render_success", {
+          engine: "g2",
+          sessionId: currentSessionId
+        });
+
         // Apply animation after render
         if (showAnimation && mounted && containerRef.current) {
           containerRef.current.classList.add("animate-fade-in");
@@ -494,7 +490,13 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
         }
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : "Failed to render chart");
+          const errorMessage = err instanceof Error ? err.message : "Failed to render chart";
+          setError(errorMessage);
+          trackChatEvent("chart_render_failure", {
+            engine: "g2",
+            errorCode: errorMessage,
+            sessionId: currentSessionId
+          });
         }
       } finally {
         if (mounted) {
@@ -510,7 +512,7 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
       safeDestroy();
       chartRef.current = null;
     };
-  }, [spec, showAnimation, themeColors]);
+  }, [spec, showAnimation, themeColors, currentSessionId]);
 
   if (error) {
     return (
@@ -545,101 +547,4 @@ export function G2ChartRenderer({ spec, animated = true }: G2ChartRendererProps)
       </div>
     </Surface>
   );
-}
-
-// ============ Chart Config Detector ============
-
-interface ChartContent {
-  type: "mermaid" | "g2";
-  content: string | Record<string, unknown>;
-}
-
-export function parseChartFromText(text: string): ChartContent | null {
-  const mermaidMatch = text.match(/```mermaid\s*([\s\S]*?)```/);
-  if (mermaidMatch) {
-    return {
-      type: "mermaid",
-      content: mermaidMatch[1].trim()
-    };
-  }
-
-  const g2Match = text.match(/```g2\s*([\s\S]*?)```/);
-  if (g2Match) {
-    const spec = parseG2SpecFromCode(g2Match[1]);
-    if (spec) {
-      return {
-        type: "g2",
-        content: spec
-      };
-    }
-  }
-
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[1].trim());
-      if (parsed.chartType === "g2" || (parsed.type && parsed.data)) {
-        return {
-          type: "g2",
-          content: parsed
-        };
-      }
-    } catch {
-      // Not valid JSON
-    }
-  }
-
-  return null;
-}
-
-// ============ Combined Chart Renderer ============
-
-interface ChartDisplayProps {
-  text: string;
-}
-
-export function ChartDisplay({ text }: ChartDisplayProps) {
-  const charts = extractAllCharts(text);
-
-  if (charts.length === 0) return null;
-
-  return (
-    <div className="space-y-3 mt-2">
-      {charts.map((chart, index) => (
-        <div key={index}>
-          {chart.type === "mermaid" ? (
-            <MermaidRenderer code={chart.content as string} />
-          ) : (
-            <G2ChartRenderer spec={chart.content as G2ChartRendererProps["spec"]} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function extractAllCharts(text: string): ChartContent[] {
-  const charts: ChartContent[] = [];
-
-  const mermaidRegex = /```mermaid\s*([\s\S]*?)```/g;
-  let match: RegExpExecArray | null;
-  while ((match = mermaidRegex.exec(text)) !== null) {
-    charts.push({
-      type: "mermaid",
-      content: match[1].trim()
-    });
-  }
-
-  const g2Regex = /```g2\s*([\s\S]*?)```/g;
-  while ((match = g2Regex.exec(text)) !== null) {
-    const spec = parseG2SpecFromCode(match[1]);
-    if (spec) {
-      charts.push({
-        type: "g2",
-        content: spec
-      });
-    }
-  }
-
-  return charts;
 }

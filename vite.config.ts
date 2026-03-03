@@ -23,13 +23,17 @@ export default defineConfig({
 
           // Chart libraries - lazy loaded, never in entry chunk
           // These should only be loaded when actually needed
-          if (
-            id.includes('node_modules/mermaid/') ||
-            id.includes('node_modules/@antv/') ||
-            id.includes('node_modules/echarts/') ||
-            id.includes('node_modules/@ant-design/charts/')
-          ) {
-            return 'vendor-chart';
+          if (id.includes("node_modules/mermaid/")) {
+            return "vendor-mermaid";
+          }
+          if (id.includes("node_modules/@antv/g2/")) {
+            return "vendor-g2";
+          }
+          if (id.includes("node_modules/@ant-design/charts/")) {
+            return "vendor-adc";
+          }
+          if (id.includes("node_modules/echarts/")) {
+            return "vendor-chart";
           }
 
           // Export utilities - lazy loaded for PDF/image export

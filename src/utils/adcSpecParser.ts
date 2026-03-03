@@ -41,9 +41,21 @@ export const ADC_CHART_TYPES: readonly string[] = [
   'dualAxes',
 ] as const;
 
+export type AdcParseErrorCode =
+  | 'ADC_PARSE_INVALID_JSON'
+  | 'ADC_PARSE_UNSUPPORTED_CALLBACK'
+  | 'ADC_PARSE_INVALID_TYPE'
+  | 'ADC_PARSE_EMPTY';
+
 export interface ParsedAdcSpec {
   type: AdcChartType;
   config: Record<string, unknown>;
+}
+
+export interface AdcParseResult {
+  ok: boolean;
+  spec?: ParsedAdcSpec;
+  error?: AdcParseErrorCode;
 }
 
 interface RawAdcSpecFlat {
@@ -67,58 +79,121 @@ function isValidChartType(type: string): type is AdcChartType {
 }
 
 /**
+ * Tolerant JSON cleaning
+ * 1. Remove comments (// and /* *\/)
+ * 2. Remove trailing commas
+ * 3. Remove common function patterns (not exhaustive, but covers LLM output)
+ */
+function cleanJson(code: string): string {
+  let cleaned = code;
+
+  // 1. Remove comments
+  // Line comments
+  cleaned = cleaned.replace(/\/\/.*/g, '');
+  // Block comments
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // 2. Remove trailing commas before closing braces/brackets
+  cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+
+  // 3. Remove function-like fields (e.g., "formatter": function(...) { ... })
+  // This is a heuristic. We match "key": function(...) { ... } or "key": (...) => ...
+  // Since we are parsing JSON, any field that isn't a valid JSON value will fail JSON.parse.
+  // We try to remove common culprits like formatter, label.text function etc.
+  
+  // Remove fields that looks like "key": function... or "key": (...) =>
+  // We only target specific keys known to often contain callbacks in AntV
+  const callbackKeys = ['formatter', 'content', 'text', 'title', 'label'];
+  callbackKeys.forEach(key => {
+    // Match "key": function(...) { ... } or "key": (...) => { ... } or "key": val => ...
+    // Note: This regex is limited but covers most simple cases from LLMs
+    const regex = new RegExp(`"${key}"\\s*:\\s*(function\\s*\\(.*?\\)\\s*\\{.*?\\}|\\(.*?\\)\\s*=>\\s*.*?|.*?=>.*?)(\\s*[,}])`, 'gs');
+    cleaned = cleaned.replace(regex, (match, p1, p2) => {
+      // If it looks like a function, we just remove the field or replace it with a string
+      return `"${key}": "[Filtered Callback]"${p2}`;
+    });
+  });
+
+  return cleaned.trim();
+}
+
+/**
  * Parse ADC spec from code string
  *
- * @param code - The code block content (must be strict JSON)
- * @returns ParsedAdcSpec if valid, null otherwise
+ * @param code - The code block content
+ * @returns AdcParseResult
  */
-export function parseAdcSpecFromCode(code: string): ParsedAdcSpec | null {
+export function parseAdcSpecFromCode(code: string): AdcParseResult {
   if (!code || typeof code !== 'string') {
-    return null;
+    return { ok: false, error: 'ADC_PARSE_EMPTY' };
   }
 
   // Trim whitespace
   const trimmedCode = code.trim();
   if (!trimmedCode) {
-    return null;
+    return { ok: false, error: 'ADC_PARSE_EMPTY' };
   }
 
-  // Try strict JSON parse
-  let parsed: RawAdcSpec;
+  let parsed: RawAdcSpec | null = null;
+  const hasFunctionLikeSyntax = /\bfunction\s*\(|=>/.test(trimmedCode);
+
+  // 1. Try strict JSON parse first
   try {
     parsed = JSON.parse(trimmedCode) as RawAdcSpec;
   } catch {
-    // Invalid JSON (includes comments, trailing commas, etc.)
-    return null;
+    // 2. Try tolerant parse
+    try {
+      const cleaned = cleanJson(trimmedCode);
+      parsed = JSON.parse(cleaned) as RawAdcSpec;
+      
+      // Check if we found any filtered callbacks in the cleaned version that wasn't there before
+      // Actually, if cleanJson successfully made it parseable, it's already a win.
+      // But we should check if it's because of callbacks.
+      if (cleaned.includes('[Filtered Callback]')) {
+         // We might want to flag this, but let's proceed and see if it's valid otherwise.
+      }
+    } catch {
+      return {
+        ok: false,
+        error: hasFunctionLikeSyntax ? 'ADC_PARSE_UNSUPPORTED_CALLBACK' : 'ADC_PARSE_INVALID_JSON'
+      };
+    }
   }
 
-  // Validate it's an object
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return null;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'ADC_PARSE_INVALID_JSON' };
   }
 
   // Extract type
   const { type } = parsed;
-  if (typeof type !== 'string' || !isValidChartType(type)) {
-    return null;
+  if (typeof type !== 'string') {
+    return { ok: false, error: 'ADC_PARSE_INVALID_TYPE' };
   }
+  
+  if (!isValidChartType(type)) {
+    return { ok: false, error: 'ADC_PARSE_INVALID_TYPE' };
+  }
+
+  // Check for any remaining function-like values that might have slipped through JSON.parse (shouldn't happen with JSON.parse)
+  // However, we want to detect if the user TRIED to use callbacks and failed.
+  // If we used tolerant mode and it worked, we might have replaced them.
 
   // Extract config based on format
   let config: Record<string, unknown>;
 
   if ('config' in parsed && typeof parsed.config === 'object' && parsed.config !== null) {
-    // Wrapped format: { type: "line", config: { data: [...], ... } }
     config = parsed.config as Record<string, unknown>;
   } else {
-    // Flat format: { type: "line", data: [...], xField: "...", ... }
-    // Extract all properties except "type" as config
     const { type: _, ...rest } = parsed;
     config = rest as Record<string, unknown>;
   }
 
   return {
-    type,
-    config,
+    ok: true,
+    spec: {
+      type,
+      config,
+    },
   };
 }
 
