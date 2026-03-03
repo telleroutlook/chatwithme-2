@@ -2,6 +2,9 @@ import { memo, useMemo, useEffect, useState, type ReactNode, type FC } from "rea
 import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
 import type { ParsedAdcSpec, AdcChartType } from "../utils/adcSpecParser";
+import { trackChatEvent } from "../features/chat/services/trackChatEvent";
+import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
+import { useThemeDetector } from "../hooks/useThemeDetector";
 
 // ============ Static Imports for Tree-shaking ============
 
@@ -19,31 +22,6 @@ import {
   Histogram,
   DualAxes,
 } from "@ant-design/charts";
-
-// ============ Theme Detection Hook ============
-
-function useThemeDetector() {
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return document.documentElement.getAttribute("data-mode") === "dark";
-  });
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const dark = document.documentElement.getAttribute("data-mode") === "dark";
-      setIsDark(dark);
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-mode"],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
 
 // ============ Component Mapping ============
 
@@ -223,7 +201,17 @@ export function AntDesignChartsRenderer({
   animated = true,
 }: AntDesignChartsRendererProps): ReactNode {
   const isDark = useThemeDetector();
+  const { currentSessionId } = useChatSessionContext();
   const ChartComponent = CHART_COMPONENTS[spec.type];
+
+  // Track successful mount
+  useEffect(() => {
+    trackChatEvent("chart_render_success", {
+      engine: "adc",
+      type: spec.type,
+      sessionId: currentSessionId,
+    });
+  }, [spec.type, currentSessionId]);
 
   // Normalize config for ADC 2.x React
   const chartConfig = useMemo(() => {

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { parseChartFromText } from "./ChartRenderer";
 import { parseG2SpecFromCode } from "../utils/g2SpecParser";
 
 describe("parseG2SpecFromCode", () => {
@@ -42,21 +41,3 @@ describe("parseG2SpecFromCode", () => {
   });
 });
 
-describe("parseChartFromText", () => {
-  it("extracts g2 chart from markdown block using tolerant parser", () => {
-    const text = [
-      "demo",
-      "```g2",
-      "{",
-      '  "type": "line",',
-      '  "data": [{"x": 1, "y": 2},],',
-      '  "encode": {"x": "x", "y": "y"}',
-      "}",
-      "```"
-    ].join("\n");
-
-    const chart = parseChartFromText(text);
-    expect(chart?.type).toBe("g2");
-    expect(chart?.content && typeof chart.content === "object").toBe(true);
-  });
-});

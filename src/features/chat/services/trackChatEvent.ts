@@ -15,7 +15,11 @@ export type ChatEventName =
   | "history_fetch_deduped"
   | "sessions_sync"
   | "chat_export_markdown"
-  | "chat_export_pdf";
+  | "chat_export_pdf"
+  | "chart_parse_success"
+  | "chart_parse_failure"
+  | "chart_render_success"
+  | "chart_render_failure";
 
 export function trackChatEvent(name: ChatEventName, payload: Record<string, unknown> = {}): void {
   trackChatBusEvent(name, payload);

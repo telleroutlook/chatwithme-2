@@ -4,6 +4,7 @@ import type { MCPServersState } from "agents";
 import { ChatPane, TopBar, WorkspaceSidebar, type WorkspaceSection } from "../../../components/layout";
 import type { ConnectionStatus } from "../../../components/AgentsUiCompat";
 import { ApprovalContext } from "../context/ApprovalContext";
+import { ChatSessionProvider } from "../context/ChatSessionContext";
 import { extractMessageSources } from "../../../types/message-sources";
 import { getMessageText } from "../../../utils/message-text";
 import { buildCommandSuggestions } from "../services/commandSuggestions";
@@ -211,30 +212,32 @@ export function ChatWorkspace({
 
         <div className="flex min-h-0 flex-1">
           <main className="min-h-0 min-w-0 flex-1">
-            <ApprovalContext.Provider value={approvalContextValue}>
-              <ChatPane
-                messages={chatMessages}
-                isStreaming={isStreaming}
-                isConnected={isConnected}
-                canEdit={permissions.canEdit}
-                isReadonly={permissions.readonly}
-                activeToolsCount={activeToolsCount}
-                awaitingFirstAssistant={awaitingFirstAssistant}
-                liveProgress={liveProgress}
-                phaseLabels={phaseLabels}
-                input={input}
-                setInput={setInput}
-                commandSuggestions={commandSuggestions}
-                onSend={handleSend}
-                onStop={handleStop}
-                onDeleteMessage={handleDeleteMessage}
-                onEditMessage={handleEditMessage}
-                onRegenerateMessage={handleRegenerateMessage}
-                t={t}
-                getMessageText={getMessageText}
-                exportCaptureRef={exportCaptureRef}
-              />
-            </ApprovalContext.Provider>
+            <ChatSessionProvider currentSessionId={currentSessionId}>
+              <ApprovalContext.Provider value={approvalContextValue}>
+                <ChatPane
+                  messages={chatMessages}
+                  isStreaming={isStreaming}
+                  isConnected={isConnected}
+                  canEdit={permissions.canEdit}
+                  isReadonly={permissions.readonly}
+                  activeToolsCount={activeToolsCount}
+                  awaitingFirstAssistant={awaitingFirstAssistant}
+                  liveProgress={liveProgress}
+                  phaseLabels={phaseLabels}
+                  input={input}
+                  setInput={setInput}
+                  commandSuggestions={commandSuggestions}
+                  onSend={handleSend}
+                  onStop={handleStop}
+                  onDeleteMessage={handleDeleteMessage}
+                  onEditMessage={handleEditMessage}
+                  onRegenerateMessage={handleRegenerateMessage}
+                  t={t}
+                  getMessageText={getMessageText}
+                  exportCaptureRef={exportCaptureRef}
+                />
+              </ApprovalContext.Provider>
+            </ChatSessionProvider>
           </main>
         </div>
       </div>
