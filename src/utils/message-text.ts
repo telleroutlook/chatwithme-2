@@ -55,3 +55,11 @@ export function getMessageText(message: UIMessage): string {
 
   return joinMessageTextParts(collectMessageTextParts(candidate.parts));
 }
+
+export function formatMessageWithRolePrefix(role: UIMessage["role"], text: string): string {
+  const prefix = role === "user" ? "[Usr:]" : "[AI:]";
+  if (text.startsWith("```")) {
+    return `${prefix}\n${text}`;
+  }
+  return `${prefix}${text}`;
+}

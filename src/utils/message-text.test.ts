@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessage } from "ai";
-import { collectMessageTextParts, getMessageText, joinMessageTextParts } from "./message-text";
+import {
+  collectMessageTextParts,
+  formatMessageWithRolePrefix,
+  getMessageText,
+  joinMessageTextParts
+} from "./message-text";
 
 describe("message-text", () => {
   it("collects only text parts", () => {
@@ -45,5 +50,16 @@ describe("message-text", () => {
     } as unknown as UIMessage;
 
     expect(getMessageText(message)).toBe("```xml\n<svg />\n```");
+  });
+
+  it("formats role prefix inline for normal content", () => {
+    expect(formatMessageWithRolePrefix("assistant", "hello")).toBe("[AI:]hello");
+    expect(formatMessageWithRolePrefix("user", "hello")).toBe("[Usr:]hello");
+  });
+
+  it("inserts newline after role prefix when content starts with fenced code", () => {
+    expect(formatMessageWithRolePrefix("assistant", "```ts\nconst a = 1\n```")).toBe(
+      "[AI:]\n```ts\nconst a = 1\n```"
+    );
   });
 });

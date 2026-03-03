@@ -102,15 +102,14 @@ export function ChatPane({
     virtuosoScrollerRef.current = el;
   }, []);
 
-  // Auto-scroll to show Live execution feed when user sends a message
+  // Keep the live feed panel visible as new progress entries arrive.
   useEffect(() => {
     if (awaitingFirstAssistant) {
-      // Use requestAnimationFrame to ensure the feed panel has been rendered
       requestAnimationFrame(() => {
         scrollToBottom();
       });
     }
-  }, [awaitingFirstAssistant, scrollToBottom]);
+  }, [awaitingFirstAssistant, liveProgress.length, scrollToBottom]);
 
   // Keep inner Live execution feed pinned to latest progress entry.
   useEffect(() => {
@@ -124,10 +123,10 @@ export function ChatPane({
     requestAnimationFrame(() => {
       liveFeedScroller.scrollTo({
         top: liveFeedScroller.scrollHeight,
-        behavior: "smooth"
+        behavior: "auto"
       });
     });
-  }, [awaitingFirstAssistant, liveProgress.length]);
+  }, [awaitingFirstAssistant, liveProgress]);
 
   const formatProgressTime = (timestamp: string) => {
     const date = new Date(timestamp);

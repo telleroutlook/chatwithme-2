@@ -9,6 +9,7 @@ import { ToolCallCard, extractToolCalls } from "../ToolCallCard";
 import { trackChatEvent } from "../../features/chat/services/trackChatEvent";
 import { extractMessageSources } from "../../types/message-sources";
 import { useApprovalContext } from "../../features/chat/context/ApprovalContext";
+import { formatMessageWithRolePrefix } from "../../utils/message-text";
 
 const RENDERABLE_BLOCK_PATTERN = /```[\s\S]*?```/;
 
@@ -47,6 +48,7 @@ function ChatMessageItemInner({
 }: ChatMessageItemProps) {
   const isUser = message.role === "user";
   const text = getMessageText(message);
+  const prefixedText = formatMessageWithRolePrefix(message.role, text);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(text);
   const [saving, setSaving] = useState(false);
@@ -134,17 +136,17 @@ function ChatMessageItemInner({
           variant === "docs"
             ? "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
             : isUser
-              ? "bg-kumo-accent text-[var(--app-text-on-accent)]"
+              ? "app-user-bubble"
               : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line"
         }`}
       >
         {isUser ? (
           <span className="block whitespace-pre-wrap">
-            <Text size="sm">{text}</Text>
+            <Text size="sm">{prefixedText}</Text>
           </span>
         ) : (
           <MarkdownRenderer
-            content={text}
+            content={prefixedText}
             isStreaming={isStreaming && isLastMessage}
             enableAlerts={markdownPrefs?.enableAlerts ?? true}
             enableFootnotes={markdownPrefs?.enableFootnotes ?? true}

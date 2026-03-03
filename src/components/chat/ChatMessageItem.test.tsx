@@ -86,6 +86,30 @@ describe("ChatMessageItem", () => {
       />
     );
 
-    expect(screen.getByText("hello")).toBeInTheDocument();
+    expect(screen.getByText("[Usr:]hello")).toBeInTheDocument();
+  });
+
+  it("renders user message with role prefix", () => {
+    render(
+      <ChatMessageItem
+        message={createUserMessage("plain text")}
+        isStreaming={false}
+        canEdit={true}
+        isLastMessage={false}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+        onRegenerate={vi.fn()}
+        onFork={vi.fn()}
+        getMessageText={(m) =>
+          m.parts
+            .filter((part) => part.type === "text")
+            .map((part) => (part as { text?: string }).text ?? "")
+            .join("\n")
+        }
+        t={t as never}
+      />
+    );
+
+    expect(screen.getByText("[Usr:]plain text")).toBeInTheDocument();
   });
 });

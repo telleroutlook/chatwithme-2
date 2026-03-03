@@ -40,6 +40,9 @@
   --app-overlay: rgba(15, 23, 42, 0.5);
   --app-shadow-soft: 0 4px 18px rgba(15, 23, 42, 0.06);
   --app-shadow-medium: 0 12px 36px rgba(15, 23, 42, 0.12);
+  --app-user-msg-bg: #dbeafe;
+  --app-user-msg-text: #1e3a8a;
+  --app-user-msg-border: #93c5fd;
 }
 
 [data-mode="light"] {
@@ -69,6 +72,9 @@
   --app-color-success: #16a34a;
   --app-color-warning: #d97706;
   --app-color-danger: #dc2626;
+  --app-user-msg-bg: #dbeafe;
+  --app-user-msg-text: #1e3a8a;
+  --app-user-msg-border: #93c5fd;
 }
 
 [data-mode="dark"] {
@@ -101,6 +107,9 @@
   --app-overlay: rgba(2, 6, 23, 0.7);
   --app-shadow-soft: 0 6px 20px rgba(2, 6, 23, 0.45);
   --app-shadow-medium: 0 14px 38px rgba(2, 6, 23, 0.65);
+  --app-user-msg-bg: #1d4ed8;
+  --app-user-msg-text: #dbeafe;
+  --app-user-msg-border: #3b82f6;
 }
 
 html,
@@ -218,6 +227,12 @@ pre {
 
 .app-border-danger-soft {
   border-color: color-mix(in oklab, var(--app-color-danger) 45%, var(--app-border-default) 55%);
+}
+
+.app-user-bubble {
+  border: 1px solid var(--app-user-msg-border);
+  background: var(--app-user-msg-bg);
+  color: var(--app-user-msg-text);
 }
 
 .surface-1 {
