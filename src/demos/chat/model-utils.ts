@@ -15,13 +15,14 @@ export function normalizeToolArguments(
   args: Record<string, unknown>
 ): Record<string, unknown> {
   if (toolName === "webSearchPrime") {
-    const queryValue =
+    const queryValueRaw =
       typeof args.search_query === "string"
         ? args.search_query
         : typeof args.query === "string"
           ? args.query
           : "";
-    const { query: _query, ...rest } = args;
+    const queryValue = queryValueRaw.trim();
+    const { query: _query, search_query: _searchQuery, ...rest } = args;
     return queryValue ? { ...rest, search_query: queryValue } : rest;
   }
 

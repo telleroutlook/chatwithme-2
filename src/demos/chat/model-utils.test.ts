@@ -13,6 +13,25 @@ describe("normalizeToolArguments", () => {
     });
   });
 
+  it("trims webSearchPrime search query", () => {
+    const result = normalizeToolArguments("webSearchPrime", {
+      query: "  cloudflare agents  "
+    });
+    expect(result).toEqual({
+      search_query: "cloudflare agents"
+    });
+  });
+
+  it("drops empty webSearchPrime query fields", () => {
+    const result = normalizeToolArguments("webSearchPrime", {
+      search_query: "   ",
+      limit: 5
+    });
+    expect(result).toEqual({
+      limit: 5
+    });
+  });
+
   it("maps webReader link -> url", () => {
     const result = normalizeToolArguments("webReader", {
       link: "https://example.com"

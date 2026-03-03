@@ -555,6 +555,19 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     return normalizeArgs(toolName, args);
   }
 
+  private validateToolArguments(
+    toolName: string,
+    args: Record<string, unknown>
+  ): string | null {
+    if (toolName === "webSearchPrime") {
+      const searchQuery = args.search_query;
+      if (typeof searchQuery !== "string" || searchQuery.trim().length === 0) {
+        return 'Tool "webSearchPrime" requires a non-empty "search_query" field.';
+      }
+    }
+    return null;
+  }
+
   private async convertMessagesWithFallback(
     emitProgress?: ProgressEmitter
   ): Promise<{ modelMessages: ModelMessage[]; source: "converted" | "fallback" }> {
@@ -616,6 +629,31 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
               startedAt: runStart,
               argsSnippet: JSON.stringify(normalizedArgs).slice(0, 320)
             };
+            const inputValidationError = this.validateToolArguments(rawName, normalizedArgs);
+            if (inputValidationError) {
+              this.upsertToolRun({
+                ...baseRun,
+                status: "error",
+                finishedAt: new Date().toISOString(),
+                error: inputValidationError
+              });
+              this.appendRuntimeEvent({
+                level: "error",
+                source: "tool",
+                type: "tool_input_error",
+                message: `Tool ${alias} input validation failed`,
+                data: { toolName: alias }
+              });
+              this.updateLastError(inputValidationError);
+              emitProgress?.({
+                phase: "tool",
+                status: "error",
+                toolName: alias,
+                message: `Tool "${alias}" input validation failed`,
+                snippet: inputValidationError
+              });
+              return { error: inputValidationError };
+            }
             this.upsertToolRun(baseRun);
             this.appendRuntimeEvent({
               level: "info",
@@ -925,8 +963,16 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
             options?.abortSignal,
             emitProgress
           );
-          writer.write({ type: "text-delta", id: textId, delta: finalResponse });
+          const safeFinalResponse = finalResponse.trim()
+            ? finalResponse
+            : "抱歉，这次没有生成有效回复，请重试。";
+          writer.write({ type: "text-delta", id: textId, delta: safeFinalResponse });
           writer.write({ type: "text-end", id: textId });
+          emitProgress({
+            phase: "result",
+            status: "success",
+            message: "Response streamed to client."
+          });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Unknown generation error";
           this.updateLastError(message);
@@ -1036,12 +1082,6 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       status: "info",
       message: "Response generation completed.",
       snippet: finalResponse.slice(0, 320)
-    });
-
-    emitProgress?.({
-      phase: "result",
-      status: "success",
-      message: "Final answer ready to stream."
     });
     this.appendRuntimeEvent({
       level: "success",
