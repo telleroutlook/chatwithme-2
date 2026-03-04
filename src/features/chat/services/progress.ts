@@ -47,6 +47,7 @@ export function parseLiveProgressPart(part: unknown): LiveProgressEntry | null {
     status?: unknown;
     toolName?: unknown;
     snippet?: unknown;
+    groupKey?: unknown;
   };
 
   if (!isProgressPhase(data.phase) || typeof data.message !== "string") {
@@ -66,7 +67,9 @@ export function parseLiveProgressPart(part: unknown): LiveProgressEntry | null {
     toolName: typeof data.toolName === "string" ? data.toolName : undefined,
     snippet: typeof data.snippet === "string" ? data.snippet : undefined,
     severity,
-    groupKey:
+    groupKey: typeof data.groupKey === "string" && data.groupKey.length > 0
+      ? data.groupKey
+      :
       typeof data.toolName === "string" && data.toolName.length > 0
         ? `${data.phase}:${data.toolName}`
         : String(data.phase)

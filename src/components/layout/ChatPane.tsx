@@ -21,6 +21,11 @@ interface ProgressEntry {
   groupKey: string;
 }
 
+interface ProgressGroup {
+  key: string;
+  entries: ProgressEntry[];
+}
+
 const DEFAULT_MARKDOWN_PREFS = {
   enableAlerts: true,
   enableFootnotes: true,
@@ -150,6 +155,42 @@ export function ChatPane({
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   };
 
+  const groupedLiveProgress = useMemo<ProgressGroup[]>(() => {
+    const recent = liveProgress.slice(-8);
+    return recent.reduce<ProgressGroup[]>((groups, entry) => {
+      const lastGroup = groups[groups.length - 1];
+      if (lastGroup && lastGroup.key === entry.groupKey) {
+        lastGroup.entries.push(entry);
+        return groups;
+      }
+      return [...groups, { key: entry.groupKey, entries: [entry] }];
+    }, []);
+  }, [liveProgress]);
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setCollapsedGroups((prev) => {
+      const next: Record<string, boolean> = {};
+      const latestGroup = groupedLiveProgress[groupedLiveProgress.length - 1];
+      for (const group of groupedLiveProgress) {
+        const existing = prev[group.key];
+        next[group.key] = existing ?? group.entries.length > 1;
+      }
+      if (latestGroup) {
+        next[latestGroup.key] = false;
+      }
+      return next;
+    });
+  }, [groupedLiveProgress]);
+
+  const toggleGroupCollapsed = useCallback((groupKey: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [groupKey]: !prev[groupKey]
+    }));
+  }, []);
+
   return (
     <section className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
       <div
@@ -217,31 +258,65 @@ export function ChatPane({
                   </div>
                 )}
                 <div ref={liveFeedScrollRef} className="max-h-40 space-y-1.5 overflow-y-auto">
-                  {liveProgress.slice(-4).map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="rounded-lg border border-kumo-line/70 bg-kumo-base/65 px-2.5 py-1.5"
-                      title={`${phaseLabels[entry.phase]}${entry.toolName ? ` · ${entry.toolName}` : ""} | ${entry.message}${entry.snippet ? ` | ${entry.snippet}` : ""}`}
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="shrink-0">
-                          <Text size="xs" bold>
-                            {phaseLabels[entry.phase]}
-                            {entry.toolName ? ` · ${entry.toolName}` : ""}
-                          </Text>
-                        </span>
-                        <span className="min-w-0 truncate">
-                          <Text size="xs">{entry.snippet || entry.message}</Text>
-                        </span>
-                        <span className="shrink-0 text-kumo-subtle">
-                          <Text size="xs">{formatProgressTime(entry.timestamp)}</Text>
-                        </span>
-                        {(entry.status === "start" || entry.status === "info") && (
-                          <LoadingDots className="shrink-0" />
+                  {groupedLiveProgress.map((group) => {
+                    const entries = group.entries;
+                    const latest = entries[entries.length - 1];
+                    if (!latest) return null;
+                    const isCollapsed = collapsedGroups[group.key] ?? false;
+                    const canCollapse = entries.length > 1;
+                    const phaseLabel = phaseLabels[latest.phase] || latest.phase;
+                    const groupLabel = `${phaseLabel}${latest.toolName ? ` · ${latest.toolName}` : ""}`;
+                    return (
+                      <div
+                        key={group.key}
+                        className="rounded-lg border border-kumo-line/70 bg-kumo-base/65 px-2.5 py-1.5"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="shrink-0">
+                            <Text size="xs" bold>
+                              {groupLabel}
+                              {canCollapse ? ` · ${entries.length}` : ""}
+                            </Text>
+                          </span>
+                          <span className="min-w-0 truncate">
+                            <Text size="xs">{latest.snippet || latest.message}</Text>
+                          </span>
+                          <span className="shrink-0 text-kumo-subtle">
+                            <Text size="xs">{formatProgressTime(latest.timestamp)}</Text>
+                          </span>
+                          {(latest.status === "start" || latest.status === "info") && (
+                            <LoadingDots className="shrink-0" />
+                          )}
+                          {canCollapse && (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => toggleGroupCollapsed(group.key)}
+                              aria-label={isCollapsed ? t("chat_input_expand") : t("chat_input_collapse")}
+                            >
+                              {isCollapsed ? t("chat_input_expand") : t("chat_input_collapse")}
+                            </Button>
+                          )}
+                        </div>
+                        {canCollapse && !isCollapsed && (
+                          <div className="mt-1.5 space-y-1 border-t border-kumo-line/60 pt-1.5">
+                            {entries.slice(0, -1).map((entry) => (
+                              <div key={entry.id} className="flex min-w-0 items-center gap-2 pl-1">
+                                <span className="shrink-0 text-kumo-subtle">
+                                  <Text size="xs">{formatProgressTime(entry.timestamp)}</Text>
+                                </span>
+                                <span className="min-w-0 truncate">
+                                  <Text size="xs" variant="secondary">
+                                    {entry.snippet || entry.message}
+                                  </Text>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </Surface>
             </div>

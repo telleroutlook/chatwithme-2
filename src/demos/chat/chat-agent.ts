@@ -262,7 +262,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         phase: "context",
         status: "error",
         message: "Message conversion failed. Using text-only fallback history.",
-        snippet: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240)
+        snippet: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
+        groupKey: "context:history-conversion"
       });
       return { modelMessages: fallbackMessages, source: "fallback" };
     }
@@ -270,11 +271,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
   // ============ Tool Building ============
 
-  private async buildAiTools(emitProgress?: ProgressEmitter): Promise<{
+  private async buildAiTools(
+    emitProgress?: ProgressEmitter,
+    mcpProgressGroupKey?: string
+  ): Promise<{
     tools: Awaited<ReturnType<typeof buildAiTools>>["tools"];
     toolList: string[];
   }> {
-    await this.ensureMcpConnections();
+    await this.ensureMcpConnections(emitProgress, mcpProgressGroupKey);
     if (!this.mcp) return { tools: {}, toolList: [] };
 
     const { tools, toolList } = await buildAiTools(
@@ -397,18 +401,35 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     });
   }
 
-  private async ensureMcpConnections(): Promise<void> {
+  private async ensureMcpConnections(
+    emitProgress?: ProgressEmitter,
+    mcpProgressGroupKey?: string
+  ): Promise<void> {
     if (this.mcpInitPromise) {
       await this.mcpInitPromise;
       return;
     }
 
     this.mcpInitPromise = (async () => {
-      for (const config of MCP_SERVERS) {
-        if (config.active) {
-          await this.activateServer(config.name);
-        }
-      }
+      const activeServers = MCP_SERVERS.filter((config) => config.active);
+      await Promise.all(activeServers.map(async (config) => {
+        emitProgress?.({
+          phase: "context",
+          status: "info",
+          message: `Connecting MCP server: ${config.name}`,
+          groupKey: mcpProgressGroupKey || "context:mcp-init"
+        });
+        const result = await this.activateServer(config.name);
+        emitProgress?.({
+          phase: "context",
+          status: result.success ? "success" : "error",
+          message: result.success
+            ? `MCP server ready: ${config.name}`
+            : `MCP server failed: ${config.name}`,
+          snippet: result.error?.slice(0, 240),
+          groupKey: mcpProgressGroupKey || "context:mcp-init"
+        });
+      }));
     })();
 
     try {
@@ -441,11 +462,13 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
         const emitProgress: ProgressEmitter = (event) => this.emitProgress(writer, event);
+        const requestTraceId = crypto.randomUUID().slice(0, 8);
 
         emitProgress({
           phase: "context",
           status: "start",
-          message: "Message received. Preparing response pipeline."
+          message: "Message received. Preparing response pipeline.",
+          groupKey: "context:pipeline"
         });
 
         const heartbeat = setInterval(() => {
@@ -467,7 +490,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
             latestUserText,
             true,
             options?.abortSignal,
-            emitProgress
+            emitProgress,
+            requestTraceId
           );
           const safeFinalResponse = finalResponse.trim()
             ? finalResponse
@@ -514,12 +538,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     message: string,
     userAlreadyInHistory: boolean,
     abortSignal?: AbortSignal,
-    emitProgress?: ProgressEmitter
+    emitProgress?: ProgressEmitter,
+    requestTraceId?: string
   ): Promise<string> {
     emitProgress?.({
       phase: "context",
       status: "start",
-      message: "Loading system prompt and tool context."
+      message: "Loading system prompt and tool context.",
+      groupKey: "context:tool-context"
     });
     this.appendRuntimeEvent({
       level: "info",
@@ -528,13 +554,17 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       message: "Assistant response generation started."
     });
 
-    const { tools, toolList } = await this.buildAiTools(emitProgress);
+    const mcpProgressGroupKey = requestTraceId
+      ? `context:mcp-init:${requestTraceId}`
+      : "context:mcp-init";
+    const { tools, toolList } = await this.buildAiTools(emitProgress, mcpProgressGroupKey);
     const chartPrimary = getChartPrimary(this.runtimeEnv);
     const systemPrompt = buildSystemPrompt(toolList, chartPrimary);
     emitProgress?.({
       phase: "context",
       status: "success",
-      message: "Context ready. Requesting draft answer from model."
+      message: "Context ready. Requesting draft answer from model.",
+      groupKey: "context:model-request"
     });
 
     const glm = createOpenAICompatible({
@@ -563,7 +593,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     emitProgress?.({
       phase: "context",
       status: "info",
-      message: `History prepared (${source}); messages: ${candidateMessages.length} -> ${messages.length}.`
+      message: `History prepared (${source}); messages: ${candidateMessages.length} -> ${messages.length}.`,
+      groupKey: "context:history-prune"
     });
 
     emitProgress?.({

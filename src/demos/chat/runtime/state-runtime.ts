@@ -92,6 +92,7 @@ export interface LiveProgressEvent {
   status?: "start" | "success" | "error" | "info";
   toolName?: string;
   snippet?: string;
+  groupKey?: string;
 }
 
 export type ProgressEmitter = (event: LiveProgressEvent) => void;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendLiveProgressEntry, type LiveProgressEntry } from "./progress";
+import { appendLiveProgressEntry, parseLiveProgressPart, type LiveProgressEntry } from "./progress";
 
 function createEntry(overrides: Partial<LiveProgressEntry> = {}): LiveProgressEntry {
   return {
@@ -113,5 +113,24 @@ describe("appendLiveProgressEntry", () => {
     // Both have undefined snippet = merged
     expect(next).toHaveLength(1);
     expect(next[0]?.timestamp).toBe("2026-03-01T10:00:05.000Z");
+  });
+});
+
+describe("parseLiveProgressPart", () => {
+  it("uses explicit groupKey from progress payload when provided", () => {
+    const parsed = parseLiveProgressPart({
+      type: "data-progress",
+      data: {
+        id: "entry-g1",
+        timestamp: "2026-03-01T10:00:00.000Z",
+        phase: "context",
+        status: "info",
+        message: "Connecting MCP server: web-search-prime",
+        groupKey: "context:mcp-init:req123"
+      }
+    });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.groupKey).toBe("context:mcp-init:req123");
   });
 });

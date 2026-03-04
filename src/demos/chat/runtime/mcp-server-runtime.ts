@@ -68,6 +68,14 @@ export async function activateMcpServer(
     };
   }
 
+  if (serverEntry.connected && serverEntry.serverId) {
+    return {
+      success: true,
+      stateVersion: context.state.runtime.stateVersion,
+      result: { id: serverEntry.serverId }
+    };
+  }
+
   const config = serverEntry.config;
   const apiKey = getApiKey(config, context.runtimeEnv);
 
