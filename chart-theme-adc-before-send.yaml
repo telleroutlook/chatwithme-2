@@ -7,11 +7,11 @@
           - generic [ref=e10]:
             - img [ref=e11]
             - text: Chats
-        - button "Tools 2" [ref=e211]:
+        - button "Tools 2" [ref=e209]:
           - generic [ref=e14]:
             - img [ref=e15]
             - text: Tools
-          - generic [ref=e212]: "2"
+          - generic [ref=e107]: "2"
         - button "Resources" [ref=e17]:
           - generic [ref=e18]:
             - img [ref=e19]
@@ -23,7 +23,7 @@
       - button "New Chat" [ref=e25] [cursor=pointer]:
         - img [ref=e26]
         - text: New Chat
-    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu... now 2 Delete session" [ref=e213]':
+    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu... now 2 Delete session" [ref=e225]':
       - generic [ref=e109]:
         - generic [ref=e110]:
           - paragraph [ref=e112]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {..."
@@ -76,23 +76,23 @@
                   - img [ref=e137]
                 - button "Delete message" [ref=e139] [cursor=pointer]:
                   - img [ref=e140]
-            - generic [ref=e229]:
-              - generic [ref=e231]:
-                - paragraph [ref=e232]: "AI:"
-                - generic [ref=e235]:
-                  - img [ref=e236]
-                  - paragraph [ref=e238]: G2 Chart
-                  - generic [ref=e239]: line
-              - generic [ref=e244]:
-                - status [ref=e245]
-                - button "Copy message" [ref=e246] [cursor=pointer]:
-                  - img [ref=e247]
+            - generic [ref=e226]:
+              - generic [ref=e228]:
+                - paragraph [ref=e229]: "AI:"
+                - generic [ref=e232]:
+                  - img [ref=e233]
+                  - paragraph [ref=e235]: G2 Chart
+                  - generic [ref=e236]: line
+              - generic [ref=e241]:
+                - status [ref=e242]
+                - button "Copy message" [ref=e243] [cursor=pointer]:
+                  - img [ref=e244]
                   - text: Copy
-                - button "Regenerate response" [ref=e249] [cursor=pointer]:
-                  - img [ref=e250]
+                - button "Regenerate response" [ref=e246] [cursor=pointer]:
+                  - img [ref=e247]
                   - text: Regenerate
-                - button "Delete message" [ref=e252] [cursor=pointer]:
-                  - img [ref=e253]
+                - button "Delete message" [ref=e249] [cursor=pointer]:
+                  - img [ref=e250]
                   - text: Delete
           - button "Back to top" [ref=e81] [cursor=pointer]:
             - img [ref=e82]
@@ -104,12 +104,10 @@
           - generic [ref=e90]:
             - generic "Multiline input enabled" [ref=e91]:
               - img [ref=e92]
-            - textbox "Ask anything... (AI can search web & read pages)" [active] [ref=e225]: "请严格原样返回以下代码块，不要添加任何解释： ```adc {\"type\":\"column\",\"data\":[{\"category\":\"A\",\"value\":10},{\"category\":\"B\",\"value\":20}],\"xField\":\"category\",\"yField\":\"value\"} ```"
-            - button "Clear input" [ref=e255]:
-              - img [ref=e256]
-            - button "Send" [ref=e226] [cursor=pointer]:
-              - img [ref=e227]
+            - textbox "Ask anything... (AI can search web & read pages)" [active] [ref=e221]: "请严格原样返回以下代码块，不要添加任何解释： ```adc {\"type\":\"column\",\"data\":[{\"category\":\"A\",\"value\":10},{\"category\":\"B\",\"value\":20}],\"xField\":\"category\",\"yField\":\"value\"} ```"
+            - button "Clear input" [ref=e252]:
+              - img [ref=e253]
+            - button "Send" [ref=e222] [cursor=pointer]:
+              - img [ref=e223]
               - generic [ref=e98]: Send
-          - generic [ref=e258]:
-            - paragraph [ref=e260]: Shift+Enter new line, Enter/Ctrl+Enter/Cmd+Enter send
-            - paragraph [ref=e261]: 153/4000
+          - paragraph [ref=e256]: 153/4000

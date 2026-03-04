@@ -6,6 +6,7 @@ import { trackChatEvent } from "../features/chat/services/trackChatEvent";
 import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
 import { useThemeDetector } from "../hooks/useThemeDetector";
 import { getChartThemeTokens } from "./chartThemeTokens";
+import { getChartVisualPreset } from "./chartVisualPreset";
 
 // ============ Mermaid Renderer ============
 
@@ -19,6 +20,7 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isDark = useThemeDetector();
+  const visualPreset = useMemo(() => getChartVisualPreset(isDark), [isDark]);
   const { currentSessionId } = useChatSessionContext();
   const sanitizedCode = useMemo(() => sanitizeMermaidCode(code), [code]);
 
@@ -52,10 +54,13 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
         // Initialize mermaid with theme
         mermaid.initialize({
           startOnLoad: false,
-          theme: isDark ? "dark" : "default",
+          theme: "base",
+          themeVariables: visualPreset.mermaidThemeVariables,
           securityLevel: "strict",
+          fontFamily: visualPreset.fontFamily,
           flowchart: {
-            htmlLabels: true,
+            htmlLabels: false,
+            curve: "basis",
           },
         });
 
@@ -94,7 +99,7 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
     return () => {
       mounted = false;
     };
-  }, [isDark, validationError, sanitizedCode.sanitized, currentSessionId]);
+  }, [validationError, sanitizedCode.sanitized, currentSessionId, visualPreset]);
 
   // Pre-validation error display
   if (validationError) {
@@ -160,6 +165,7 @@ interface G2ChartRendererProps {
     style?: Record<string, unknown>;
     children?: unknown[];
     marks?: unknown[];
+    theme?: Record<string, unknown>;
   };
   animated?: boolean;
 }
@@ -333,6 +339,7 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
   const { currentSessionId } = useChatSessionContext();
 
   const themeColors = useMemo(() => getChartThemeTokens(isDark), [isDark]);
+  const visualPreset = useMemo(() => getChartVisualPreset(isDark), [isDark]);
 
   // Auto-fit using ResizeObserver
   useEffect(() => {
@@ -383,6 +390,7 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
         chart = new Chart({
           container: containerRef.current,
           autoFit: true,
+          theme: visualPreset.g2Theme.type,
         }) as unknown as G2ChartInstance;
 
         chartRef.current = chart;
@@ -441,6 +449,12 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
           // For composition types, merge theme colors into spec
           const themedSpec = {
             ...normalizedSpec,
+            theme: {
+              ...visualPreset.g2Theme,
+              ...(normalizedSpec.theme && typeof normalizedSpec.theme === "object"
+                ? (normalizedSpec.theme as Record<string, unknown>)
+                : {}),
+            },
             axis: themeAwareAxis,
             legend: themeAwareLegend,
           };
@@ -501,7 +515,7 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
       safeDestroy();
       chartRef.current = null;
     };
-  }, [spec, themeColors, currentSessionId]);
+  }, [spec, themeColors, currentSessionId, visualPreset]);
 
   if (error) {
     return (

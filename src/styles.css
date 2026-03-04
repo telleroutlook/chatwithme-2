@@ -489,6 +489,16 @@ pre {
   margin-inline: auto;
 }
 
+.mermaid-container,
+.g2-chart-container,
+.adc-chart-container {
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--surface-elevated) 90%, var(--surface-2) 10%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--app-border-default) 65%, transparent);
+  padding: 12px;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
 .g2-chart-container canvas,
 .g2-chart-container svg,
 .adc-chart-container canvas,

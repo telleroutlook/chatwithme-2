@@ -117,6 +117,12 @@ When asked to create charts or diagrams, you MUST output them in code blocks.
 ${chartPriority}
 Use Mermaid as a secondary option for diagrams.
 
+Default chart aesthetics (apply unless user asks otherwise):
+- Prefer a professional business visual style: clear contrast, restrained saturation, readable labels.
+- Use rounded corners for bars/containers where supported and keep line charts smooth when readability benefits.
+- Keep grid lines subtle; axis/legend text should remain readable in both light and dark themes.
+- For multi-series charts, choose clearly distinguishable colors (avoid near-identical hues).
+
 ${mermaidSection}
 ${adcSection}${g2Section}
 IMPORTANT:

@@ -6,6 +6,7 @@ import { trackChatEvent } from "../features/chat/services/trackChatEvent";
 import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
 import { useThemeDetector } from "../hooks/useThemeDetector";
 import { getChartThemeTokens } from "./chartThemeTokens";
+import { getChartVisualPreset } from "./chartVisualPreset";
 
 // ============ Static Imports for Tree-shaking ============
 
@@ -22,6 +23,7 @@ import {
   Funnel,
   Histogram,
   DualAxes,
+  ConfigProvider,
 } from "@ant-design/charts";
 
 // ============ Component Mapping ============
@@ -59,11 +61,7 @@ function normalizeConfigForADC2(
   isDark: boolean
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  const legendTextFill = isDark ? "#e5e7eb" : "#333333";
-  const axisTitleFill = isDark ? "#d1d5db" : "#666666";
-  const axisLabelFill = isDark ? "#e5e7eb" : "#666666";
-  const axisLineStroke = isDark ? "#6b7280" : "#e0e0e0";
-  const axisGridStroke = isDark ? "#374151" : "#f0f0f0";
+  const themeTokens = getChartThemeTokens(isDark);
 
   // ============ Core Data (Required) ============
   result.data = Array.isArray(config.data) ? config.data : [];
@@ -153,7 +151,7 @@ function normalizeConfigForADC2(
           ...itemName,
           style: {
             ...itemNameStyle,
-            fill: legendTextFill,
+            fill: themeTokens.legendItemFill,
           },
         },
       },
@@ -167,7 +165,7 @@ function normalizeConfigForADC2(
         itemMarkerSize: 10,
         itemName: {
           style: {
-            fill: legendTextFill,
+            fill: themeTokens.legendItemFill,
             fontSize: 12,
           },
         },
@@ -188,32 +186,32 @@ function normalizeConfigForADC2(
         ...axis,
         x: {
           ...x,
-          titleFill: axisTitleFill,
-          labelFill: axisLabelFill,
-          lineStroke: axisLineStroke,
-          gridStroke: axisGridStroke,
+          titleFill: themeTokens.axisTitleFill,
+          labelFill: themeTokens.axisLabelFill,
+          lineStroke: themeTokens.axisLineStroke,
+          gridStroke: themeTokens.axisGridStroke,
         },
         y: {
           ...y,
-          titleFill: axisTitleFill,
-          labelFill: axisLabelFill,
-          lineStroke: axisLineStroke,
-          gridStroke: axisGridStroke,
+          titleFill: themeTokens.axisTitleFill,
+          labelFill: themeTokens.axisLabelFill,
+          lineStroke: themeTokens.axisLineStroke,
+          gridStroke: themeTokens.axisGridStroke,
         },
       };
     } else {
       result.axis = {
         x: {
-          titleFill: axisTitleFill,
-          labelFill: axisLabelFill,
-          lineStroke: axisLineStroke,
-          gridStroke: axisGridStroke,
+          titleFill: themeTokens.axisTitleFill,
+          labelFill: themeTokens.axisLabelFill,
+          lineStroke: themeTokens.axisLineStroke,
+          gridStroke: themeTokens.axisGridStroke,
         },
         y: {
-          titleFill: axisTitleFill,
-          labelFill: axisLabelFill,
-          lineStroke: axisLineStroke,
-          gridStroke: axisGridStroke,
+          titleFill: themeTokens.axisTitleFill,
+          labelFill: themeTokens.axisLabelFill,
+          lineStroke: themeTokens.axisLineStroke,
+          gridStroke: themeTokens.axisGridStroke,
         },
       };
     }
@@ -271,6 +269,7 @@ export function AntDesignChartsRenderer({
 }: AntDesignChartsRendererProps): ReactNode {
   const isDark = useThemeDetector();
   const themeTokens = useMemo(() => getChartThemeTokens(isDark), [isDark]);
+  const visualPreset = useMemo(() => getChartVisualPreset(isDark), [isDark]);
   const { currentSessionId } = useChatSessionContext();
   const ChartComponent = CHART_COMPONENTS[spec.type];
   const trackedReadyRef = useRef(false);
@@ -290,6 +289,30 @@ export function AntDesignChartsRenderer({
     const sanitized = sanitizeAdcConfig(spec.config);
     return normalizeConfigForADC2(spec.type, sanitized.config, isDark);
   }, [spec.type, spec.config, isDark]);
+
+  const adcCommonConfig = useMemo(
+    () => ({
+      style: {
+        fontFamily: visualPreset.fontFamily,
+      },
+      theme: {
+        type: isDark ? "dark" : "light",
+        color: visualPreset.category10[0],
+        category10: visualPreset.category10,
+        category20: visualPreset.category20,
+        axis: {
+          titleFill: themeTokens.axisTitleFill,
+          labelFill: themeTokens.axisLabelFill,
+          lineStroke: themeTokens.axisLineStroke,
+          gridStroke: themeTokens.axisGridStroke,
+        },
+        legend: {
+          itemLabelFill: themeTokens.legendItemFill,
+        },
+      },
+    }),
+    [isDark, themeTokens, visualPreset]
+  );
 
   if (!ChartComponent) {
     return (
@@ -317,7 +340,11 @@ export function AntDesignChartsRenderer({
         data-chart-theme-axis-line-stroke={themeTokens.axisLineStroke}
         data-chart-theme-grid-stroke={themeTokens.axisGridStroke}
       >
-        <ChartComponent {...chartConfig} onReady={onReady} />
+        <ConfigProvider
+          common={adcCommonConfig}
+        >
+          <ChartComponent {...chartConfig} onReady={onReady} />
+        </ConfigProvider>
       </div>
     </Surface>
   );

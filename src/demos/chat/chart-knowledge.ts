@@ -351,6 +351,7 @@ export function buildAdcPromptSection(knowledge: AdcKnowledge | null): string {
   for (const rule of knowledge.outputContract) {
     lines.push(`- ${rule}`);
   }
+  lines.push("- Prefer readable aesthetics: smooth line shapes where appropriate, subtle grid lines, and clear legend contrast.");
 
   lines.push("");
   lines.push("ADC chart types:");
@@ -382,6 +383,7 @@ export function buildG2PromptSection(knowledge: G2Knowledge | null): string {
   for (const rule of knowledge.outputContract) {
     lines.push(`- ${rule}`);
   }
+  lines.push("- Prefer readable aesthetics: balanced categorical colors, light grid lines, and high-contrast axis/legend text.");
 
   lines.push("");
   lines.push("G2 chart types:");
@@ -414,6 +416,7 @@ export function buildMermaidPromptSection(knowledge: MermaidKnowledge | null): s
     for (const rule of knowledge.universalRules) {
       lines.push(`- ${rule}`);
     }
+    lines.push("- Keep node labels concise and avoid crowded edge labels for better readability.");
     lines.push("");
   }
 

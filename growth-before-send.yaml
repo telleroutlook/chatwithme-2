@@ -77,6 +77,4 @@
             - button "Send" [ref=e95] [cursor=pointer]:
               - img [ref=e96]
               - generic [ref=e98]: Send
-          - generic [ref=e102]:
-            - paragraph [ref=e104]: Shift+Enter new line, Enter/Ctrl+Enter/Cmd+Enter send
-            - paragraph [ref=e105]: 43/4000
+          - paragraph [ref=e103]: 43/4000
