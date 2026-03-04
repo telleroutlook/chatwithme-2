@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, type MutableRefObject } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, type MutableRefObject } from "react";
 import { Badge, Button, Surface, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
@@ -80,6 +80,10 @@ export function ChatPane({
   const markdownPrefs = DEFAULT_MARKDOWN_PREFS;
   const { mobile } = useResponsive();
   const activeMessageVariant: "bubble" | "docs" = mobile ? "docs" : messageVariant;
+  const isAndroid = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /Android/i.test(navigator.userAgent);
+  }, []);
 
   // Keyboard detection for mobile UX
   const { keyboardVisible, keyboardHeight, offsetTop } = useVirtualViewport({
@@ -87,13 +91,14 @@ export function ChatPane({
     debounceMs: 50
   });
 
-  // Calculate bottom inset for keyboard + safe-area
-  const bottomInset = mobile && keyboardVisible ? keyboardHeight : 0;
+  // On Android, visual viewport usually already shrinks with keyboard.
+  // Adding keyboardHeight as extra list inset creates excessive blank space.
+  const messageListBottomInset = mobile && keyboardVisible && !isAndroid ? keyboardHeight : 0;
 
   const { mode, unreadCount, showBackToBottom, showBackToTop, onScroll, scrollToBottom, scrollToTop } = useChatAutoScroll({
     scrollRef,
     messagesLength: messages.length,
-    bottomInset,
+    bottomInset: messageListBottomInset,
     keyboardVisible,
     suspendFollowMsAfterKeyboard: 250
   });
@@ -190,7 +195,7 @@ export function ChatPane({
             getMessageText={getMessageText}
             t={t}
             onScrollerReady={handleScrollerReady}
-            bottomInset={bottomInset}
+            bottomInset={messageListBottomInset}
           />
           {awaitingFirstAssistant && (
             <div className="mt-3">

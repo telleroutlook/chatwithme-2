@@ -1,7 +1,13 @@
 import { useMemo, useRef } from "react";
 import type { UIMessage } from "ai";
 import type { MCPServersState } from "agents";
-import { ChatPane, TopBar, WorkspaceSidebar, type WorkspaceSection } from "../../../components/layout";
+import {
+  ChatPane,
+  MobileTabBar,
+  TopBar,
+  WorkspaceSidebar,
+  type WorkspaceSection
+} from "../../../components/layout";
 import type { ConnectionStatus } from "../../../components/AgentsUiCompat";
 import { ApprovalContext } from "../context/ApprovalContext";
 import { ChatSessionProvider } from "../context/ChatSessionContext";
@@ -198,7 +204,14 @@ export function ChatWorkspace({
         t={t}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
+        style={{
+          paddingBottom: mobile
+            ? "calc(3.5rem + max(var(--safe-area-inset-bottom), 34px))"
+            : undefined
+        }}
+      >
         <TopBar
           mobile={mobile}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -241,6 +254,24 @@ export function ChatWorkspace({
           </main>
         </div>
       </div>
+      {mobile ? (
+        <MobileTabBar
+          value={workspaceSection === "chats" ? "chat" : "mcp"}
+          onChange={(tab) => {
+            if (tab === "chat") {
+              setWorkspaceSection("chats");
+              setSidebarOpen(false);
+              return;
+            }
+            setWorkspaceSection("tools");
+            setSidebarOpen(true);
+          }}
+          labels={{
+            chat: t("tabs_chat"),
+            mcp: t("tabs_mcp")
+          }}
+        />
+      ) : null}
     </div>
   );
 }

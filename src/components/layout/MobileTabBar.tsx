@@ -40,11 +40,13 @@ function TabButton({
 }
 
 export function MobileTabBar({ value, onChange, labels }: MobileTabBarProps) {
+  const safeAreaPadding = "max(var(--safe-area-inset-bottom), 34px)";
+
   return (
     <nav
       className="app-glass fixed bottom-0 left-0 right-0 z-30 border-t border-kumo-line/80 bg-kumo-base/90 md:hidden"
       style={{
-        paddingBottom: "var(--safe-area-inset-bottom)"
+        paddingBottom: safeAreaPadding
       }}
     >
       <div className="flex">
