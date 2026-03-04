@@ -7,11 +7,11 @@
           - generic [ref=e10]:
             - img [ref=e11]
             - text: Chats
-        - button "Tools 2" [ref=e209]:
+        - button "Tools 2" [ref=e207]:
           - generic [ref=e14]:
             - img [ref=e15]
             - text: Tools
-          - generic [ref=e107]: "2"
+          - generic [ref=e208]: "2"
         - button "Resources" [ref=e17]:
           - generic [ref=e18]:
             - img [ref=e19]
@@ -23,16 +23,16 @@
       - button "New Chat" [ref=e25] [cursor=pointer]:
         - img [ref=e26]
         - text: New Chat
-    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu... now 2 Delete session" [ref=e225]':
-      - generic [ref=e109]:
-        - generic [ref=e110]:
-          - paragraph [ref=e112]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {..."
-          - paragraph [ref=e114]: "```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu..."
-          - generic [ref=e115]:
-            - paragraph [ref=e116]: now
-            - generic [ref=e117]: "2"
-        - button "Delete session" [ref=e118]:
-          - img [ref=e119]
+    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu... now 2 Delete session" [ref=e209]':
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - paragraph [ref=e110]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {..."
+          - paragraph [ref=e112]: "```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu..."
+          - generic [ref=e113]:
+            - paragraph [ref=e114]: now
+            - generic [ref=e115]: "2"
+        - button "Delete session" [ref=e116]:
+          - img [ref=e117]
   - generic [ref=e33]:
     - banner [ref=e34]:
       - generic [ref=e35]:
@@ -65,34 +65,34 @@
           - generic [ref=e71]:
             - button "Bubble" [ref=e72] [cursor=pointer]
             - button "Docs" [ref=e73] [cursor=pointer]
-          - generic [ref=e123]:
-            - generic [ref=e126]:
-              - paragraph [ref=e129]: "User:请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"value\":12},{\"year\":\"2024\",\"value\":18},{\"year\":\"2025\",\"value\":27}],\"encode\":{\"x\":\"year\",\"y\":\"value\"}} ```"
-              - generic [ref=e131]:
-                - status [ref=e132]
-                - button "Copy message" [ref=e133] [cursor=pointer]:
-                  - img [ref=e134]
-                - button "Edit message" [ref=e136] [cursor=pointer]:
-                  - img [ref=e137]
-                - button "Delete message" [ref=e139] [cursor=pointer]:
-                  - img [ref=e140]
-            - generic [ref=e226]:
-              - generic [ref=e228]:
-                - paragraph [ref=e229]: "AI:"
-                - generic [ref=e232]:
-                  - img [ref=e233]
-                  - paragraph [ref=e235]: G2 Chart
-                  - generic [ref=e236]: line
-              - generic [ref=e241]:
-                - status [ref=e242]
-                - button "Copy message" [ref=e243] [cursor=pointer]:
-                  - img [ref=e244]
+          - generic [ref=e121]:
+            - generic [ref=e124]:
+              - paragraph [ref=e127]: "User:请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"value\":12},{\"year\":\"2024\",\"value\":18},{\"year\":\"2025\",\"value\":27}],\"encode\":{\"x\":\"year\",\"y\":\"value\"}} ```"
+              - generic [ref=e129]:
+                - status [ref=e130]
+                - button "Copy message" [ref=e131] [cursor=pointer]:
+                  - img [ref=e132]
+                - button "Edit message" [ref=e134] [cursor=pointer]:
+                  - img [ref=e135]
+                - button "Delete message" [ref=e137] [cursor=pointer]:
+                  - img [ref=e138]
+            - generic [ref=e225]:
+              - generic [ref=e227]:
+                - paragraph [ref=e228]: "AI:"
+                - generic [ref=e231]:
+                  - img [ref=e232]
+                  - paragraph [ref=e234]: G2 Chart
+                  - generic [ref=e235]: line
+              - generic [ref=e240]:
+                - status [ref=e241]
+                - button "Copy message" [ref=e242] [cursor=pointer]:
+                  - img [ref=e243]
                   - text: Copy
-                - button "Regenerate response" [ref=e246] [cursor=pointer]:
-                  - img [ref=e247]
+                - button "Regenerate response" [ref=e245] [cursor=pointer]:
+                  - img [ref=e246]
                   - text: Regenerate
-                - button "Delete message" [ref=e249] [cursor=pointer]:
-                  - img [ref=e250]
+                - button "Delete message" [ref=e248] [cursor=pointer]:
+                  - img [ref=e249]
                   - text: Delete
           - button "Back to top" [ref=e81] [cursor=pointer]:
             - img [ref=e82]
@@ -105,9 +105,9 @@
             - generic "Multiline input enabled" [ref=e91]:
               - img [ref=e92]
             - textbox "Ask anything... (AI can search web & read pages)" [active] [ref=e221]: "请严格原样返回以下代码块，不要添加任何解释： ```adc {\"type\":\"column\",\"data\":[{\"category\":\"A\",\"value\":10},{\"category\":\"B\",\"value\":20}],\"xField\":\"category\",\"yField\":\"value\"} ```"
-            - button "Clear input" [ref=e252]:
-              - img [ref=e253]
+            - button "Clear input" [ref=e251]:
+              - img [ref=e252]
             - button "Send" [ref=e222] [cursor=pointer]:
               - img [ref=e223]
               - generic [ref=e98]: Send
-          - paragraph [ref=e256]: 153/4000
+          - paragraph [ref=e255]: 153/4000

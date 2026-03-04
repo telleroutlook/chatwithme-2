@@ -7,11 +7,11 @@
           - generic [ref=e10]:
             - img [ref=e11]
             - text: Chats
-        - button "Tools 2" [ref=e209]:
+        - button "Tools 2" [ref=e207]:
           - generic [ref=e14]:
             - img [ref=e15]
             - text: Tools
-          - generic [ref=e107]: "2"
+          - generic [ref=e208]: "2"
         - button "Resources" [ref=e17]:
           - generic [ref=e18]:
             - img [ref=e19]
@@ -23,16 +23,16 @@
       - button "New Chat" [ref=e25] [cursor=pointer]:
         - img [ref=e26]
         - text: New Chat
-    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... now 2 Delete session" [ref=e108]':
-      - generic [ref=e109]:
-        - generic [ref=e110]:
-          - paragraph [ref=e112]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {..."
-          - paragraph [ref=e114]
-          - generic [ref=e115]:
-            - paragraph [ref=e116]: now
-            - generic [ref=e117]: "2"
-        - button "Delete session" [ref=e118]:
-          - img [ref=e119]
+    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu... now 2 Delete session" [ref=e209]':
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - paragraph [ref=e110]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {..."
+          - paragraph [ref=e112]: "```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu..."
+          - generic [ref=e113]:
+            - paragraph [ref=e114]: now
+            - generic [ref=e115]: "2"
+        - button "Delete session" [ref=e116]:
+          - img [ref=e117]
   - generic [ref=e33]:
     - banner [ref=e34]:
       - generic [ref=e35]:
@@ -65,34 +65,34 @@
           - generic [ref=e71]:
             - button "Bubble" [ref=e72] [cursor=pointer]
             - button "Docs" [ref=e73] [cursor=pointer]
-          - generic [ref=e123]:
-            - generic [ref=e126]:
-              - paragraph [ref=e129]: "User:请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"value\":12},{\"year\":\"2024\",\"value\":18},{\"year\":\"2025\",\"value\":27}],\"encode\":{\"x\":\"year\",\"y\":\"value\"}} ```"
-              - generic [ref=e131]:
-                - status [ref=e132]
-                - button "Copy message" [ref=e133] [cursor=pointer]:
-                  - img [ref=e134]
-                - button "Edit message" [ref=e136] [cursor=pointer]:
-                  - img [ref=e137]
-                - button "Delete message" [ref=e139] [cursor=pointer]:
-                  - img [ref=e140]
-            - generic [ref=e144]:
-              - generic [ref=e146]:
+          - generic [ref=e121]:
+            - generic [ref=e124]:
+              - paragraph [ref=e127]: "User:请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"value\":12},{\"year\":\"2024\",\"value\":18},{\"year\":\"2025\",\"value\":27}],\"encode\":{\"x\":\"year\",\"y\":\"value\"}} ```"
+              - generic [ref=e129]:
+                - status [ref=e130]
+                - button "Copy message" [ref=e131] [cursor=pointer]:
+                  - img [ref=e132]
+                - button "Edit message" [ref=e134] [cursor=pointer]:
+                  - img [ref=e135]
+                - button "Delete message" [ref=e137] [cursor=pointer]:
+                  - img [ref=e138]
+            - generic [ref=e142]:
+              - generic [ref=e144]:
                 - paragraph [ref=e210]: "AI:"
                 - generic [ref=e213]:
                   - img [ref=e214]
                   - paragraph [ref=e216]: G2 Chart
                   - generic [ref=e217]: line
-              - generic [ref=e150]:
-                - status [ref=e151]
-                - button "Copy message" [ref=e152] [cursor=pointer]:
-                  - img [ref=e153]
+              - generic [ref=e148]:
+                - status [ref=e149]
+                - button "Copy message" [ref=e150] [cursor=pointer]:
+                  - img [ref=e151]
                   - text: Copy
-                - button "Regenerate response" [ref=e155] [cursor=pointer]:
-                  - img [ref=e156]
+                - button "Regenerate response" [ref=e153] [cursor=pointer]:
+                  - img [ref=e154]
                   - text: Regenerate
-                - button "Delete message" [ref=e158] [cursor=pointer]:
-                  - img [ref=e159]
+                - button "Delete message" [ref=e156] [cursor=pointer]:
+                  - img [ref=e157]
                   - text: Delete
           - button "Back to top" [ref=e81] [cursor=pointer]:
             - img [ref=e82]

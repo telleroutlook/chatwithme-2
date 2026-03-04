@@ -55,23 +55,34 @@ const CHART_COMPONENTS: Record<AdcChartType, FC<Record<string, unknown>>> = {
  * Legacy format (NOT supported in ADC 2.x React):
  * - label: { type: 'inner', content: '{value}%' }
  */
-function normalizeConfigForADC2(
+export function normalizeConfigForADC2(
   type: AdcChartType,
   config: Record<string, unknown>,
   isDark: boolean
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+  // Preserve user config by default, then override fields that require normalization.
+  const result: Record<string, unknown> = { ...config };
   const themeTokens = getChartThemeTokens(isDark);
 
   // ============ Core Data (Required) ============
-  result.data = Array.isArray(config.data) ? config.data : [];
+  const rawData = config.data;
+  if (type === "dualAxes" && Array.isArray(rawData)) {
+    const yField = config.yField;
+    const hasDualYFields =
+      Array.isArray(yField) &&
+      yField.length >= 2 &&
+      yField.every((field) => typeof field === "string");
 
-  // ============ Field Mappings ============
-  if (config.angleField) result.angleField = config.angleField;
-  if (config.colorField) result.colorField = config.colorField;
-  if (config.xField) result.xField = config.xField;
-  if (config.yField) result.yField = config.yField;
-  if (config.seriesField) result.seriesField = config.seriesField;
+    if (rawData.length > 0 && !Array.isArray(rawData[0]) && hasDualYFields) {
+      // DualAxes expects two datasets. If model output provides one flat dataset with two metrics,
+      // duplicate it so each axis can consume one yField from the same rows.
+      result.data = [rawData, rawData];
+    } else {
+      result.data = rawData;
+    }
+  } else {
+    result.data = Array.isArray(rawData) ? rawData : [];
+  }
 
   // ============ Geometry ============
   if (typeof config.radius === "number") result.radius = config.radius;
@@ -173,33 +184,109 @@ function normalizeConfigForADC2(
     };
   }
 
-  // ============ Axis (for cartesian charts) ============
-  if (["line", "column", "bar", "area", "scatter"].includes(type)) {
-    if (config.axis === false) {
-      result.axis = false;
-    } else if (config.axis && typeof config.axis === "object") {
-      const axis = config.axis as Record<string, unknown>;
-      const x = axis.x && typeof axis.x === "object" ? (axis.x as Record<string, unknown>) : {};
-      const y = axis.y && typeof axis.y === "object" ? (axis.y as Record<string, unknown>) : {};
+  // ============ Axis ============
+  const chartsWithAxis = new Set([
+    "line",
+    "column",
+    "bar",
+    "area",
+    "scatter",
+    "radar",
+    "heatmap",
+    "dualAxes",
+    "histogram",
+  ]);
 
-      result.axis = {
-        ...axis,
-        x: {
-          ...x,
-          titleFill: themeTokens.axisTitleFill,
-          labelFill: themeTokens.axisLabelFill,
-          lineStroke: themeTokens.axisLineStroke,
-          gridStroke: themeTokens.axisGridStroke,
+  const mergeAxisConfig = (axisConfig: unknown): Record<string, unknown> => {
+    const axis = axisConfig && typeof axisConfig === "object" ? (axisConfig as Record<string, unknown>) : {};
+    const label = axis.label && typeof axis.label === "object" ? (axis.label as Record<string, unknown>) : {};
+    const title = axis.title && typeof axis.title === "object" ? (axis.title as Record<string, unknown>) : {};
+    const line = axis.line && typeof axis.line === "object" ? (axis.line as Record<string, unknown>) : {};
+    const tickLine =
+      axis.tickLine && typeof axis.tickLine === "object"
+        ? (axis.tickLine as Record<string, unknown>)
+        : {};
+    const grid = axis.grid && typeof axis.grid === "object" ? (axis.grid as Record<string, unknown>) : {};
+    const gridLine = grid.line && typeof grid.line === "object" ? (grid.line as Record<string, unknown>) : {};
+
+    const labelStyle =
+      label.style && typeof label.style === "object"
+        ? (label.style as Record<string, unknown>)
+        : {};
+    const titleStyle =
+      title.style && typeof title.style === "object"
+        ? (title.style as Record<string, unknown>)
+        : {};
+    const lineStyle =
+      line.style && typeof line.style === "object"
+        ? (line.style as Record<string, unknown>)
+        : {};
+    const tickLineStyle =
+      tickLine.style && typeof tickLine.style === "object"
+        ? (tickLine.style as Record<string, unknown>)
+        : {};
+    const gridLineStyle =
+      gridLine.style && typeof gridLine.style === "object"
+        ? (gridLine.style as Record<string, unknown>)
+        : {};
+
+    return {
+      ...axis,
+      label: {
+        ...label,
+        style: {
+          ...labelStyle,
+          fill: themeTokens.axisLabelFill,
         },
-        y: {
-          ...y,
-          titleFill: themeTokens.axisTitleFill,
-          labelFill: themeTokens.axisLabelFill,
-          lineStroke: themeTokens.axisLineStroke,
-          gridStroke: themeTokens.axisGridStroke,
+      },
+      title: {
+        ...title,
+        style: {
+          ...titleStyle,
+          fill: themeTokens.axisTitleFill,
         },
-      };
-    } else {
+      },
+      line: {
+        ...line,
+        style: {
+          ...lineStyle,
+          stroke: themeTokens.axisLineStroke,
+        },
+      },
+      tickLine: {
+        ...tickLine,
+        style: {
+          ...tickLineStyle,
+          stroke: themeTokens.axisLineStroke,
+        },
+      },
+      grid: {
+        ...grid,
+        line: {
+          ...gridLine,
+          style: {
+            ...gridLineStyle,
+            stroke: themeTokens.axisGridStroke,
+          },
+        },
+      },
+    };
+  };
+
+  if (chartsWithAxis.has(type)) {
+    if (config.xAxis !== false) {
+      result.xAxis = mergeAxisConfig(config.xAxis);
+    }
+
+    if (config.yAxis !== false) {
+      if (Array.isArray(config.yAxis)) {
+        result.yAxis = config.yAxis.map((axisItem) => mergeAxisConfig(axisItem));
+      } else {
+        result.yAxis = mergeAxisConfig(config.yAxis);
+      }
+    }
+
+    if (config.axis !== false) {
       result.axis = {
         x: {
           titleFill: themeTokens.axisTitleFill,

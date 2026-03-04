@@ -76,33 +76,33 @@
                   - img [ref=e133]
                 - button "Delete message" [ref=e135] [cursor=pointer]:
                   - img [ref=e136]
-            - generic [ref=e208]:
-              - generic [ref=e210]:
-                - paragraph [ref=e211]: "AI:"
-                - generic [ref=e213]:
-                  - generic [ref=e214]:
-                    - img [ref=e215]
-                    - paragraph [ref=e217]: Mermaid Diagram
-                  - document [ref=e220]:
-                    - generic [ref=e222]:
-                      - generic [ref=e226]:
-                        - generic [ref=e232]: "Yes"
-                        - generic [ref=e238]: "No"
-                      - generic [ref=e239]:
-                        - paragraph [ref=e246]: Start
-                        - paragraph [ref=e253]: Decision
-                        - paragraph [ref=e260]: Done
-                        - paragraph [ref=e267]: Retry
-              - generic [ref=e269]:
-                - status [ref=e270]
-                - button "Copy message" [ref=e271] [cursor=pointer]:
-                  - img [ref=e272]
+            - generic [ref=e269]:
+              - generic [ref=e271]:
+                - paragraph [ref=e272]: "AI:"
+                - generic [ref=e274]:
+                  - generic [ref=e275]:
+                    - img [ref=e276]
+                    - paragraph [ref=e278]: Mermaid Diagram
+                  - document [ref=e281]:
+                    - generic [ref=e283]:
+                      - generic [ref=e287]:
+                        - generic [ref=e293]: "Yes"
+                        - generic [ref=e299]: "No"
+                      - generic [ref=e300]:
+                        - paragraph [ref=e307]: Start
+                        - paragraph [ref=e314]: Decision
+                        - paragraph [ref=e321]: Done
+                        - paragraph [ref=e328]: Retry
+              - generic [ref=e330]:
+                - status [ref=e331]
+                - button "Copy message" [ref=e332] [cursor=pointer]:
+                  - img [ref=e333]
                   - text: Copy
-                - button "Regenerate response" [ref=e274] [cursor=pointer]:
-                  - img [ref=e275]
+                - button "Regenerate response" [ref=e335] [cursor=pointer]:
+                  - img [ref=e336]
                   - text: Regenerate
-                - button "Delete message" [ref=e277] [cursor=pointer]:
-                  - img [ref=e278]
+                - button "Delete message" [ref=e338] [cursor=pointer]:
+                  - img [ref=e339]
                   - text: Delete
           - button "Back to top" [ref=e81] [cursor=pointer]:
             - img [ref=e82]
@@ -114,10 +114,10 @@
           - generic [ref=e90]:
             - generic "Multiline input enabled" [ref=e91]:
               - img [ref=e92]
-            - textbox "Ask anything... (AI can search web & read pages)" [active] [ref=e280]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"sales\":100},{\"month\":\"Feb\",\"sales\":150}],\"encode\":{\"x\":\"month\",\"y\":\"sales\"}} ```"
-            - button "Clear input" [ref=e284]:
-              - img [ref=e285]
-            - button "Send" [ref=e281] [cursor=pointer]:
-              - img [ref=e282]
+            - textbox "Ask anything... (AI can search web & read pages)" [active] [ref=e265]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"sales\":100},{\"month\":\"Feb\",\"sales\":150}],\"encode\":{\"x\":\"month\",\"y\":\"sales\"}} ```"
+            - button "Clear input" [ref=e341]:
+              - img [ref=e342]
+            - button "Send" [ref=e266] [cursor=pointer]:
+              - img [ref=e267]
               - generic [ref=e98]: Send
-          - paragraph [ref=e288]: 152/4000
+          - paragraph [ref=e345]: 152/4000

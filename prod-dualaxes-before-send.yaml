@@ -1,0 +1,80 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e7]: Workspace
+      - generic [ref=e8]:
+        - button "Chats" [ref=e9]:
+          - generic [ref=e10]:
+            - img [ref=e11]
+            - text: Chats
+        - button "Tools" [ref=e13]:
+          - generic [ref=e14]:
+            - img [ref=e15]
+            - text: Tools
+        - button "Resources" [ref=e17]:
+          - generic [ref=e18]:
+            - img [ref=e19]
+            - text: Resources
+        - button "Settings" [ref=e21]:
+          - generic [ref=e22]:
+            - img [ref=e23]
+            - text: Settings
+      - button "New Chat" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: New Chat
+    - generic [ref=e29]:
+      - img [ref=e30]
+      - paragraph [ref=e32]: No conversations yet
+  - generic [ref=e33]:
+    - banner [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - button "Toggle sidebar" [ref=e37]:
+            - img [ref=e38]
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - generic [ref=e43]:
+              - heading "Workchatly" [level=1] [ref=e44]
+              - paragraph [ref=e45]: AI Agent
+        - generic [ref=e46]:
+          - button "New Chat" [ref=e47]:
+            - img [ref=e48]
+            - generic [ref=e50]: New Chat
+          - button "Export" [disabled] [ref=e51]:
+            - img [ref=e52]
+            - img [ref=e54]
+          - button "Toggle theme" [ref=e56]:
+            - img [ref=e57]
+          - button "Login" [ref=e59]:
+            - img [ref=e60]
+            - generic [ref=e62]: Login
+          - generic [ref=e63]:
+            - img [ref=e64]
+            - generic [ref=e66]: connected
+    - main [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - button "Bubble" [ref=e72] [cursor=pointer]
+            - button "Docs" [ref=e73] [cursor=pointer]
+          - generic [ref=e76]:
+            - img [ref=e77]
+            - heading "Start a conversation" [level=2] [ref=e79]
+            - paragraph [ref=e80]: Connect MCP servers in the MCP tab to enable tool access.
+          - button "Back to top" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
+            - text: Back to top
+          - button "Back to bottom · Following" [ref=e84] [cursor=pointer]:
+            - img [ref=e85]
+            - text: Back to bottom · Following
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - generic "Multiline input enabled" [ref=e91]:
+              - img [ref=e92]
+            - textbox "Type a message..." [active] [ref=e94]: "请严格原样返回以下内容，不要添加任何解释： 很抱歉，搜索功能目前已达到使用上限。不过，我可以基于公开的统计数据为您提供世界主要国家的人口和GDP信息，并制作可视化图表。 以下是世界主要国家人口与GDP数据（基于2023-2024年公开数据估算）： ## 世界主要国家人口与GDP数据 | 国家 | 人口（百万） | GDP（万亿美元） | 人均GDP（美元） | |------|-------------|----------------|----------------| | 中国 | 1424 | 18.5 | 13,000 | | 美国 | 339 | 27.4 | 80,800 | | 印度 | 1428 | 3.7 | 2,600 | | 日本 | 124 | 4.2 | 34,000 | | 德国 | 84 | 4.4 | 52,500 | | 英国 | 67 | 3.3 | 49,000 | | 法国 | 68 | 3.0 | 44,000 | | 意大利 | 59 | 2.2 | 37,000 | | 巴西 | 216 | 2.1 | 9,700 | | 俄罗斯 | 144 | 1.8 | 12,500 | | 加拿大 | 40 | 2.1 | 52,000 | | 韩国 | 52 | 1.7 | 33,000 | | 澳大利亚 | 27 | 1.7 | 63,000 | | 墨西哥 | 129 | 1.3 | 10,000 | 现在让我用可视化图表展示这些数据： ### 1. 主要国家GDP对比（柱状图） ```adc { \"type\": \"column\", \"data\": [ {\"country\": \"美国\", \"gdp\": 27.4}, {\"country\": \"中国\", \"gdp\": 18.5}, {\"country\": \"德国\", \"gdp\": 4.4}, {\"country\": \"日本\", \"gdp\": 4.2}, {\"country\": \"英国\", \"gdp\": 3.3}, {\"country\": \"印度\", \"gdp\": 3.7}, {\"country\": \"法国\", \"gdp\": 3.0}, {\"country\": \"意大利\", \"gdp\": 2.2}, {\"country\": \"巴西\", \"gdp\": 2.1}, {\"country\": \"加拿大\", \"gdp\": 2.1}, {\"country\": \"韩国\", \"gdp\": 1.7}, {\"country\": \"澳大利亚\", \"gdp\": 1.7} ], \"xField\": \"country\", \"yField\": \"gdp\", \"meta\": { \"gdp\": { \"alias\": \"GDP（万亿美元）\" } }, \"columnStyle\": { \"radius\": [6, 6, 0, 0] } } ``` ### 2. 主要国家人口对比（柱状图） ```adc { \"type\": \"column\", \"data\": [ {\"country\": \"印度\", \"population\": 1428}, {\"country\": \"中国\", \"population\": 1424}, {\"country\": \"美国\", \"population\": 339}, {\"country\": \"俄罗斯\", \"population\": 144}, {\"country\": \"巴西\", \"population\": 216}, {\"country\": \"墨西哥\", \"population\": 129}, {\"country\": \"日本\", \"population\": 124}, {\"country\": \"德国\", \"population\": 84}, {\"country\": \"英国\", \"population\": 67}, {\"country\": \"法国\", \"population\": 68}, {\"country\": \"意大利\", \"population\": 59}, {\"country\": \"韩国\", \"population\": 52} ], \"xField\": \"country\", \"yField\": \"population\", \"meta\": { \"population\": { \"alias\": \"人口（百万）\" } }, \"columnStyle\": { \"radius\": [6, 6, 0, 0] } } ``` ### 3. 主要国家人均GDP对比（柱状图） ```adc { \"type\": \"column\", \"data\": [ {\"country\": \"美国\", \"gdpPerCapita\": 80800}, {\"country\": \"澳大利亚\", \"gdpPerCapita\": 63000}, {\"country\": \"德国\", \"gdpPerCapita\": 52500}, {\"country\": \"加拿大\", \"gdpPerCapita\": 52000}, {\"country\": \"英国\", \"gdpPerCapita\": 49000}, {\"country\": \"法国\", \"gdpPerCapita\": 44000}, {\"country\": \"意大利\", \"gdpPerCapita\": 37000}, {\"country\": \"日本\", \"gdpPerCapita\": 34000}, {\"country\": \"韩国\", \"gdpPerCapita\": 33000}, {\"country\": \"中国\", \"gdpPerCapita\": 13000}, {\"country\": \"俄罗斯\", \"gdpPerCapita\": 12500}, {\"country\": \"巴西\", \"gdpPerCapita\": 9700}, {\"country\": \"墨西哥\", \"gdpPerCapita\": 10000} ], \"xField\": \"country\", \"yField\": \"gdpPerCapita\", \"meta\": { \"gdpPerCapita\": { \"alias\": \"人均GDP（美元）\" } }, \"columnStyle\": { \"radius\": [6, 6, 0, 0] } } ``` ### 4. GDP与人口双轴对比图 ```adc { \"type\": \"dualAxes\", \"data\": [ {\"country\": \"美国\", \"gdp\": 27.4, \"population\": 339}, {\"country\": \"中国\", \"gdp\": 18.5, \"population\": 1424}, {\"country\": \"德国\", \"gdp\": 4.4, \"population\": 84}, {\"country\": \"日本\", \"gdp\": 4.2, \"population\": 124}, {\"country\": \"英国\", \"gdp\": 3.3, \"population\": 67}, {\"country\": \"印度\", \"gdp\": 3.7, \"population\": 1428}, {\"country\": \"法国\", \"gdp\": 3.0, \"population\": 68}, {\"country\": \"意大利\", \"gdp\": 2.2, \"population\": 59} ], \"xField\": \"country\", \"yField\": [\"gdp\", \"population\"], \"meta\": { \"gdp\": { \"alias\": \"GDP（万亿美元）\" }, \"population\": { \"alias\": \"人口（百万）\" } }, \"geometryOptions\": [ { \"geometry\": \"column\" }, { \"geometry\": \"line\" } ] } ```"
+            - button "Clear input" [ref=e99]:
+              - img [ref=e100]
+            - button "Send" [ref=e95] [cursor=pointer]:
+              - img [ref=e96]
+              - generic [ref=e98]: Send
+          - paragraph [ref=e103]: 3690/4000

@@ -1,0 +1,106 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e7]: Workspace
+      - generic [ref=e8]:
+        - button "Chats" [ref=e9]:
+          - generic [ref=e10]:
+            - img [ref=e11]
+            - text: Chats
+        - button "Tools 2" [ref=e205]:
+          - generic [ref=e14]:
+            - img [ref=e15]
+            - text: Tools
+          - generic [ref=e206]: "2"
+        - button "Resources" [ref=e17]:
+          - generic [ref=e18]:
+            - img [ref=e19]
+            - text: Resources
+        - button "Settings" [ref=e21]:
+          - generic [ref=e22]:
+            - img [ref=e23]
+            - text: Settings
+      - button "New Chat" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: New Chat
+    - 'button "请严格原样返回以下 3 个代码块，不要添加任何解释或额外文本... ```adc {\"type\":\"line\",\"data\":[{\"year\":\"2020\",\"val... now 4 Delete session" [ref=e421]':
+      - generic [ref=e105]:
+        - generic [ref=e106]:
+          - paragraph [ref=e108]: 请严格原样返回以下 3 个代码块，不要添加任何解释或额外文本...
+          - paragraph [ref=e110]: "```adc {\"type\":\"line\",\"data\":[{\"year\":\"2020\",\"val..."
+          - generic [ref=e111]:
+            - paragraph [ref=e112]: now
+            - generic [ref=e113]: "4"
+        - button "Delete session" [ref=e114]:
+          - img [ref=e115]
+  - generic [ref=e33]:
+    - banner [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - button "Toggle sidebar" [ref=e37]:
+            - img [ref=e38]
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - generic [ref=e43]:
+              - heading "Workchatly" [level=1] [ref=e44]
+              - paragraph [ref=e45]: AI Agent
+        - generic [ref=e46]:
+          - button "New Chat" [ref=e47]:
+            - img [ref=e48]
+            - generic [ref=e50]: New Chat
+          - button "Export" [ref=e51]:
+            - img [ref=e52]
+            - img [ref=e54]
+          - button "Toggle theme" [ref=e56]:
+            - img [ref=e287]
+          - button "Login" [ref=e59]:
+            - img [ref=e60]
+            - generic [ref=e62]: Login
+          - generic [ref=e63]:
+            - img [ref=e64]
+            - generic [ref=e66]: connected
+    - main [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - button "Bubble" [ref=e72] [cursor=pointer]
+            - button "Docs" [ref=e73] [cursor=pointer]
+          - generic [ref=e289]:
+            - generic [ref=e291]:
+              - paragraph [ref=e426]: "AI:"
+              - generic [ref=e429]:
+                - img [ref=e430]
+                - paragraph [ref=e432]: Ant Design Charts
+                - generic [ref=e433]: line
+              - generic [ref=e439]:
+                - img [ref=e440]
+                - paragraph [ref=e442]: Ant Design Charts
+                - generic [ref=e443]: radar
+              - generic [ref=e449]:
+                - img [ref=e450]
+                - paragraph [ref=e452]: Ant Design Charts
+                - generic [ref=e453]: heatmap
+            - generic [ref=e324]:
+              - status [ref=e325]
+              - button "Copy message" [ref=e326] [cursor=pointer]:
+                - img [ref=e327]
+                - text: Copy
+              - button "Regenerate response" [ref=e329] [cursor=pointer]:
+                - img [ref=e330]
+                - text: Regenerate
+              - button "Delete message" [ref=e332] [cursor=pointer]:
+                - img [ref=e333]
+                - text: Delete
+          - button "Back to top" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
+            - text: Back to top
+          - button "Back to bottom · Following" [ref=e84] [cursor=pointer]:
+            - img [ref=e85]
+            - text: Back to bottom · Following
+        - generic [ref=e90]:
+          - generic "Multiline input enabled" [ref=e91]:
+            - img [ref=e92]
+          - textbox "Ask anything... (AI can search web & read pages)" [ref=e422]
+          - button "Send" [disabled] [ref=e423]:
+            - img [ref=e424]
+            - generic [ref=e98]: Send

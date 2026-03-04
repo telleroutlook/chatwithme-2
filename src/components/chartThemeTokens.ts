@@ -12,10 +12,10 @@ export interface ChartThemeTokens {
 }
 
 export const LIGHT_CHART_THEME_TOKENS: ChartThemeTokens = {
-  axisTitleFill: "#666666",
-  axisLabelFill: "#999999",
-  axisLineStroke: "#e0e0e0",
-  axisGridStroke: "#f0f0f0",
+  axisTitleFill: "#1f2937",
+  axisLabelFill: "#374151",
+  axisLineStroke: "#cbd5e1",
+  axisGridStroke: "#e5e7eb",
   legendItemFill: "#333333",
   titleFill: "#0f172a",
   paletteCategorical: [
