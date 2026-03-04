@@ -6,6 +6,10 @@ set -e
 
 BASE_URL="${1:-http://localhost:8787}"
 
+extract_last_number() {
+    echo "$1" | grep -Eo '[-]?[0-9]+' | tail -1
+}
+
 echo "📜 Running Scroll Lock Test against: $BASE_URL"
 
 # Open browser
@@ -30,22 +34,26 @@ fi
 wait_for_streaming() {
     echo "⏳ Waiting for streaming to complete..."
     for i in {1..60}; do
-        STOP_COUNT=$(playwright-cli eval "
+        STOP_COUNT_RAW=$(playwright-cli eval "
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
 })
 " 2>/dev/null || echo "0")
+        STOP_COUNT=$(extract_last_number "$STOP_COUNT_RAW")
+        STOP_COUNT=${STOP_COUNT:-0}
 
         if [ "$STOP_COUNT" = "0" ]; then
             # Check 4 consecutive times to confirm streaming is done
             sleep 0.5
-            STOP_COUNT2=$(playwright-cli eval "
+            STOP_COUNT2_RAW=$(playwright-cli eval "
 (() => {
   const stopBtns = document.querySelectorAll('button[aria-label=\"Stop\"], button[aria-label=\"停止\"]');
   return stopBtns.length;
 })
 " 2>/dev/null || echo "0")
+            STOP_COUNT2=$(extract_last_number "$STOP_COUNT2_RAW")
+            STOP_COUNT2=${STOP_COUNT2:-0}
             if [ "$STOP_COUNT2" = "0" ]; then
                 echo "   Streaming completed after $((i * 500))ms"
                 return 0
@@ -150,7 +158,7 @@ echo "📊 Monitoring scroll position during streaming..."
 MAX_SCROLL=0
 for i in {1..5}; do
     sleep 2
-    CURRENT_SCROLL=$(playwright-cli eval "
+    CURRENT_SCROLL_RAW=$(playwright-cli eval "
 (() => {
   const candidates = Array.from(document.querySelectorAll('div')).filter(el => {
     const s = window.getComputedStyle(el);
@@ -163,6 +171,8 @@ for i in {1..5}; do
   return candidates[0]?.scrollTop || 0;
 })
 " 2>/dev/null || echo "0")
+    CURRENT_SCROLL=$(extract_last_number "$CURRENT_SCROLL_RAW")
+    CURRENT_SCROLL=${CURRENT_SCROLL:-0}
     echo "   Sample $i: scrollTop = $CURRENT_SCROLL"
     if [ "$CURRENT_SCROLL" -gt "$MAX_SCROLL" ]; then
         MAX_SCROLL=$CURRENT_SCROLL

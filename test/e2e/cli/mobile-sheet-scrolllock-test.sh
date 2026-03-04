@@ -8,6 +8,10 @@ BASE_URL="${1:-http://localhost:8787}"
 IPHONE_WIDTH=390
 IPHONE_HEIGHT=844
 
+extract_last_number() {
+    echo "$1" | grep -Eo '[-]?[0-9]+' | tail -1
+}
+
 echo "📱 Running Mobile Sheet Scroll Lock Test against: $BASE_URL"
 
 # Open browser with mobile viewport
@@ -99,7 +103,7 @@ playwright-cli eval "
 sleep 1
 
 # Record initial scroll
-INITIAL_SCROLL=$(playwright-cli eval "
+INITIAL_SCROLL_RAW=$(playwright-cli eval "
 (() => {
   const candidates = Array.from(document.querySelectorAll('div')).filter(el => {
     const s = window.getComputedStyle(el);
@@ -112,6 +116,8 @@ INITIAL_SCROLL=$(playwright-cli eval "
   return Math.round(candidates[0]?.scrollTop || 0);
 })
 ")
+INITIAL_SCROLL=$(extract_last_number "$INITIAL_SCROLL_RAW")
+INITIAL_SCROLL=${INITIAL_SCROLL:-0}
 echo "   Initial scroll position: $INITIAL_SCROLL"
 
 # Try to open sidebar
@@ -156,7 +162,7 @@ if [ "$SIDEBAR_OPENED" = true ]; then
     playwright-cli screenshot --filename=mobile-sidebar-open.png
 
     # Check scroll state
-    OPEN_SCROLL=$(playwright-cli eval "
+    OPEN_SCROLL_RAW=$(playwright-cli eval "
 (() => {
   const candidates = Array.from(document.querySelectorAll('div')).filter(el => {
     const s = window.getComputedStyle(el);
@@ -169,12 +175,22 @@ if [ "$SIDEBAR_OPENED" = true ]; then
   return Math.round(candidates[0]?.scrollTop || 0);
 })
 ")
+    OPEN_SCROLL=$(extract_last_number "$OPEN_SCROLL_RAW")
+    OPEN_SCROLL=${OPEN_SCROLL:-0}
     echo "   Scroll with sidebar open: $OPEN_SCROLL"
 
     # Close sidebar (click outside or press Escape)
     echo "📂 Closing sidebar..."
-    playwright-cli mousemove 350 400
-    playwright-cli click 350 400
+    playwright-cli eval "
+(() => {
+  const overlay = document.querySelector('div.fixed.inset-0.z-40.lg\\\\:hidden');
+  if (overlay instanceof HTMLElement) {
+    overlay.click();
+    return 'overlay_clicked';
+  }
+  return 'overlay_missing';
+})
+"
     sleep 1
 
     # Or try Escape
@@ -183,7 +199,7 @@ if [ "$SIDEBAR_OPENED" = true ]; then
 fi
 
 # Check final scroll position
-FINAL_SCROLL=$(playwright-cli eval "
+FINAL_SCROLL_RAW=$(playwright-cli eval "
 (() => {
   const candidates = Array.from(document.querySelectorAll('div')).filter(el => {
     const s = window.getComputedStyle(el);
@@ -196,6 +212,8 @@ FINAL_SCROLL=$(playwright-cli eval "
   return Math.round(candidates[0]?.scrollTop || 0);
 })
 ")
+FINAL_SCROLL=$(extract_last_number "$FINAL_SCROLL_RAW")
+FINAL_SCROLL=${FINAL_SCROLL:-0}
 echo "   Final scroll position: $FINAL_SCROLL"
 
 # Take final screenshot

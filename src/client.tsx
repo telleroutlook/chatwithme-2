@@ -17,6 +17,7 @@ import { trackChatEvent } from "./features/chat/services/trackChatEvent";
 import {
   loadCurrentSessionId,
   loadSessions,
+  migrateSessionsBetweenUsers,
   saveCurrentSessionId,
   saveSessions,
   updateSessionMeta,
@@ -47,6 +48,7 @@ import {
   useExportActions
 } from "./features/chat/controllers";
 import { ChatWorkspace } from "./features/chat/app/ChatWorkspace";
+import { AuthProvider } from "./features/chat/context/AuthContext";
 import {
   readPreconfiguredServersFromState,
   readPendingApprovalsFromState,
@@ -132,6 +134,46 @@ function App() {
   useEffect(() => {
     saveCurrentSessionId(userId, currentSessionId);
   }, [userId, currentSessionId]);
+
+  // Reload user-scoped sessions when identity changes.
+  useEffect(() => {
+    const storedSessions = loadSessions(userId);
+    setSessions(storedSessions);
+
+    const storedCurrent = loadCurrentSessionId(userId);
+    if (storedCurrent) {
+      setCurrentSessionId(storedCurrent);
+      return;
+    }
+
+    const next = storedSessions[0]?.id ?? nanoid(8);
+    saveCurrentSessionId(userId, next);
+    setCurrentSessionId(next);
+  }, [userId]);
+
+  // Migrate guest sessions after successful authentication.
+  useEffect(() => {
+    const handleAuthLogin = (event: Event) => {
+      const customEvent = event as CustomEvent<{ fromUserId?: string; toUserId?: string }>;
+      const fromUserId = customEvent.detail?.fromUserId?.trim();
+      const toUserId = customEvent.detail?.toUserId?.trim();
+
+      if (!fromUserId || !toUserId || fromUserId === toUserId) {
+        return;
+      }
+
+      const result = migrateSessionsBetweenUsers(fromUserId, toUserId);
+      if (result.currentSessionId) {
+        setCurrentSessionId(result.currentSessionId);
+      }
+      setSessions(loadSessions(toUserId));
+    };
+
+    window.addEventListener("auth:login", handleAuthLogin);
+    return () => {
+      window.removeEventListener("auth:login", handleAuthLogin);
+    };
+  }, []);
 
   // Build composite agent name for user isolation: "userId:sessionId"
   const agentName = useMemo(() => `${userId}:${currentSessionId}`, [userId, currentSessionId]);
@@ -573,7 +615,9 @@ createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
     <I18nProvider>
       <ToastProvider>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
         <Toaster />
         <ModalHost />
       </ToastProvider>

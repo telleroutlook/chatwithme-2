@@ -126,3 +126,59 @@ export function remapSessionMeta(userId: string, oldSessionId: string, newSessio
   sessions[fromIndex] = { ...sessions[fromIndex], id: to };
   saveSessions(userId, sessions);
 }
+
+interface SessionMigrationResult {
+  mergedCount: number;
+  currentSessionId: string | null;
+}
+
+function parseTimestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mergeSessionLists(primary: SessionMeta[], incoming: SessionMeta[]): SessionMeta[] {
+  const byId = new Map<string, SessionMeta>();
+  for (const session of [...primary, ...incoming]) {
+    const current = byId.get(session.id);
+    if (!current || parseTimestamp(session.timestamp) >= parseTimestamp(current.timestamp)) {
+      byId.set(session.id, session);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp));
+}
+
+export function migrateSessionsBetweenUsers(fromUserId: string, toUserId: string): SessionMigrationResult {
+  const from = fromUserId.trim();
+  const to = toUserId.trim();
+  if (!from || !to || from === to) {
+    return {
+      mergedCount: 0,
+      currentSessionId: loadCurrentSessionId(to) ?? null
+    };
+  }
+
+  const sourceSessions = loadSessions(from);
+  const targetSessions = loadSessions(to);
+  if (sourceSessions.length === 0) {
+    return {
+      mergedCount: targetSessions.length,
+      currentSessionId: loadCurrentSessionId(to) ?? null
+    };
+  }
+
+  const mergedSessions = mergeSessionLists(targetSessions, sourceSessions);
+  saveSessions(to, mergedSessions);
+
+  const sourceCurrent = loadCurrentSessionId(from);
+  const targetCurrent = loadCurrentSessionId(to);
+  const mergedCurrent = sourceCurrent ?? targetCurrent ?? mergedSessions[0]?.id ?? null;
+  if (mergedCurrent) {
+    saveCurrentSessionId(to, mergedCurrent);
+  }
+
+  return {
+    mergedCount: mergedSessions.length,
+    currentSessionId: mergedCurrent
+  };
+}

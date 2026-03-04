@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { ConnectionIndicator, type ConnectionStatus, useThemeMode } from "../AgentsUiCompat";
 import { useResponsive } from "../../hooks/useResponsive";
+import { UserMenu } from "../../features/auth/components/UserMenu";
 
 interface TopBarProps {
   mobile: boolean;
@@ -147,6 +148,7 @@ export function TopBar({
           >
             {isDark ? <SunIcon size={18} /> : <MoonIcon size={18} />}
           </button>
+          <UserMenu t={t} isTouchDevice={isTouchDevice} />
           {!mobile ? (
             <ConnectionIndicator
               status={connectionStatus}

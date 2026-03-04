@@ -21,11 +21,11 @@ export function useSessionSyncTriggers({
   setSessions,
   intervalMs = 45000
 }: UseSessionSyncTriggersParams): UseSessionSyncTriggersResult {
-  const initializedRef = useRef(false);
+  const initializedForUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
+    if (initializedForUserRef.current === userId) return;
+    initializedForUserRef.current = userId;
     const stored = loadSessions(userId);
     setSessions(stored);
     if (stored.length === 0) return;
@@ -53,6 +53,26 @@ export function useSessionSyncTriggers({
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [enqueueSessionSync, intervalMs]);
+
+  useEffect(() => {
+    const onAuthLogin = () => {
+      const stored = loadSessions(userId);
+      setSessions(stored);
+      enqueueSessionSync("startup", 0);
+    };
+
+    const onAuthLogout = () => {
+      const stored = loadSessions(userId);
+      setSessions(stored);
+    };
+
+    window.addEventListener("auth:login", onAuthLogin);
+    window.addEventListener("auth:logout", onAuthLogout);
+    return () => {
+      window.removeEventListener("auth:login", onAuthLogin);
+      window.removeEventListener("auth:logout", onAuthLogout);
+    };
+  }, [enqueueSessionSync, setSessions, userId]);
 
   const triggerReconnectSync = useCallback(() => {
     enqueueSessionSync("reconnect", 0);

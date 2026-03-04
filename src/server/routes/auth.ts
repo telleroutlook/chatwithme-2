@@ -9,6 +9,8 @@ import { errorJson, successJson, unknownErrorMessage } from "../http";
 import {
   resolveAuthContext,
   logAuthContext,
+  requireAuth,
+  AuthError
 } from "../auth";
 import { signJwt } from "../jwt";
 import { hashPassword, verifyPassword } from "../password";
@@ -38,6 +40,17 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   username: z.string().trim().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z
+    .string()
+    .min(1, "Current password is required")
+    .max(128, "Current password is too long"),
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password must be at most 128 characters"),
 });
 
 // ============ Database Operations ============
@@ -75,7 +88,6 @@ async function createUser(
 ): Promise<DbUser> {
   const id = generateUserId();
   const now = new Date().toISOString();
-
   await db
     .prepare(
       "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)"
@@ -113,6 +125,20 @@ async function findUserById(db: D1Database, id: string): Promise<DbUser | null> 
     .first<DbUser>();
 
   return result || null;
+}
+
+/**
+ * Update user password hash.
+ */
+async function updateUserPassword(
+  db: D1Database,
+  userId: string,
+  passwordHash: string
+): Promise<void> {
+  await db
+    .prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+    .bind(passwordHash, userId)
+    .run();
 }
 
 /**
@@ -248,6 +274,58 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
         error: unknownErrorMessage(error),
       });
       return errorJson(c, 500, "LOGIN_FAILED", unknownErrorMessage(error));
+    }
+  });
+
+  /**
+   * POST /api/auth/change-password
+   * Change current authenticated user password.
+   */
+  app.post("/api/auth/change-password", validateJson(changePasswordSchema), async (c) => {
+    try {
+      let authCtx;
+      try {
+        authCtx = await requireAuth(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      } catch (error) {
+        if (error instanceof AuthError) {
+          return errorJson(c, 401, "UNAUTHORIZED", error.message);
+        }
+        return errorJson(c, 401, "UNAUTHORIZED", "Authentication required");
+      }
+
+      const body = c.req.valid("json") as z.infer<typeof changePasswordSchema>;
+      if (body.currentPassword === body.newPassword) {
+        return errorJson(c, 400, "PASSWORD_SAME_AS_OLD", "New password must be different");
+      }
+
+      const db = c.env.DB;
+      if (!db) {
+        return errorJson(c, 500, "DB_NOT_CONFIGURED", "Database not configured");
+      }
+      await ensureAuthSchema(db);
+
+      const user = await findUserById(db, authCtx.userId);
+      if (!user) {
+        return errorJson(c, 404, "USER_NOT_FOUND", "User not found");
+      }
+
+      const isValidCurrent = await verifyPassword(body.currentPassword, user.password_hash);
+      if (!isValidCurrent) {
+        return errorJson(c, 401, "INVALID_CURRENT_PASSWORD", "Current password is incorrect");
+      }
+
+      const nextHash = await hashPassword(body.newPassword);
+      await updateUserPassword(db, user.id, nextHash);
+
+      return successJson(c, {
+        message: "Password changed successfully",
+      });
+    } catch (error) {
+      console.error("[auth_change_password_error]", {
+        requestId: c.get("requestId"),
+        error: unknownErrorMessage(error),
+      });
+      return errorJson(c, 500, "CHANGE_PASSWORD_FAILED", unknownErrorMessage(error));
     }
   });
 

@@ -95,6 +95,56 @@ describe("useSessionSyncTriggers", () => {
     expect(enqueue).toHaveBeenCalledWith("reconnect", 0);
   });
 
+  it("reloads sessions when user identity changes", () => {
+    const enqueue = vi.fn();
+    const setSessions = vi.fn();
+
+    seedSessions([createLocalSession("old-session")]);
+    saveSessions("next-user", [createLocalSession("next-session")]);
+
+    const { rerender } = renderHook(
+      ({ userId }) =>
+        useSessionSyncTriggers({
+          userId,
+          currentSessionId: "s1",
+          enqueueSessionSync: enqueue,
+          setSessions
+        }),
+      { initialProps: { userId: TEST_USER_ID } }
+    );
+
+    enqueue.mockClear();
+    setSessions.mockClear();
+    rerender({ userId: "next-user" });
+
+    expect(setSessions).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenCalledWith("startup", 0);
+  });
+
+  it("handles auth login event by syncing sessions immediately", () => {
+    const enqueue = vi.fn();
+    const setSessions = vi.fn();
+    seedSessions([createLocalSession("s1")]);
+
+    renderHook(() =>
+      useSessionSyncTriggers({
+        userId: TEST_USER_ID,
+        currentSessionId: "s1",
+        enqueueSessionSync: enqueue,
+        setSessions
+      })
+    );
+
+    enqueue.mockClear();
+    setSessions.mockClear();
+    act(() => {
+      window.dispatchEvent(new CustomEvent("auth:login"));
+    });
+
+    expect(setSessions).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenCalledWith("startup", 0);
+  });
+
   it("triggers interval and visibility sync when document is visible", async () => {
     vi.useFakeTimers();
     const enqueue = vi.fn();

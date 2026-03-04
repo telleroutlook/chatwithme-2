@@ -44,7 +44,7 @@ playwright-cli screenshot --filename=mobile-before-keyboard.png
 
 # Simulate keyboard opening by reducing viewport height
 echo "⌨️  Simulating keyboard open..."
-PLAYWRIGHT_CLI_SESSION=mobile playwright-cli resize "$IPHONE_WIDTH" $((IPHONE_HEIGHT - KEYBOARD_HEIGHT))
+playwright-cli resize "$IPHONE_WIDTH" $((IPHONE_HEIGHT - KEYBOARD_HEIGHT))
 sleep 1
 
 # Take screenshot with "keyboard open"

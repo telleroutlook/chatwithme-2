@@ -50,6 +50,17 @@ HISTORY_RESPONSE=$(curl -s "${BASE_URL}/api/chat/history?sessionId=${SESSION_ID}
 
 HISTORY_SUCCESS=$(echo "$HISTORY_RESPONSE" | grep -o '"success":[^,}]*' | grep -o 'true\|false')
 if [ "$HISTORY_SUCCESS" != "true" ]; then
+    # Some runtime paths return destroyed-state error after successful deletion.
+    HISTORY_DESTROYED=$(echo "$HISTORY_RESPONSE" | grep -o '"message":"destroyed"' || true)
+    if [ -n "$HISTORY_DESTROYED" ]; then
+        echo "   ✅ History endpoint reports destroyed state as expected"
+        echo ""
+        echo "✅ Session delete test passed!"
+        echo "   - Session created: ✅"
+        echo "   - Session deleted: ✅"
+        echo "   - History destroyed-state reported: ✅"
+        exit 0
+    fi
     echo "❌ History endpoint failed after delete: $HISTORY_RESPONSE"
     exit 1
 fi

@@ -7,7 +7,7 @@ import { callApi } from "../services/apiClient";
 import {
   setAuthenticatedIdentity,
   clearUserIdentity,
-  isAuthenticatedSync,
+  getUserIdSync,
 } from "../../../hooks/useUserIdentity";
 
 // ============ Types ============
@@ -38,6 +38,8 @@ export interface AuthContextValue extends AuthState {
   register: (username: string, password: string) => Promise<void>;
   /** Logout current user */
   logout: () => Promise<void>;
+  /** Change current user password */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /** Clear any error */
   clearError: () => void;
   /** Refresh authentication state */
@@ -45,6 +47,15 @@ export interface AuthContextValue extends AuthState {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+interface AuthLoginEventDetail {
+  fromUserId: string;
+  toUserId: string;
+}
+
+interface AuthLogoutEventDetail {
+  fromUserId: string;
+}
 
 // ============ Provider Component ============
 
@@ -116,6 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
           }
         );
 
+        const fromUserId = getUserIdSync();
         // Update stored identity with new token
         setAuthenticatedIdentity(result.user.id, result.token);
 
@@ -127,8 +139,15 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
           error: null,
         });
 
-        // Trigger session sync after login
-        window.dispatchEvent(new CustomEvent("auth:login"));
+        // Trigger session sync and migration after login
+        window.dispatchEvent(
+          new CustomEvent<AuthLoginEventDetail>("auth:login", {
+            detail: {
+              fromUserId,
+              toUserId: result.user.id,
+            },
+          })
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Login failed";
@@ -160,6 +179,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
           }
         );
 
+        const fromUserId = getUserIdSync();
         // Update stored identity with new token
         setAuthenticatedIdentity(result.user.id, result.token);
 
@@ -171,8 +191,15 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
           error: null,
         });
 
-        // Trigger session sync after registration
-        window.dispatchEvent(new CustomEvent("auth:login"));
+        // Trigger session sync and migration after registration
+        window.dispatchEvent(
+          new CustomEvent<AuthLoginEventDetail>("auth:login", {
+            detail: {
+              fromUserId,
+              toUserId: result.user.id,
+            },
+          })
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Registration failed";
@@ -192,6 +219,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
    */
   const logout = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
+    const fromUserId = getUserIdSync();
 
     try {
       await callApi("/api/auth/logout", { method: "POST" });
@@ -211,7 +239,42 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     });
 
     // Trigger session clear after logout
-    window.dispatchEvent(new CustomEvent("auth:logout"));
+    window.dispatchEvent(
+      new CustomEvent<AuthLogoutEventDetail>("auth:logout", {
+        detail: {
+          fromUserId,
+        },
+      })
+    );
+  }, []);
+
+  /**
+   * Change current user password.
+   */
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      await callApi<{ message: string }>("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: null,
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Change password failed";
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: message,
+      }));
+      throw error;
+    }
   }, []);
 
   /**
@@ -238,6 +301,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     login,
     register,
     logout,
+    changePassword,
     clearError,
     refresh,
   };
