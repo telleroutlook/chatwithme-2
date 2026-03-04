@@ -88,7 +88,7 @@ export function ChatPane({
   });
 
   // Calculate bottom inset for keyboard + safe-area
-  const bottomInset = keyboardVisible ? keyboardHeight : 0;
+  const bottomInset = mobile && keyboardVisible ? keyboardHeight : 0;
 
   const { mode, unreadCount, showBackToBottom, showBackToTop, onScroll, scrollToBottom, scrollToTop } = useChatAutoScroll({
     scrollRef,
@@ -259,7 +259,7 @@ export function ChatPane({
       <div
         className="shrink-0 border-t border-kumo-line/80 bg-kumo-base/80 px-3 py-3 app-glass sm:px-5"
         style={{
-          paddingBottom: mobile ? "calc(0.75rem + var(--safe-area-inset-bottom) + 44px)" : undefined
+          paddingBottom: mobile ? "calc(0.75rem + var(--safe-area-inset-bottom))" : undefined
         }}
       >
         <ChatInputArea

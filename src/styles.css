@@ -43,6 +43,7 @@
   --app-user-msg-bg: #dbeafe;
   --app-user-msg-text: #1e3a8a;
   --app-user-msg-border: #93c5fd;
+  --app-viewport-height: 100vh;
 }
 
 [data-mode="light"] {
@@ -117,7 +118,20 @@ body,
 #root {
   width: 100%;
   height: 100%;
+  min-height: 100%;
   margin: 0;
+}
+
+body,
+#root {
+  height: var(--app-viewport-height);
+  min-height: var(--app-viewport-height);
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-viewport-height: 100dvh;
+  }
 }
 
 /* Touch optimization */

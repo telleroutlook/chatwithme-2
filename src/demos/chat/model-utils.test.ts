@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeToolArguments, toFallbackModelMessages } from "./model-utils";
+import { normalizeToolArguments, resolveToolKind, toFallbackModelMessages } from "./model-utils";
 
 describe("normalizeToolArguments", () => {
   it("maps webSearchPrime query -> search_query", () => {
@@ -39,6 +39,45 @@ describe("normalizeToolArguments", () => {
     expect(result).toEqual({
       url: "https://example.com"
     });
+  });
+
+  it("normalizes query aliases for web search tools", () => {
+    const result = normalizeToolArguments("web_search_prime", {
+      q: "workers ai",
+      page: 1
+    });
+    expect(result).toEqual({
+      search_query: "workers ai",
+      page: 1
+    });
+  });
+
+  it("normalizes url aliases for web reader tools", () => {
+    const result = normalizeToolArguments("read_url", {
+      targetUrl: "https://example.com/docs",
+      mode: "markdown"
+    }, {
+      alias: "web-reader.read_url",
+      serverId: "web-reader"
+    });
+    expect(result).toEqual({
+      url: "https://example.com/docs",
+      mode: "markdown"
+    });
+  });
+});
+
+describe("resolveToolKind", () => {
+  it("identifies webSearchPrime by canonical name", () => {
+    expect(resolveToolKind("webSearchPrime")).toBe("webSearchPrime");
+  });
+
+  it("identifies webReader by alias context", () => {
+    expect(resolveToolKind("read_url", { alias: "web-reader.read_url" })).toBe("webReader");
+  });
+
+  it("returns unknown for unrelated tools", () => {
+    expect(resolveToolKind("zread")).toBe("unknown");
   });
 });
 

@@ -190,7 +190,7 @@ async function executeToolCallInternal(
   context: ToolExecutionContext,
   emitProgress?: ProgressEmitter
 ): Promise<unknown> {
-  const normalizedArgs = normalizeArgs(rawName, args);
+  const normalizedArgs = normalizeArgs(rawName, args, { alias, serverId });
   const runId = crypto.randomUUID();
   const runStart = new Date().toISOString();
 
@@ -206,7 +206,7 @@ async function executeToolCallInternal(
   };
 
   // Validate input
-  const inputValidationError = validateToolArguments(rawName, normalizedArgs);
+  const inputValidationError = validateToolArguments(rawName, normalizedArgs, { alias, serverId });
   if (inputValidationError) {
     currentState = upsertToolRunState(currentState, {
       ...baseRun,

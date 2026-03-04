@@ -571,7 +571,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       status: "start",
       message: "Model is generating the response."
     });
-    const finalResponse = await this.requestModelTextInternal({
+    let finalResponse = await this.requestModelTextInternal({
       model: glm(this.getModelId()),
       system: systemPrompt,
       messages,
@@ -580,6 +580,40 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       abortSignal,
       emitProgress
     });
+
+    if (finalResponse.trim().length === 0) {
+      emitProgress?.({
+        phase: "model",
+        status: "info",
+        message: "Primary model response was empty. Retrying without tools."
+      });
+      this.appendRuntimeEvent({
+        level: "info",
+        source: "chat",
+        type: "generate_empty_retry",
+        message: "Primary model response was empty; fallback retry started."
+      });
+
+      finalResponse = await this.requestModelTextInternal({
+        model: glm(this.getModelId()),
+        system: `${systemPrompt}\n\nIf tool output already exists, summarize it directly and produce a complete answer.`,
+        messages,
+        tools: {},
+        temperature: 0.4,
+        abortSignal,
+        emitProgress
+      });
+
+      if (finalResponse.trim().length === 0) {
+        finalResponse = "I encountered an empty model response after using tools. Please retry the request.";
+        this.appendRuntimeEvent({
+          level: "error",
+          source: "chat",
+          type: "generate_empty_fallback",
+          message: "Model returned empty response after fallback retry."
+        });
+      }
+    }
     emitProgress?.({
       phase: "thinking",
       status: "info",

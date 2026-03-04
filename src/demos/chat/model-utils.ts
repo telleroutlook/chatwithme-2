@@ -10,30 +10,93 @@ export interface ChatMessageLike {
   parts: MessagePartLike[];
 }
 
+type ToolKind = "webSearchPrime" | "webReader" | "unknown";
+
+interface ToolContext {
+  alias?: string;
+  serverId?: string;
+}
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function collectToolIdentityNames(toolName: string, context?: ToolContext): string[] {
+  const names = [toolName, context?.alias, context?.serverId].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  return names.map(normalizeName);
+}
+
+export function resolveToolKind(toolName: string, context?: ToolContext): ToolKind {
+  const names = collectToolIdentityNames(toolName, context);
+
+  if (
+    names.some(
+      (name) =>
+        name.includes("websearchprime") ||
+        (name.includes("websearch") && name.includes("prime"))
+    )
+  ) {
+    return "webSearchPrime";
+  }
+
+  if (names.some((name) => name.includes("webreader"))) {
+    return "webReader";
+  }
+
+  return "unknown";
+}
+
 export function normalizeToolArguments(
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  context?: ToolContext
 ): Record<string, unknown> {
-  if (toolName === "webSearchPrime") {
-    const queryValueRaw =
-      typeof args.search_query === "string"
-        ? args.search_query
-        : typeof args.query === "string"
-          ? args.query
-          : "";
-    const queryValue = queryValueRaw.trim();
-    const { query: _query, search_query: _searchQuery, ...rest } = args;
+  const toolKind = resolveToolKind(toolName, context);
+
+  if (toolKind === "webSearchPrime") {
+    const queryFields = ["search_query", "searchQuery", "query", "q", "keyword", "keywords", "search"];
+    let queryValue = "";
+    for (const field of queryFields) {
+      const value = args[field];
+      if (typeof value === "string" && value.trim().length > 0) {
+        queryValue = value.trim();
+        break;
+      }
+    }
+    const {
+      query: _query,
+      q: _q,
+      keyword: _keyword,
+      keywords: _keywords,
+      search: _search,
+      searchQuery: _searchQueryCamel,
+      search_query: _searchQuerySnake,
+      ...rest
+    } = args;
     return queryValue ? { ...rest, search_query: queryValue } : rest;
   }
 
-  if (toolName === "webReader") {
-    const urlValue =
-      typeof args.url === "string"
-        ? args.url
-        : typeof args.link === "string"
-          ? args.link
-          : "";
-    const { link: _link, ...rest } = args;
+  if (toolKind === "webReader") {
+    const urlFields = ["url", "link", "uri", "target_url", "targetUrl", "webpage_url", "webpageUrl"];
+    let urlValue = "";
+    for (const field of urlFields) {
+      const value = args[field];
+      if (typeof value === "string" && value.trim().length > 0) {
+        urlValue = value.trim();
+        break;
+      }
+    }
+    const {
+      link: _link,
+      uri: _uri,
+      target_url: _targetUrlSnake,
+      targetUrl: _targetUrlCamel,
+      webpage_url: _webpageUrlSnake,
+      webpageUrl: _webpageUrlCamel,
+      ...rest
+    } = args;
     return urlValue ? { ...rest, url: urlValue } : rest;
   }
 

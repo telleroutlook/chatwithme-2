@@ -21,6 +21,7 @@ import {
   SNIPPET_THROTTLE_MS,
   SNIPPET_MIN_LENGTH_TO_EMIT
 } from "../snippet-utils";
+import { resolveToolKind } from "../model-utils";
 import type { ProgressEmitter } from "./state-runtime";
 
 // ============ Model Execution Options ============
@@ -132,9 +133,10 @@ async function streamModelText(
  */
 export function validateToolArguments(
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  context?: { alias?: string; serverId?: string }
 ): string | null {
-  if (toolName === "webSearchPrime") {
+  if (resolveToolKind(toolName, context) === "webSearchPrime") {
     const searchQuery = args.search_query;
     if (typeof searchQuery !== "string" || searchQuery.trim().length === 0) {
       return 'Tool "webSearchPrime" requires a non-empty "search_query" field.';

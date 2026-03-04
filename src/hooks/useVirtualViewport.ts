@@ -13,6 +13,8 @@ export interface VirtualViewportInfo {
   keyboardVisible: boolean;
   /** Height of the virtual keyboard (0 if not visible) */
   keyboardHeight: number;
+  /** Raw height difference between layout and visual viewport */
+  viewportHeightDelta: number;
   /** Current pinch-zoom scale */
   scale: number;
 }
@@ -32,6 +34,7 @@ const SSR_DEFAULTS: VirtualViewportInfo = {
   offsetTop: 0,
   keyboardVisible: false,
   keyboardHeight: 0,
+  viewportHeightDelta: 0,
   scale: 1
 };
 
@@ -97,6 +100,18 @@ export function useVirtualViewport(
 
   // Debounce timer ref - use useRef to avoid stale closure issues
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isEditableElementFocused = useCallback(() => {
+    if (typeof document === "undefined") return false;
+    const active = document.activeElement;
+    if (!active) return false;
+    return (
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLTextAreaElement ||
+      active instanceof HTMLSelectElement ||
+      active.getAttribute("contenteditable") === "true"
+    );
+  }, []);
 
   // Handle visual viewport changes
   const handleVisualViewportChange = useCallback(() => {
@@ -171,16 +186,20 @@ export function useVirtualViewport(
   }, [handleVisualViewportChange, handleWindowResize]);
 
   // Calculate keyboard state
-  const { keyboardVisible, keyboardHeight } = useMemo(() => {
+  const { keyboardVisible, keyboardHeight, viewportHeightDelta } = useMemo(() => {
     // Keyboard is considered visible when visual viewport is significantly smaller
     // than layout viewport (accounting for threshold to avoid false positives)
-    const heightDiff = layoutHeight - visualHeight - offsetTop;
-    const visible = heightDiff > keyboardThreshold;
+    const heightDiff = Math.max(0, layoutHeight - visualHeight - offsetTop);
+    const minKeyboardLikeDelta = Math.max(keyboardThreshold, Math.round(layoutHeight * 0.22));
+    // On Android, browser UI changes can cause viewport delta without keyboard.
+    // Require an editable element to be focused to avoid false positives.
+    const visible = heightDiff > minKeyboardLikeDelta && isEditableElementFocused();
     return {
       keyboardVisible: visible,
-      keyboardHeight: visible ? heightDiff : 0
+      keyboardHeight: visible ? heightDiff : 0,
+      viewportHeightDelta: heightDiff
     };
-  }, [layoutHeight, visualHeight, offsetTop, keyboardThreshold]);
+  }, [layoutHeight, visualHeight, offsetTop, keyboardThreshold, isEditableElementFocused]);
 
   return useMemo(
     () => ({
@@ -189,9 +208,10 @@ export function useVirtualViewport(
       offsetTop,
       keyboardVisible,
       keyboardHeight,
+      viewportHeightDelta,
       scale
     }),
-    [visualHeight, visualWidth, offsetTop, keyboardVisible, keyboardHeight, scale]
+    [visualHeight, visualWidth, offsetTop, keyboardVisible, keyboardHeight, viewportHeightDelta, scale]
   );
 }
 
