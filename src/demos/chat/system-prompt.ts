@@ -107,6 +107,10 @@ ${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No too
 
 You can call the tools directly when external information is required.
 
+## Response Language
+- Respond in the same language as the user's latest message.
+- Keep technical terms, APIs, and code identifiers in English when needed for accuracy.
+
 ## 2. Chart Generation
 
 When asked to create charts or diagrams, you MUST output them in code blocks.
@@ -120,6 +124,10 @@ IMPORTANT:
 - ${chartPrimary === "adc" ? "Prefer ADC for data visualization with numbers and chart-friendly scenarios" : "Prefer G2 for data visualization with numbers and chart-friendly scenarios"}
 - Use Mermaid as the second choice for diagrams
 - Make sure JSON is valid in chart blocks
+- Mermaid strict-mode guardrails:
+  - Do not use HTML tags in Mermaid (especially <br/>, <b>, <div>)
+  - Do not include Markdown syntax in Mermaid blocks (# headings, markdown tables, markdown lists)
+  - Use plain text labels; if line break is needed, split text into separate nodes/edges instead of HTML
 - After generating a chart, briefly explain what it shows`;
 }
 

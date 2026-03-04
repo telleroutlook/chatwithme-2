@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Popover } from "@cloudflare/kumo";
 import { CaretDownIcon, SignOutIcon, UserCircleIcon } from "@phosphor-icons/react";
 import { useAuth } from "../../chat/context/AuthContext";
@@ -18,6 +18,8 @@ export function UserMenu({ t, isTouchDevice }: UserMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const closeAuthDialog = useCallback(() => setAuthOpen(false), []);
+  const closeProfileDialog = useCallback(() => setProfileOpen(false), []);
 
   const onLogout = async () => {
     await logout();
@@ -42,7 +44,7 @@ export function UserMenu({ t, isTouchDevice }: UserMenuProps) {
           <UserCircleIcon size={18} />
           <span className="hidden sm:inline">{t("auth_login_action")}</span>
         </button>
-        <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} t={t} />
+        <AuthDialog open={authOpen} onClose={closeAuthDialog} t={t} />
       </>
     );
   }
@@ -91,7 +93,7 @@ export function UserMenu({ t, isTouchDevice }: UserMenuProps) {
         </Popover.Content>
       </Popover>
 
-      <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} t={t} />
+      <ProfileDialog open={profileOpen} onClose={closeProfileDialog} t={t} />
     </>
   );
 }

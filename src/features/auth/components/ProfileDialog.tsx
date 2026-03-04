@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Button, Text } from "@cloudflare/kumo";
 import { Dialog } from "../../../components/ui/dialog";
 import { useAuth } from "../../chat/context/AuthContext";
@@ -18,6 +18,7 @@ export function ProfileDialog({ open, onClose, t }: ProfileDialogProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const formId = useId();
 
   useEffect(() => {
     if (!open) {
@@ -65,16 +66,28 @@ export function ProfileDialog({ open, onClose, t }: ProfileDialogProps) {
       title={t("auth_profile_title")}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             {t("message_actions_cancel")}
           </Button>
-          <Button variant="primary" disabled={!canSubmit || isLoading} onClick={onSubmit}>
+          <Button
+            type="submit"
+            form={formId}
+            variant="primary"
+            disabled={!canSubmit || isLoading}
+          >
             {t("auth_change_password_action")}
           </Button>
         </div>
       }
     >
-      <div className="space-y-4">
+      <form
+        id={formId}
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void onSubmit();
+        }}
+      >
         <div className="rounded-xl border border-kumo-line bg-kumo-control/40 p-3">
           <Text size="sm" variant="secondary">
             {t("auth_profile_username")}
@@ -137,7 +150,7 @@ export function ProfileDialog({ open, onClose, t }: ProfileDialogProps) {
             {localError ?? error}
           </p>
         ) : null}
-      </div>
+      </form>
     </Dialog>
   );
 }

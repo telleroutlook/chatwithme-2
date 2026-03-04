@@ -283,4 +283,20 @@ describe("MarkdownRenderer", () => {
     expect(screen.getByText("View original spec")).toBeInTheDocument();
     expect(screen.getByText('{"type":"unknown","data":[{"x":1,"y":2}]}')).toBeInTheDocument();
   });
+
+  it("shows detailed Mermaid validation error for markdown syntax in block", () => {
+    const content = [
+      "```mermaid",
+      "flowchart TD",
+      "# Invalid heading",
+      "A --> B",
+      "```",
+    ].join("\n");
+
+    render(<MarkdownRenderer content={content} />);
+
+    expect(screen.getByText(/Invalid Mermaid spec:/)).toBeInTheDocument();
+    expect(screen.getByText(/Markdown heading not allowed/)).toBeInTheDocument();
+    expect(screen.getByText("View original spec")).toBeInTheDocument();
+  });
 });

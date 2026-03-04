@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Button, Text } from "@cloudflare/kumo";
 import { Dialog } from "../../../components/ui/dialog";
 import { useAuth } from "../../chat/context/AuthContext";
@@ -23,6 +23,7 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const formId = useId();
 
   useEffect(() => {
     if (!open) {
@@ -91,16 +92,28 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
       title={title}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             {t("message_actions_cancel")}
           </Button>
-          <Button variant="primary" disabled={!canSubmit || isLoading} onClick={onSubmit}>
+          <Button
+            type="submit"
+            form={formId}
+            variant="primary"
+            disabled={!canSubmit || isLoading}
+          >
             {submitLabel}
           </Button>
         </div>
       }
     >
-      <div className="space-y-3">
+      <form
+        id={formId}
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void onSubmit();
+        }}
+      >
         <label className="block space-y-1">
           <Text size="sm" variant="secondary">
             {t("auth_username")}
@@ -164,7 +177,7 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
             {mode === "login" ? t("auth_switch_register") : t("auth_switch_login")}
           </button>
         </div>
-      </div>
+      </form>
     </Dialog>
   );
 }

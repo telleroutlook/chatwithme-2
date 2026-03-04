@@ -1,6 +1,7 @@
 {
   "universalRules": [
     "NEVER use HTML tags (<br/>, <b>, etc.) - Mermaid does not support HTML",
+    "Do not include Markdown syntax inside Mermaid code blocks (headings, tables, lists)",
     "Use pure text only - create new lines by adding separate entries",
     "Avoid special characters that may break parsing"
   ],

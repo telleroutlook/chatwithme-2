@@ -60,6 +60,12 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Mermaid");
   });
 
+  it("should include response language policy", () => {
+    const prompt = buildSystemPrompt([], "adc");
+    expect(prompt).toContain("Respond in the same language as the user's latest message.");
+    expect(prompt).toContain("Keep technical terms, APIs, and code identifiers in English");
+  });
+
   it("should contain important rules section", () => {
     const prompt = buildSystemPrompt([], "adc");
     expect(prompt).toContain("IMPORTANT:");

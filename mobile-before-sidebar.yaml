@@ -1,0 +1,254 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - paragraph [ref=e7]: Workspace
+          - button "Close sidebar" [ref=e8]:
+            - img [ref=e9]
+        - generic [ref=e11]:
+          - button "Chats" [ref=e12]:
+            - generic [ref=e13]:
+              - img [ref=e14]
+              - text: Chats
+          - button "Tools 2" [ref=e223]:
+            - generic [ref=e17]:
+              - img [ref=e18]
+              - text: Tools
+            - generic [ref=e210]: "2"
+          - button "Resources" [ref=e20]:
+            - generic [ref=e21]:
+              - img [ref=e22]
+              - text: Resources
+          - button "Settings" [ref=e24]:
+            - generic [ref=e25]:
+              - img [ref=e26]
+              - text: Settings
+        - button "New Chat" [ref=e28] [cursor=pointer]:
+          - img [ref=e29]
+          - text: New Chat
+      - button "Please output a numbered list ... 81. Sunshine warm glow 82. Clouds drift so slow 8... now 4 Delete session" [ref=e632]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - paragraph [ref=e110]: Please output a numbered list ...
+            - paragraph [ref=e112]: 81. Sunshine warm glow 82. Clouds drift so slow 8...
+            - generic [ref=e113]:
+              - paragraph [ref=e114]: now
+              - generic [ref=e115]: "4"
+          - button "Delete session" [ref=e116]:
+            - img [ref=e117]
+    - generic [ref=e36]:
+      - banner [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - button "Open menu" [ref=e40]:
+              - img [ref=e41]
+            - generic [ref=e43]:
+              - img [ref=e44]
+              - generic [ref=e46]:
+                - heading "Workchatly" [level=1] [ref=e47]
+                - paragraph [ref=e48]: AI Agent
+          - generic [ref=e49]:
+            - button "New Chat" [ref=e50]:
+              - img [ref=e51]
+            - button "Export" [ref=e53]:
+              - img [ref=e54]
+              - img [ref=e56]
+            - button "Toggle theme" [ref=e58]:
+              - img [ref=e59]
+            - button "Login" [ref=e61]:
+              - img [ref=e62]
+      - main [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - generic [ref=e121]:
+              - generic [ref=e383]:
+                - generic [ref=e385]:
+                  - paragraph [ref=e638]: AI:I'll create a numbered list of 80 lines with 12-20 characters each.
+                  - list [ref=e639]:
+                    - listitem [ref=e640]: Hello world today
+                    - listitem [ref=e641]: Morning sun rises
+                    - listitem [ref=e642]: Blue sky above all
+                    - listitem [ref=e643]: Birds fly so high
+                    - listitem [ref=e644]: Water flows freely
+                    - listitem [ref=e645]: Mountains stand tall
+                    - listitem [ref=e646]: Forest green and deep
+                    - listitem [ref=e647]: Ocean waves crash
+                    - listitem [ref=e648]: Stars shine at night
+                    - listitem [ref=e649]: Moon glows so bright
+                    - listitem [ref=e650]: Wind blows through trees
+                    - listitem [ref=e651]: Rain falls softly down
+                    - listitem [ref=e652]: Snow covers ground
+                    - listitem [ref=e653]: Flowers bloom bright
+                    - listitem [ref=e654]: Spring time is here
+                    - listitem [ref=e655]: Summer warm and sweet
+                    - listitem [ref=e656]: Autumn leaves fall
+                    - listitem [ref=e657]: Winter cold winds
+                    - listitem [ref=e658]: Coffee hot steam
+                    - listitem [ref=e659]: Tea cup warm hold
+                    - listitem [ref=e660]: Books tell great tales
+                    - listitem [ref=e661]: Music plays aloud
+                    - listitem [ref=e662]: Dance to the beat
+                    - listitem [ref=e663]: Laugh with friends close
+                    - listitem [ref=e664]: Love is all we need
+                    - listitem [ref=e665]: Hope springs eternal
+                    - listitem [ref=e666]: Dream big and bold
+                    - listitem [ref=e667]: Live life fully now
+                    - listitem [ref=e668]: Kindness matters most
+                    - listitem [ref=e669]: Peace shall prevail
+                    - listitem [ref=e670]: Joy in small things
+                    - listitem [ref=e671]: Grateful heart always
+                    - listitem [ref=e672]: Brave and strong soul
+                    - listitem [ref=e673]: Courage within us
+                    - listitem [ref=e674]: Wisdom comes with time
+                    - listitem [ref=e675]: Patience is virtue
+                    - listitem [ref=e676]: Faith moves mountains
+                    - listitem [ref=e677]: Believe in yourself
+                    - listitem [ref=e678]: Never give up hope
+                    - listitem [ref=e679]: Keep moving forward
+                    - listitem [ref=e680]: Tomorrow brings light
+                    - listitem [ref=e681]: Today is a gift
+                    - listitem [ref=e682]: Every moment counts
+                    - listitem [ref=e683]: Choose happiness now
+                    - listitem [ref=e684]: Spread love around
+                    - listitem [ref=e685]: Be the change you see
+                    - listitem [ref=e686]: Make a difference
+                    - listitem [ref=e687]: Inspire others daily
+                    - listitem [ref=e688]: Learn something new
+                    - listitem [ref=e689]: Grow with each step
+                    - listitem [ref=e690]: Challenge yourself
+                    - listitem [ref=e691]: Embrace the journey
+                    - listitem [ref=e692]: Celebrate success
+                    - listitem [ref=e693]: Learn from failures
+                    - listitem [ref=e694]: Stay positive always
+                    - listitem [ref=e695]: Trust your instincts
+                    - listitem [ref=e696]: Follow your heart
+                    - listitem [ref=e697]: Create your destiny
+                    - listitem [ref=e698]: Write your own story
+                    - listitem [ref=e699]: Be truly yourself
+                    - listitem [ref=e700]: Respect all people
+                    - listitem [ref=e701]: Listen with care
+                    - listitem [ref=e702]: Speak words of truth
+                    - listitem [ref=e703]: Act with integrity
+                    - listitem [ref=e704]: Show compassion deep
+                    - listitem [ref=e705]: Help those in need
+                    - listitem [ref=e706]: Share what you have
+                    - listitem [ref=e707]: Connect with others
+                    - listitem [ref=e708]: Build strong bonds
+                    - listitem [ref=e709]: Value true friendship
+                    - listitem [ref=e710]: Family is forever
+                    - listitem [ref=e711]: Home where heart is
+                    - listitem [ref=e712]: Memories we make
+                    - listitem [ref=e713]: Moments we treasure
+                    - listitem [ref=e714]: Life is beautiful
+                    - listitem [ref=e715]: World is amazing
+                    - listitem [ref=e716]: Universe so vast
+                    - listitem [ref=e717]: Wonder all around
+                    - listitem [ref=e718]: Magic in everyday
+                    - listitem [ref=e719]: Peace love happiness
+                - generic [ref=e469]:
+                  - status [ref=e470]
+                  - button "Copy message" [ref=e471] [cursor=pointer]:
+                    - img [ref=e472]
+                    - text: Copy
+                  - button "Regenerate response" [ref=e474] [cursor=pointer]:
+                    - img [ref=e475]
+                    - text: Regenerate
+                  - button "Delete message" [ref=e477] [cursor=pointer]:
+                    - img [ref=e478]
+                    - text: Delete
+              - generic [ref=e491]:
+                - paragraph [ref=e494]: User:Continue with another 80 lines of numbered text.
+                - generic [ref=e496]:
+                  - status [ref=e497]
+                  - button "Copy message" [ref=e498] [cursor=pointer]:
+                    - img [ref=e499]
+                    - text: Copy
+                  - button "Edit message" [ref=e501] [cursor=pointer]:
+                    - img [ref=e502]
+                    - text: Edit
+                  - button "Delete message" [ref=e504] [cursor=pointer]:
+                    - img [ref=e505]
+                    - text: Delete
+              - generic [ref=e720]:
+                - paragraph [ref=e723]: AI:81. Sunshine warm glow 82. Clouds drift so slow 83. Rainbow colors bright 84. Thunder rolls loud 85. Lightning strikes flash 86. Storm passes by 87. Clear skies return 88. Fresh air so clean 89. Nature heals us all 90. Earth beneath our feet 91. Soil rich and dark 92. Seeds planted deep 93. Harvest comes in time 94. Fields gold and green 95. Meadows stretch wide 96. Rivers run strong 97. Lakes calm and still 98. Streams babble soft 99. Waterfalls cascade 100. Ponds reflect light 101. Fish swim below 102. Birds sing so sweet 103. Butterflies dance 104. Bees buzz around 105. Ants work so hard 106. Spiders weave webs 107. Crickets chirp songs 108. Frogs leap so high 109. Turtles move slow 110. Rabbits hop fast 111. Deer run through woods 112. Foxes sneak around 113. Wolves howl at moon 114. Bears sleep in dens 115. Squirrels climb trees 116. Owls watch at night 117. Eagles soar above 118. Hawks hunt for prey 119. Falcons dive down 120. Swallows fly swift 121. Robins bring spring 122. Bluebirds sing songs 123. Cardinals stand out 124. Sparrows hop around 125. Crows call out loud 126. Ravens black as night 127. Penguins waddle on 128. Parrots talk back 129. Flamingos stand tall 130. Peacocks show off 131. Ducks paddle round 132. Swans glide so grace 133. Geese fly in V 134. Turkeys gobble loud 135. Chickens scratch ground 136. Roosters crow dawn 137. Dogs bark so proud 138. Cats purr so soft 139. Kittens play games 140. Puppies wag tails 141. Horses gallop fast 142. Cows chew on grass 143. Pigs roll in mud 144. Sheep wool so thick 145. Goats climb so high 146. Llamas spit so far 147. Camels store fat 148. Elephants remember 149. Lions roar so loud 150. Tigers stripes bold 151. Leopards stalk prey 152. Cheetahs run fast 153. Zebras black white 154. Giraffes reach high 155. Rhinos charge strong 156. Hippos splash round 157. Crocodiles wait 158. Alligators snap 159. Snakes slither by 160. Lizards bask sun
+                - generic [ref=e725]:
+                  - status [ref=e726]
+                  - button "Copy message" [ref=e727] [cursor=pointer]:
+                    - img [ref=e728]
+                    - text: Copy
+                  - button "Regenerate response" [ref=e730] [cursor=pointer]:
+                    - img [ref=e731]
+                    - text: Regenerate
+                  - button "Delete message" [ref=e733] [cursor=pointer]:
+                    - img [ref=e734]
+                    - text: Delete
+            - button "Back to top" [ref=e75] [cursor=pointer]:
+              - img [ref=e76]
+              - text: Back to top
+            - button "Back to bottom · Following" [ref=e78] [cursor=pointer]:
+              - img [ref=e79]
+              - text: Back to bottom · Following
+          - generic [ref=e84]:
+            - textbox "Ask anything... (AI can search web & read pages)" [ref=e634]
+            - button "Send" [disabled] [ref=e635]:
+              - img [ref=e636]
+    - navigation [ref=e89]:
+      - generic [ref=e90]:
+        - button "Chat" [pressed] [ref=e91]:
+          - img [ref=e92]
+          - generic [ref=e94]: Chat
+        - button "MCP Servers" [ref=e95]:
+          - img [ref=e96]
+          - generic [ref=e98]: MCP Servers
+  - generic:
+    - dialog "Login":
+      - generic:
+        - generic: Login
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: Username
+            - textbox "Username":
+              - /placeholder: Enter username
+          - generic:
+            - paragraph: Password
+            - textbox "Password":
+              - /placeholder: Enter password
+          - generic:
+            - text: No account?
+            - button "Create one"
+      - generic:
+        - generic:
+          - button "Cancel"
+          - button "Login" [disabled]
+  - generic:
+    - dialog "Edit message":
+      - generic:
+        - generic: Edit message
+      - generic:
+        - textbox "Edit message": I'll create a numbered list of 80 lines with 12-20 characters each. 1. Hello world today 2. Morning sun rises 3. Blue sky above all 4. Birds fly so high 5. Water flows freely 6. Mountains stand tall 7. Forest green and deep 8. Ocean waves crash 9. Stars shine at night 10. Moon glows so bright 11. Wind blows through trees 12. Rain falls softly down 13. Snow covers ground 14. Flowers bloom bright 15. Spring time is here 16. Summer warm and sweet 17. Autumn leaves fall 18. Winter cold winds 19. Coffee hot steam 20. Tea cup warm hold 21. Books tell great tales 22. Music plays aloud 23. Dance to the beat 24. Laugh with friends close 25. Love is all we need 26. Hope springs eternal 27. Dream big and bold 28. Live life fully now 29. Kindness matters most 30. Peace shall prevail 31. Joy in small things 32. Grateful heart always 33. Brave and strong soul 34. Courage within us 35. Wisdom comes with time 36. Patience is virtue 37. Faith moves mountains 38. Believe in yourself 39. Never give up hope 40. Keep moving forward 41. Tomorrow brings light 42. Today is a gift 43. Every moment counts 44. Choose happiness now 45. Spread love around 46. Be the change you see 47. Make a difference 48. Inspire others daily 49. Learn something new 50. Grow with each step 51. Challenge yourself 52. Embrace the journey 53. Celebrate success 54. Learn from failures 55. Stay positive always 56. Trust your instincts 57. Follow your heart 58. Create your destiny 59. Write your own story 60. Be truly yourself 61. Respect all people 62. Listen with care 63. Speak words of truth 64. Act with integrity 65. Show compassion deep 66. Help those in need 67. Share what you have 68. Connect with others 69. Build strong bonds 70. Value true friendship 71. Family is forever 72. Home where heart is 73. Memories we make 74. Moments we treasure 75. Life is beautiful 76. World is amazing 77. Universe so vast 78. Wonder all around 79. Magic in everyday 80. Peace love happiness
+      - generic:
+        - generic:
+          - button "Cancel"
+          - button "Save"
+  - generic:
+    - dialog "Edit message":
+      - generic:
+        - generic: Edit message
+      - generic:
+        - textbox "Edit message": Continue with another 80 lines of numbered text.
+      - generic:
+        - generic:
+          - button "Cancel"
+          - button "Save"
+  - generic:
+    - dialog "Edit message":
+      - generic:
+        - generic: Edit message
+      - generic:
+        - textbox "Edit message": 81. Sunshine warm glow 82. Clouds drift so slow 83. Rainbow colors bright 84. Thunder rolls loud 85. Lightning strikes flash 86. Storm passes by 87. Clear skies return 88. Fresh air so clean 89. Nature heals us all 90. Earth beneath our feet 91. Soil rich and dark 92. Seeds planted deep 93. Harvest comes in time 94. Fields gold and green 95. Meadows stretch wide 96. Rivers run strong 97. Lakes calm and still 98. Streams babble soft 99. Waterfalls cascade 100. Ponds reflect light 101. Fish swim below 102. Birds sing so sweet 103. Butterflies dance 104. Bees buzz around 105. Ants work so hard 106. Spiders weave webs 107. Crickets chirp songs 108. Frogs leap so high 109. Turtles move slow 110. Rabbits hop fast 111. Deer run through woods 112. Foxes sneak around 113. Wolves howl at moon 114. Bears sleep in dens 115. Squirrels climb trees 116. Owls watch at night 117. Eagles soar above 118. Hawks hunt for prey 119. Falcons dive down 120. Swallows fly swift 121. Robins bring spring 122. Bluebirds sing songs 123. Cardinals stand out 124. Sparrows hop around 125. Crows call out loud 126. Ravens black as night 127. Penguins waddle on 128. Parrots talk back 129. Flamingos stand tall 130. Peacocks show off 131. Ducks paddle round 132. Swans glide so grace 133. Geese fly in V 134. Turkeys gobble loud 135. Chickens scratch ground 136. Roosters crow dawn 137. Dogs bark so proud 138. Cats purr so soft 139. Kittens play games 140. Puppies wag tails 141. Horses gallop fast 142. Cows chew on grass 143. Pigs roll in mud 144. Sheep wool so thick 145. Goats climb so high 146. Llamas spit so far 147. Camels store fat 148. Elephants remember 149. Lions roar so loud 150. Tigers stripes bold 151. Leopards stalk prey 152. Cheetahs run fast 153. Zebras black white 154. Giraffes reach high 155. Rhinos charge strong 156. Hippos splash round 157. Crocodiles wait 158. Alligators snap 159. Snakes slither by 160. Lizards bask sun
+      - generic:
+        - generic:
+          - button "Cancel"
+          - button "Save"

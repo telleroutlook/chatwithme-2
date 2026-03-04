@@ -158,7 +158,6 @@ export const ChatInput = memo(function ChatInput({
   const isOverLimit = charCount > maxLength;
   const isEmpty = !value.trim();
   const canSubmit = !isEmpty && !isStreaming && isConnected && !isReadOnly && !isOverLimit;
-  const helperTextId = "chat-input-helper-text";
 
   const getPlaceholder = () => {
     if (!isConnected) return t("chat_input_placeholder_connecting");
@@ -233,7 +232,6 @@ export const ChatInput = memo(function ChatInput({
           disabled={!isConnected || isReadOnly}
           maxLength={maxLength}
           rows={minRows}
-          aria-describedby={helperTextId}
           className={`
             flex-1 resize-none bg-transparent text-sm text-kumo-default
             placeholder:text-kumo-inactive focus:outline-none
@@ -295,19 +293,12 @@ export const ChatInput = memo(function ChatInput({
         />
       )}
 
-      {(showCharCount || multiline) &&
-        (value || isFocused || isStreaming || !isConnected || isReadOnly) && (
+      {showCharCount && (value || isFocused || isStreaming || !isConnected || isReadOnly) && (
         <div className="flex items-center justify-between px-3.5 pb-2.5">
-          <span id={helperTextId} className="pr-2">
-            <Text size="xs" variant="secondary">
-              {multiline ? t("chat_input_hint_shortcuts") : ""}
-            </Text>
-          </span>
-          {showCharCount ? (
-            <Text size="xs" variant={isOverLimit ? "error" : "secondary"}>
-              {charCount}/{maxLength}
-            </Text>
-          ) : null}
+          <span />
+          <Text size="xs" variant={isOverLimit ? "error" : "secondary"}>
+            {charCount}/{maxLength}
+          </Text>
         </div>
       )}
     </div>

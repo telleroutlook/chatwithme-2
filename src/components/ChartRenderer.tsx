@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, memo, useMemo, useCallback } from "react";
 import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
-import { validateMermaidCode } from "../utils/mermaidValidator";
+import { sanitizeMermaidCode, validateMermaidCode } from "../utils/mermaidValidator";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
 import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
 import { useThemeDetector } from "../hooks/useThemeDetector";
@@ -20,15 +20,16 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
   const [isLoading, setIsLoading] = useState(true);
   const isDark = useThemeDetector();
   const { currentSessionId } = useChatSessionContext();
+  const sanitizedCode = useMemo(() => sanitizeMermaidCode(code), [code]);
 
   // Pre-render validation
   const validationError = useMemo(() => {
-    const result = validateMermaidCode(code);
+    const result = validateMermaidCode(sanitizedCode.sanitized);
     if (!result.valid) {
       return result.error || "Invalid Mermaid code";
     }
     return null;
-  }, [code]);
+  }, [sanitizedCode.sanitized]);
 
   useEffect(() => {
     // Skip rendering if pre-validation failed
@@ -59,7 +60,7 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
         });
 
         const renderId = `mermaid-${Math.random().toString(36).slice(2)}`;
-        const { svg } = await mermaid.render(renderId, code.trim());
+        const { svg } = await mermaid.render(renderId, sanitizedCode.sanitized.trim());
 
         if (mounted && containerRef.current) {
           containerRef.current.innerHTML = "";
@@ -93,7 +94,7 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
     return () => {
       mounted = false;
     };
-  }, [code, isDark, validationError, currentSessionId]);
+  }, [isDark, validationError, sanitizedCode.sanitized, currentSessionId]);
 
   // Pre-validation error display
   if (validationError) {
@@ -394,33 +395,45 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
         const shouldUseOptions = hasCompositionChildren || COMPOSITION_TYPES.has(specType);
 
         // Apply theme-aware axis defaults
+        const userAxis = (normalizedSpec.axis || {}) as Record<string, unknown>;
+        const userAxisX =
+          userAxis.x && typeof userAxis.x === "object" ? (userAxis.x as Record<string, unknown>) : {};
+        const userAxisY =
+          userAxis.y && typeof userAxis.y === "object" ? (userAxis.y as Record<string, unknown>) : {};
+
         const themeAwareAxis = {
           x: {
-            titleFontSize: 12,
+            ...userAxisX,
+            titleFontSize: userAxisX.titleFontSize || 12,
             titleFill: themeColors.axisTitleFill,
             labelFill: themeColors.axisLabelFill,
             lineStroke: themeColors.axisLineStroke,
             tickStroke: themeColors.axisLineStroke,
             gridStroke: themeColors.axisGridStroke,
-            ...(normalizedSpec.axis?.x || {}),
           },
           y: {
-            titleFontSize: 12,
+            ...userAxisY,
+            titleFontSize: userAxisY.titleFontSize || 12,
             titleFill: themeColors.axisTitleFill,
             labelFill: themeColors.axisLabelFill,
             lineStroke: themeColors.axisLineStroke,
             tickStroke: themeColors.axisLineStroke,
             gridStroke: themeColors.axisGridStroke,
-            ...(normalizedSpec.axis?.y || {}),
           },
         };
 
         // Apply theme-aware legend defaults
+        const userLegend = (normalizedSpec.legend || {}) as Record<string, unknown>;
+        const userLegendColor =
+          userLegend.color && typeof userLegend.color === "object"
+            ? (userLegend.color as Record<string, unknown>)
+            : {};
         const themeAwareLegend = {
+          ...userLegend,
           color: {
+            ...userLegendColor,
             itemMarkerFill: themeColors.legendItemFill,
             itemNameFill: themeColors.legendItemFill,
-            ...(normalizedSpec.legend?.color || {}),
           },
         };
 
@@ -428,8 +441,8 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
           // For composition types, merge theme colors into spec
           const themedSpec = {
             ...normalizedSpec,
-            axis: { ...themeAwareAxis, ...(normalizedSpec.axis || {}) },
-            legend: { ...themeAwareLegend, ...(normalizedSpec.legend || {}) },
+            axis: themeAwareAxis,
+            legend: themeAwareLegend,
           };
           chart.options(themedSpec as Record<string, unknown>);
         } else {

@@ -1,0 +1,213 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - paragraph [ref=e7]: Workspace
+          - button "Close sidebar" [ref=e8]:
+            - img [ref=e9]
+        - generic [ref=e11]:
+          - button "Chats" [ref=e12]:
+            - generic [ref=e13]:
+              - img [ref=e14]
+              - text: Chats
+          - button "Tools 2" [ref=e223]:
+            - generic [ref=e17]:
+              - img [ref=e18]
+              - text: Tools
+            - generic [ref=e210]: "2"
+          - button "Resources" [ref=e20]:
+            - generic [ref=e21]:
+              - img [ref=e22]
+              - text: Resources
+          - button "Settings" [ref=e24]:
+            - generic [ref=e25]:
+              - img [ref=e26]
+              - text: Settings
+        - button "New Chat" [ref=e28] [cursor=pointer]:
+          - img [ref=e29]
+          - text: New Chat
+      - button "Please output a numbered list ... I'll create a numbered list of 80 lines with 12-2... 1m 2 Delete session" [ref=e480]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - paragraph [ref=e110]: Please output a numbered list ...
+            - paragraph [ref=e112]: I'll create a numbered list of 80 lines with 12-2...
+            - generic [ref=e113]:
+              - paragraph [ref=e114]: 1m
+              - generic [ref=e115]: "2"
+          - button "Delete session" [ref=e116]:
+            - img [ref=e117]
+    - generic [ref=e36]:
+      - banner [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - button "Open menu" [ref=e40]:
+              - img [ref=e41]
+            - generic [ref=e43]:
+              - img [ref=e44]
+              - generic [ref=e46]:
+                - heading "Workchatly" [level=1] [ref=e47]
+                - paragraph [ref=e48]: AI Agent
+          - generic [ref=e49]:
+            - button "New Chat" [ref=e50]:
+              - img [ref=e51]
+            - button "Export" [ref=e53]:
+              - img [ref=e54]
+              - img [ref=e56]
+            - button "Toggle theme" [ref=e58]:
+              - img [ref=e59]
+            - button "Login" [ref=e61]:
+              - img [ref=e62]
+      - main [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - generic [ref=e383]:
+              - generic [ref=e385]:
+                - paragraph [ref=e386]: AI:I'll create a numbered list of 80 lines with 12-20 characters each.
+                - list [ref=e387]:
+                  - listitem [ref=e388]: Hello world today
+                  - listitem [ref=e389]: Morning sun rises
+                  - listitem [ref=e390]: Blue sky above all
+                  - listitem [ref=e391]: Birds fly so high
+                  - listitem [ref=e392]: Water flows freely
+                  - listitem [ref=e393]: Mountains stand tall
+                  - listitem [ref=e394]: Forest green and deep
+                  - listitem [ref=e395]: Ocean waves crash
+                  - listitem [ref=e396]: Stars shine at night
+                  - listitem [ref=e397]: Moon glows so bright
+                  - listitem [ref=e398]: Wind blows through trees
+                  - listitem [ref=e399]: Rain falls softly down
+                  - listitem [ref=e400]: Snow covers ground
+                  - listitem [ref=e401]: Flowers bloom bright
+                  - listitem [ref=e402]: Spring time is here
+                  - listitem [ref=e403]: Summer warm and sweet
+                  - listitem [ref=e404]: Autumn leaves fall
+                  - listitem [ref=e405]: Winter cold winds
+                  - listitem [ref=e406]: Coffee hot steam
+                  - listitem [ref=e407]: Tea cup warm hold
+                  - listitem [ref=e408]: Books tell great tales
+                  - listitem [ref=e409]: Music plays aloud
+                  - listitem [ref=e410]: Dance to the beat
+                  - listitem [ref=e411]: Laugh with friends close
+                  - listitem [ref=e412]: Love is all we need
+                  - listitem [ref=e413]: Hope springs eternal
+                  - listitem [ref=e414]: Dream big and bold
+                  - listitem [ref=e415]: Live life fully now
+                  - listitem [ref=e416]: Kindness matters most
+                  - listitem [ref=e417]: Peace shall prevail
+                  - listitem [ref=e418]: Joy in small things
+                  - listitem [ref=e419]: Grateful heart always
+                  - listitem [ref=e420]: Brave and strong soul
+                  - listitem [ref=e421]: Courage within us
+                  - listitem [ref=e422]: Wisdom comes with time
+                  - listitem [ref=e423]: Patience is virtue
+                  - listitem [ref=e424]: Faith moves mountains
+                  - listitem [ref=e425]: Believe in yourself
+                  - listitem [ref=e426]: Never give up hope
+                  - listitem [ref=e427]: Keep moving forward
+                  - listitem [ref=e428]: Tomorrow brings light
+                  - listitem [ref=e429]: Today is a gift
+                  - listitem [ref=e430]: Every moment counts
+                  - listitem [ref=e431]: Choose happiness now
+                  - listitem [ref=e432]: Spread love around
+                  - listitem [ref=e433]: Be the change you see
+                  - listitem [ref=e434]: Make a difference
+                  - listitem [ref=e435]: Inspire others daily
+                  - listitem [ref=e436]: Learn something new
+                  - listitem [ref=e437]: Grow with each step
+                  - listitem [ref=e438]: Challenge yourself
+                  - listitem [ref=e439]: Embrace the journey
+                  - listitem [ref=e440]: Celebrate success
+                  - listitem [ref=e441]: Learn from failures
+                  - listitem [ref=e442]: Stay positive always
+                  - listitem [ref=e443]: Trust your instincts
+                  - listitem [ref=e444]: Follow your heart
+                  - listitem [ref=e445]: Create your destiny
+                  - listitem [ref=e446]: Write your own story
+                  - listitem [ref=e447]: Be truly yourself
+                  - listitem [ref=e448]: Respect all people
+                  - listitem [ref=e449]: Listen with care
+                  - listitem [ref=e450]: Speak words of truth
+                  - listitem [ref=e451]: Act with integrity
+                  - listitem [ref=e452]: Show compassion deep
+                  - listitem [ref=e453]: Help those in need
+                  - listitem [ref=e454]: Share what you have
+                  - listitem [ref=e455]: Connect with others
+                  - listitem [ref=e456]: Build strong bonds
+                  - listitem [ref=e457]: Value true friendship
+                  - listitem [ref=e458]: Family is forever
+                  - listitem [ref=e459]: Home where heart is
+                  - listitem [ref=e460]: Memories we make
+                  - listitem [ref=e461]: Moments we treasure
+                  - listitem [ref=e462]: Life is beautiful
+                  - listitem [ref=e463]: World is amazing
+                  - listitem [ref=e464]: Universe so vast
+                  - listitem [ref=e465]: Wonder all around
+                  - listitem [ref=e466]: Magic in everyday
+                  - listitem [ref=e467]: Peace love happiness
+              - generic [ref=e469]:
+                - status [ref=e470]
+                - button "Copy message" [ref=e471] [cursor=pointer]:
+                  - img [ref=e472]
+                  - text: Copy
+                - button "Regenerate response" [ref=e474] [cursor=pointer]:
+                  - img [ref=e475]
+                  - text: Regenerate
+                - button "Delete message" [ref=e477] [cursor=pointer]:
+                  - img [ref=e478]
+                  - text: Delete
+            - button "Back to top" [ref=e75] [cursor=pointer]:
+              - img [ref=e76]
+              - text: Back to top
+            - button "Back to bottom · Following" [ref=e78] [cursor=pointer]:
+              - img [ref=e79]
+              - text: Back to bottom · Following
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - textbox "Ask anything... (AI can search web & read pages)" [active] [ref=e379]: Continue with another 80 lines of numbered text.
+              - button "Clear input" [ref=e481]:
+                - img [ref=e482]
+              - button "Send" [ref=e380] [cursor=pointer]:
+                - img [ref=e381]
+            - generic [ref=e484]:
+              - paragraph [ref=e486]: Shift+Enter new line, Enter/Ctrl+Enter/Cmd+Enter send
+              - paragraph [ref=e487]: 48/4000
+    - navigation [ref=e89]:
+      - generic [ref=e90]:
+        - button "Chat" [pressed] [ref=e91]:
+          - img [ref=e92]
+          - generic [ref=e94]: Chat
+        - button "MCP Servers" [ref=e95]:
+          - img [ref=e96]
+          - generic [ref=e98]: MCP Servers
+  - generic:
+    - dialog "Login":
+      - generic:
+        - generic: Login
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: Username
+            - textbox "Username":
+              - /placeholder: Enter username
+          - generic:
+            - paragraph: Password
+            - textbox "Password":
+              - /placeholder: Enter password
+          - generic:
+            - text: No account?
+            - button "Create one"
+      - generic:
+        - generic:
+          - button "Cancel"
+          - button "Login" [disabled]
+  - generic:
+    - dialog "Edit message":
+      - generic:
+        - generic: Edit message
+      - generic:
+        - textbox "Edit message": I'll create a numbered list of 80 lines with 12-20 characters each. 1. Hello world today 2. Morning sun rises 3. Blue sky above all 4. Birds fly so high 5. Water flows freely 6. Mountains stand tall 7. Forest green and deep 8. Ocean waves crash 9. Stars shine at night 10. Moon glows so bright 11. Wind blows through trees 12. Rain falls softly down 13. Snow covers ground 14. Flowers bloom bright 15. Spring time is here 16. Summer warm and sweet 17. Autumn leaves fall 18. Winter cold winds 19. Coffee hot steam 20. Tea cup warm hold 21. Books tell great tales 22. Music plays aloud 23. Dance to the beat 24. Laugh with friends close 25. Love is all we need 26. Hope springs eternal 27. Dream big and bold 28. Live life fully now 29. Kindness matters most 30. Peace shall prevail 31. Joy in small things 32. Grateful heart always 33. Brave and strong soul 34. Courage within us 35. Wisdom comes with time 36. Patience is virtue 37. Faith moves mountains 38. Believe in yourself 39. Never give up hope 40. Keep moving forward 41. Tomorrow brings light 42. Today is a gift 43. Every moment counts 44. Choose happiness now 45. Spread love around 46. Be the change you see 47. Make a difference 48. Inspire others daily 49. Learn something new 50. Grow with each step 51. Challenge yourself 52. Embrace the journey 53. Celebrate success 54. Learn from failures 55. Stay positive always 56. Trust your instincts 57. Follow your heart 58. Create your destiny 59. Write your own story 60. Be truly yourself 61. Respect all people 62. Listen with care 63. Speak words of truth 64. Act with integrity 65. Show compassion deep 66. Help those in need 67. Share what you have 68. Connect with others 69. Build strong bonds 70. Value true friendship 71. Family is forever 72. Home where heart is 73. Memories we make 74. Moments we treasure 75. Life is beautiful 76. World is amazing 77. Universe so vast 78. Wonder all around 79. Magic in everyday 80. Peace love happiness
+      - generic:
+        - generic:
+          - button "Cancel"
+          - button "Save"

@@ -25,6 +25,7 @@ import {
 } from "../utils/htmlParser";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
+import { sanitizeMermaidCode, validateMermaidCode } from "../utils/mermaidValidator";
 
 // Lazy load CodeBlock to avoid loading Shiki highlighter on initial page load
 // This reduces the initial bundle by ~800KB (vendor-highlight chunk)
@@ -242,6 +243,17 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             const isMermaidBlock =
               language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
             if (isMermaidBlock) {
+              const sanitized = sanitizeMermaidCode(codeString);
+              const validation = validateMermaidCode(sanitized.sanitized);
+              if (!validation.valid) {
+                return (
+                  <InvalidChartSpec
+                    message={`Invalid Mermaid spec: ${validation.error ?? "Unknown error"}`}
+                    code={codeString}
+                  />
+                );
+              }
+
               return (
                 <ErrorBoundary
                   level="chart"
@@ -250,7 +262,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                     trackChatEvent("chart_render_failure", { engine: "mermaid", errorCode: error.message })
                   }
                 >
-                  <LazyMermaidRenderer code={codeString} />
+                  <LazyMermaidRenderer code={sanitized.sanitized} />
                 </ErrorBoundary>
               );
             }

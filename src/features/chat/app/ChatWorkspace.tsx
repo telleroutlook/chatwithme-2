@@ -3,7 +3,6 @@ import type { UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import {
   ChatPane,
-  MobileTabBar,
   TopBar,
   WorkspaceSidebar,
   type WorkspaceSection
@@ -204,14 +203,7 @@ export function ChatWorkspace({
         t={t}
       />
 
-      <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col"
-        style={{
-          paddingBottom: mobile
-            ? "calc(3.5rem + max(var(--safe-area-inset-bottom), 34px))"
-            : undefined
-        }}
-      >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TopBar
           mobile={mobile}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -254,24 +246,6 @@ export function ChatWorkspace({
           </main>
         </div>
       </div>
-      {mobile ? (
-        <MobileTabBar
-          value={workspaceSection === "chats" ? "chat" : "mcp"}
-          onChange={(tab) => {
-            if (tab === "chat") {
-              setWorkspaceSection("chats");
-              setSidebarOpen(false);
-              return;
-            }
-            setWorkspaceSection("tools");
-            setSidebarOpen(true);
-          }}
-          labels={{
-            chat: t("tabs_chat"),
-            mcp: t("tabs_mcp")
-          }}
-        />
-      ) : null}
     </div>
   );
 }

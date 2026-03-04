@@ -86,7 +86,7 @@ export function ChatPane({
   }, []);
 
   // Keyboard detection for mobile UX
-  const { keyboardVisible, keyboardHeight, offsetTop } = useVirtualViewport({
+  const { keyboardVisible, keyboardHeight } = useVirtualViewport({
     keyboardThreshold: 120,
     debounceMs: 50
   });
@@ -152,7 +152,11 @@ export function ChatPane({
 
   return (
     <section className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
-      <div className="relative flex min-h-0 flex-col overflow-hidden px-3 pb-2 pt-3 sm:px-5">
+      <div
+        className={`relative flex min-h-0 flex-col overflow-hidden px-3 sm:px-5 ${
+          mobile ? "pb-1 pt-2" : "pb-2 pt-3"
+        }`}
+      >
         {!mobile && (
           <div className="mb-2 flex items-center justify-end gap-2">
             <Button
@@ -264,7 +268,11 @@ export function ChatPane({
       <div
         className="shrink-0 border-t border-kumo-line/80 bg-kumo-base/80 px-3 py-3 app-glass sm:px-5"
         style={{
-          paddingBottom: mobile ? "calc(0.75rem + var(--safe-area-inset-bottom))" : undefined
+          // Ensure mobile composer clears home-indicator area even when env(safe-area-inset-bottom)
+          // resolves to 0 in headless/test runtimes.
+          paddingBottom: mobile
+            ? "calc(0.75rem + max(var(--safe-area-inset-bottom, 0px), 34px))"
+            : undefined
         }}
       >
         <ChatInputArea
@@ -279,8 +287,6 @@ export function ChatPane({
           placeholder={
             activeToolsCount > 0 ? t("chat_placeholder_tools") : t("chat_placeholder_default")
           }
-          keyboardVisible={keyboardVisible}
-          viewportOffsetTop={offsetTop}
         />
       </div>
     </section>

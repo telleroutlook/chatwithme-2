@@ -6,13 +6,20 @@
  */
 
 /** Validation error types */
-export type MermaidErrorType = "declaration" | "brackets" | "html" | "empty";
+export type MermaidErrorType = "declaration" | "brackets" | "html" | "empty" | "markdown";
 
 /** Validation result */
 export interface MermaidValidationResult {
   valid: boolean;
   error?: string;
   errorType?: MermaidErrorType;
+}
+
+/** Sanitization result */
+export interface MermaidSanitizeResult {
+  sanitized: string;
+  changed: boolean;
+  changes: string[];
 }
 
 /** Valid Mermaid diagram type declarations */
@@ -41,6 +48,41 @@ const VALID_DIAGRAM_TYPES = new Set([
   "c4context",
   "C4Context",
 ]);
+
+/**
+ * Minimal, safe Mermaid sanitization.
+ * Only applies transformations that are highly unlikely to change diagram meaning.
+ */
+export function sanitizeMermaidCode(code: string): MermaidSanitizeResult {
+  let sanitized = code;
+  const changes: string[] = [];
+
+  if (/[\u200B-\u200D\uFEFF]/.test(sanitized)) {
+    sanitized = sanitized.replace(/[\u200B-\u200D\uFEFF]/g, "");
+    changes.push("Removed zero-width characters");
+  }
+
+  if (/\u00A0/.test(sanitized)) {
+    sanitized = sanitized.replace(/\u00A0/g, " ");
+    changes.push("Normalized non-breaking spaces");
+  }
+
+  if (/\r\n?/.test(sanitized)) {
+    sanitized = sanitized.replace(/\r\n?/g, "\n");
+    changes.push("Normalized line endings");
+  }
+
+  if (/<br\s*\/?>/gi.test(sanitized)) {
+    sanitized = sanitized.replace(/<br\s*\/?>/gi, " ");
+    changes.push("Replaced <br> with spaces");
+  }
+
+  return {
+    sanitized,
+    changed: changes.length > 0,
+    changes,
+  };
+}
 
 /**
  * Validate diagram type declaration
@@ -160,13 +202,53 @@ export function validateNoHtml(code: string): MermaidValidationResult {
 }
 
 /**
+ * Validate no markdown block-level syntax inside Mermaid code.
+ * Mermaid blocks should contain diagram grammar only, not headings/tables/lists.
+ */
+export function validateNoMarkdownSyntax(code: string): MermaidValidationResult {
+  const lines = code
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (/^#{1,6}\s+/.test(line)) {
+      return {
+        valid: false,
+        error: `Markdown heading not allowed in Mermaid block: ${line}`,
+        errorType: "markdown",
+      };
+    }
+
+    if (/^\|\s*.+\s*\|$/.test(line)) {
+      return {
+        valid: false,
+        error: `Markdown table syntax not allowed in Mermaid block: ${line}`,
+        errorType: "markdown",
+      };
+    }
+
+    if (/^(-|\*|\+)\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+      return {
+        valid: false,
+        error: `Markdown list syntax not allowed in Mermaid block: ${line}`,
+        errorType: "markdown",
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
  * Comprehensive Mermaid code validation
  *
  * Performs:
  * 1. Empty check
  * 2. Declaration line validation
  * 3. HTML tag detection
- * 4. Bracket balance (optional, can have false positives for complex syntax)
+ * 4. Markdown syntax detection
+ * 5. Bracket balance (optional, can have false positives for complex syntax)
  */
 export function validateMermaidCode(code: string): MermaidValidationResult {
   // 1. Empty check
@@ -182,9 +264,13 @@ export function validateMermaidCode(code: string): MermaidValidationResult {
   const htmlResult = validateNoHtml(code);
   if (!htmlResult.valid) return htmlResult;
 
+  // 4. Markdown syntax check
+  const markdownResult = validateNoMarkdownSyntax(code);
+  if (!markdownResult.valid) return markdownResult;
+
   // Note: Bracket validation is skipped by default as it can have false positives
   // with Mermaid's complex syntax (subgraphs, class definitions, etc.)
-  // Uncomment below if strict bracket checking is needed:
+  // Uncomment below if stricter bracket checking is needed:
   // const bracketResult = validateBrackets(code);
   // if (!bracketResult.valid) return bracketResult;
 

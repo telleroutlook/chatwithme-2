@@ -14,10 +14,6 @@ interface ChatInputAreaProps {
   commandSuggestions: CommandSuggestionItem[];
   topAddons?: ReactNode;
   bottomAddons?: ReactNode;
-  /** Whether the virtual keyboard is visible */
-  keyboardVisible?: boolean;
-  /** Visual viewport offset from top (for keyboard-aware positioning) */
-  viewportOffsetTop?: number;
 }
 
 export function ChatInputArea({
@@ -31,20 +27,10 @@ export function ChatInputArea({
   placeholder,
   commandSuggestions,
   topAddons,
-  bottomAddons,
-  keyboardVisible = false,
-  viewportOffsetTop = 0
+  bottomAddons
 }: ChatInputAreaProps) {
-  // Dynamic styles for keyboard-aware positioning
-  const containerStyle = keyboardVisible
-    ? {
-        transform: `translateY(-${viewportOffsetTop}px)`,
-        transition: "transform 0.15s ease-out"
-      }
-    : undefined;
-
   return (
-    <div className="space-y-2" style={containerStyle}>
+    <div className="space-y-2">
       {topAddons}
       <ChatInput
         value={value}

@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+  sanitizeMermaidCode,
   validateDeclaration,
   validateBrackets,
   validateNoHtml,
+  validateNoMarkdownSyntax,
   validateMermaidCode,
 } from "./mermaidValidator";
 
@@ -161,6 +163,40 @@ describe("validateNoHtml", () => {
   });
 });
 
+describe("sanitizeMermaidCode", () => {
+  it("should remove zero-width chars and normalize line endings", () => {
+    const result = sanitizeMermaidCode("flowchart TD\r\n A\u200B --> B");
+    expect(result.sanitized).toBe("flowchart TD\n A --> B");
+    expect(result.changed).toBe(true);
+    expect(result.changes.length).toBeGreaterThan(0);
+  });
+
+  it("should replace <br/> with spaces", () => {
+    const result = sanitizeMermaidCode("flowchart TD\n A[Line1<br/>Line2] --> B");
+    expect(result.sanitized).toContain("Line1 Line2");
+  });
+});
+
+describe("validateNoMarkdownSyntax", () => {
+  it("should reject markdown heading syntax", () => {
+    const result = validateNoMarkdownSyntax("flowchart TD\n # heading");
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe("markdown");
+  });
+
+  it("should reject markdown list syntax", () => {
+    const result = validateNoMarkdownSyntax("flowchart TD\n - item");
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe("markdown");
+  });
+
+  it("should reject markdown table syntax", () => {
+    const result = validateNoMarkdownSyntax("flowchart TD\n | a | b |");
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe("markdown");
+  });
+});
+
 describe("validateMermaidCode", () => {
   // Valid diagrams
   it("should accept valid flowchart", () => {
@@ -302,5 +338,11 @@ flowchart TB
     expect(result.valid).toBe(false);
     expect(result.error).toBeDefined();
     expect(typeof result.error).toBe("string");
+  });
+
+  it("should reject markdown heading in mermaid block", () => {
+    const result = validateMermaidCode("flowchart TD\n # Title");
+    expect(result.valid).toBe(false);
+    expect(result.errorType).toBe("markdown");
   });
 });

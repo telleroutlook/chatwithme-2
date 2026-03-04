@@ -7,11 +7,11 @@
           - generic [ref=e10]:
             - img [ref=e11]
             - text: Chats
-        - button "Tools 2" [ref=e207]:
+        - button "Tools 2" [ref=e211]:
           - generic [ref=e14]:
             - img [ref=e15]
             - text: Tools
-          - generic [ref=e208]: "2"
+          - generic [ref=e212]: "2"
         - button "Resources" [ref=e17]:
           - generic [ref=e18]:
             - img [ref=e19]
@@ -23,16 +23,16 @@
       - button "New Chat" [ref=e25] [cursor=pointer]:
         - img [ref=e26]
         - text: New Chat
-    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu... now 2 Delete session" [ref=e209]':
-      - generic [ref=e105]:
-        - generic [ref=e106]:
-          - paragraph [ref=e108]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {..."
-          - paragraph [ref=e110]: "```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu..."
-          - generic [ref=e111]:
-            - paragraph [ref=e112]: now
-            - generic [ref=e113]: "2"
-        - button "Delete session" [ref=e114]:
-          - img [ref=e115]
+    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```g2 {... ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu... now 2 Delete session" [ref=e213]':
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - paragraph [ref=e112]: "请严格原样返回以下代码块，不要添加任何解释： ```g2 {..."
+          - paragraph [ref=e114]: "```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"valu..."
+          - generic [ref=e115]:
+            - paragraph [ref=e116]: now
+            - generic [ref=e117]: "2"
+        - button "Delete session" [ref=e118]:
+          - img [ref=e119]
   - generic [ref=e33]:
     - banner [ref=e34]:
       - generic [ref=e35]:
@@ -52,55 +52,58 @@
             - img [ref=e52]
             - img [ref=e54]
           - button "Toggle theme" [ref=e56]:
-            - img [ref=e95]
-          - generic [ref=e59]:
+            - img [ref=e99]
+          - button "Login" [ref=e59]:
             - img [ref=e60]
-            - generic [ref=e62]: connected
-    - main [ref=e64]:
-      - generic [ref=e65]:
-        - generic [ref=e66]:
-          - generic [ref=e67]:
-            - button "Bubble" [ref=e68] [cursor=pointer]
-            - button "Docs" [ref=e69] [cursor=pointer]
-          - generic [ref=e119]:
-            - generic [ref=e122]:
-              - paragraph [ref=e125]: "User:请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"value\":12},{\"year\":\"2024\",\"value\":18},{\"year\":\"2025\",\"value\":27}],\"encode\":{\"x\":\"year\",\"y\":\"value\"}} ```"
-              - generic [ref=e127]:
-                - status [ref=e128]
-                - button "Copy message" [ref=e129] [cursor=pointer]:
-                  - img [ref=e130]
-                - button "Edit message" [ref=e132] [cursor=pointer]:
-                  - img [ref=e133]
-                - button "Delete message" [ref=e135] [cursor=pointer]:
-                  - img [ref=e136]
-            - generic [ref=e140]:
-              - generic [ref=e142]:
-                - paragraph [ref=e210]: "AI:"
-                - generic [ref=e213]:
-                  - img [ref=e214]
-                  - paragraph [ref=e216]: G2 Chart
-                  - generic [ref=e217]: line
+            - generic [ref=e62]: Login
+          - generic [ref=e63]:
+            - img [ref=e64]
+            - generic [ref=e66]: connected
+    - main [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - button "Bubble" [ref=e72] [cursor=pointer]
+            - button "Docs" [ref=e73] [cursor=pointer]
+          - generic [ref=e123]:
+            - generic [ref=e126]:
+              - paragraph [ref=e129]: "User:请严格原样返回以下代码块，不要添加任何解释： ```g2 {\"type\":\"line\",\"data\":[{\"year\":\"2023\",\"value\":12},{\"year\":\"2024\",\"value\":18},{\"year\":\"2025\",\"value\":27}],\"encode\":{\"x\":\"year\",\"y\":\"value\"}} ```"
+              - generic [ref=e131]:
+                - status [ref=e132]
+                - button "Copy message" [ref=e133] [cursor=pointer]:
+                  - img [ref=e134]
+                - button "Edit message" [ref=e136] [cursor=pointer]:
+                  - img [ref=e137]
+                - button "Delete message" [ref=e139] [cursor=pointer]:
+                  - img [ref=e140]
+            - generic [ref=e144]:
               - generic [ref=e146]:
-                - status [ref=e147]
-                - button "Copy message" [ref=e148] [cursor=pointer]:
-                  - img [ref=e149]
+                - paragraph [ref=e214]: "AI:"
+                - generic [ref=e217]:
+                  - img [ref=e218]
+                  - paragraph [ref=e220]: G2 Chart
+                  - generic [ref=e221]: line
+              - generic [ref=e150]:
+                - status [ref=e151]
+                - button "Copy message" [ref=e152] [cursor=pointer]:
+                  - img [ref=e153]
                   - text: Copy
-                - button "Regenerate response" [ref=e151] [cursor=pointer]:
-                  - img [ref=e152]
+                - button "Regenerate response" [ref=e155] [cursor=pointer]:
+                  - img [ref=e156]
                   - text: Regenerate
-                - button "Delete message" [ref=e154] [cursor=pointer]:
-                  - img [ref=e155]
+                - button "Delete message" [ref=e158] [cursor=pointer]:
+                  - img [ref=e159]
                   - text: Delete
-          - button "Back to top" [ref=e77] [cursor=pointer]:
-            - img [ref=e78]
+          - button "Back to top" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
             - text: Back to top
-          - button "Back to bottom · Following" [ref=e80] [cursor=pointer]:
-            - img [ref=e81]
+          - button "Back to bottom · Following" [ref=e84] [cursor=pointer]:
+            - img [ref=e85]
             - text: Back to bottom · Following
-        - generic [ref=e86]:
-          - generic "Multiline input enabled" [ref=e87]:
-            - img [ref=e88]
-          - textbox "Ask anything... (AI can search web & read pages)" [ref=e221]
-          - button "Send" [disabled] [ref=e222]:
-            - img [ref=e223]
-            - generic [ref=e94]: Send
+        - generic [ref=e90]:
+          - generic "Multiline input enabled" [ref=e91]:
+            - img [ref=e92]
+          - textbox "Ask anything... (AI can search web & read pages)" [ref=e225]
+          - button "Send" [disabled] [ref=e226]:
+            - img [ref=e227]
+            - generic [ref=e98]: Send

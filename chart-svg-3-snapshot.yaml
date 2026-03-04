@@ -23,14 +23,14 @@
       - button "New Chat" [ref=e25] [cursor=pointer]:
         - img [ref=e26]
         - text: New Chat
-    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```merm... ```g2 {\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"... now 4 Delete session" [ref=e448]':
+    - 'button "请严格原样返回以下代码块，不要添加任何解释： ```merm... ```xml <svg width=\"120\" height=\"120\" xmlns=\"http... now 8 Delete session" [ref=e786]':
       - generic [ref=e107]:
         - generic [ref=e108]:
           - paragraph [ref=e110]: "请严格原样返回以下代码块，不要添加任何解释： ```merm..."
-          - paragraph [ref=e112]: "```g2 {\"type\":\"interval\",\"data\":[{\"month\":\"Jan\",\"..."
+          - paragraph [ref=e112]: "```xml <svg width=\"120\" height=\"120\" xmlns=\"http..."
           - generic [ref=e113]:
             - paragraph [ref=e114]: now
-            - generic [ref=e115]: "4"
+            - generic [ref=e115]: "8"
         - button "Delete session" [ref=e116]:
           - img [ref=e117]
   - generic [ref=e33]:
@@ -78,21 +78,21 @@
                   - img [ref=e138]
             - generic [ref=e273]:
               - generic [ref=e275]:
-                - paragraph [ref=e449]: "AI:"
-                - generic [ref=e451]:
-                  - generic [ref=e452]:
-                    - img [ref=e453]
-                    - paragraph [ref=e455]: Mermaid Diagram
-                  - document [ref=e458]:
-                    - generic [ref=e460]:
-                      - generic [ref=e464]:
-                        - paragraph [ref=e470]: "Yes"
-                        - paragraph [ref=e476]: "No"
-                      - generic [ref=e477]:
-                        - paragraph [ref=e484]: Start
-                        - paragraph [ref=e491]: Decision
-                        - paragraph [ref=e498]: Done
-                        - paragraph [ref=e505]: Retry
+                - paragraph [ref=e787]: "AI:"
+                - generic [ref=e789]:
+                  - generic [ref=e790]:
+                    - img [ref=e791]
+                    - paragraph [ref=e793]: Mermaid Diagram
+                  - document [ref=e796]:
+                    - generic [ref=e798]:
+                      - generic [ref=e802]:
+                        - paragraph [ref=e808]: "Yes"
+                        - paragraph [ref=e814]: "No"
+                      - generic [ref=e815]:
+                        - paragraph [ref=e822]: Start
+                        - paragraph [ref=e829]: Decision
+                        - paragraph [ref=e836]: Done
+                        - paragraph [ref=e843]: Retry
               - generic [ref=e334]:
                 - status [ref=e335]
                 - button "Copy message" [ref=e336] [cursor=pointer]:
@@ -114,23 +114,23 @@
                   - img [ref=e366]
                 - button "Delete message" [ref=e368] [cursor=pointer]:
                   - img [ref=e369]
-            - generic [ref=e506]:
-              - generic [ref=e508]:
-                - paragraph [ref=e509]: "AI:"
-                - generic [ref=e512]:
-                  - img [ref=e513]
-                  - paragraph [ref=e515]: G2 Chart
-                  - generic [ref=e516]: interval
-              - generic [ref=e521]:
-                - status [ref=e522]
-                - button "Copy message" [ref=e523] [cursor=pointer]:
-                  - img [ref=e524]
+            - generic [ref=e702]:
+              - generic [ref=e704]:
+                - paragraph [ref=e844]: "AI:"
+                - generic [ref=e847]:
+                  - img [ref=e848]
+                  - paragraph [ref=e850]: G2 Chart
+                  - generic [ref=e851]: interval
+              - generic [ref=e717]:
+                - status [ref=e718]
+                - button "Copy message" [ref=e719] [cursor=pointer]:
+                  - img [ref=e720]
                   - text: Copy
-                - button "Regenerate response" [ref=e526] [cursor=pointer]:
-                  - img [ref=e527]
+                - button "Regenerate response" [ref=e722] [cursor=pointer]:
+                  - img [ref=e723]
                   - text: Regenerate
-                - button "Delete message" [ref=e529] [cursor=pointer]:
-                  - img [ref=e530]
+                - button "Delete message" [ref=e725] [cursor=pointer]:
+                  - img [ref=e726]
                   - text: Delete
           - button "Back to top" [ref=e81] [cursor=pointer]:
             - img [ref=e82]
@@ -141,7 +141,7 @@
         - generic [ref=e90]:
           - generic "Multiline input enabled" [ref=e91]:
             - img [ref=e92]
-          - textbox "Ask anything... (AI can search web & read pages)" [ref=e532]
-          - button "Send" [disabled] [ref=e533]:
-            - img [ref=e534]
+          - textbox "Ask anything... (AI can search web & read pages)" [ref=e855]
+          - button "Send" [disabled] [ref=e856]:
+            - img [ref=e857]
             - generic [ref=e98]: Send

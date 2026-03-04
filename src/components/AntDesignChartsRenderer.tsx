@@ -59,6 +59,11 @@ function normalizeConfigForADC2(
   isDark: boolean
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+  const legendTextFill = isDark ? "#e5e7eb" : "#333333";
+  const axisTitleFill = isDark ? "#d1d5db" : "#666666";
+  const axisLabelFill = isDark ? "#e5e7eb" : "#666666";
+  const axisLineStroke = isDark ? "#6b7280" : "#e0e0e0";
+  const axisGridStroke = isDark ? "#374151" : "#f0f0f0";
 
   // ============ Core Data (Required) ============
   result.data = Array.isArray(config.data) ? config.data : [];
@@ -105,10 +110,11 @@ function normalizeConfigForADC2(
     // Style with theme - keep user's style but override fill for visibility
     const userStyle = label.style as Record<string, unknown> || {};
     normalizedLabel.style = {
-      fill: userStyle.fill || (isDark ? "#ffffff" : "#333333"),
+      ...userStyle,
       fontSize: userStyle.fontSize || 12,
       textAlign: userStyle.textAlign || "center",
-      ...userStyle,
+      // Force theme-aware label color so text follows light/dark mode.
+      fill: isDark ? "#ffffff" : "#333333",
     };
 
     result.label = normalizedLabel;
@@ -127,8 +133,31 @@ function normalizeConfigForADC2(
   if (config.legend === false) {
     result.legend = false;
   } else if (config.legend && typeof config.legend === "object") {
-    // Use user's legend config with theme adjustments
-    result.legend = config.legend;
+    // Merge user legend config but force theme-aware legend text color.
+    const legend = config.legend as Record<string, unknown>;
+    const color = legend.color && typeof legend.color === "object"
+      ? (legend.color as Record<string, unknown>)
+      : {};
+    const itemName = color.itemName && typeof color.itemName === "object"
+      ? (color.itemName as Record<string, unknown>)
+      : {};
+    const itemNameStyle = itemName.style && typeof itemName.style === "object"
+      ? (itemName.style as Record<string, unknown>)
+      : {};
+
+    result.legend = {
+      ...legend,
+      color: {
+        ...color,
+        itemName: {
+          ...itemName,
+          style: {
+            ...itemNameStyle,
+            fill: legendTextFill,
+          },
+        },
+      },
+    };
   } else {
     // Default legend with theme
     result.legend = {
@@ -138,7 +167,7 @@ function normalizeConfigForADC2(
         itemMarkerSize: 10,
         itemName: {
           style: {
-            fill: isDark ? "#e5e7eb" : "#333333",
+            fill: legendTextFill,
             fontSize: 12,
           },
         },
@@ -151,20 +180,40 @@ function normalizeConfigForADC2(
     if (config.axis === false) {
       result.axis = false;
     } else if (config.axis && typeof config.axis === "object") {
-      result.axis = config.axis;
+      const axis = config.axis as Record<string, unknown>;
+      const x = axis.x && typeof axis.x === "object" ? (axis.x as Record<string, unknown>) : {};
+      const y = axis.y && typeof axis.y === "object" ? (axis.y as Record<string, unknown>) : {};
+
+      result.axis = {
+        ...axis,
+        x: {
+          ...x,
+          titleFill: axisTitleFill,
+          labelFill: axisLabelFill,
+          lineStroke: axisLineStroke,
+          gridStroke: axisGridStroke,
+        },
+        y: {
+          ...y,
+          titleFill: axisTitleFill,
+          labelFill: axisLabelFill,
+          lineStroke: axisLineStroke,
+          gridStroke: axisGridStroke,
+        },
+      };
     } else {
       result.axis = {
         x: {
-          titleFill: isDark ? "#d1d5db" : "#666666",
-          labelFill: isDark ? "#e5e7eb" : "#666666",
-          lineStroke: isDark ? "#6b7280" : "#e0e0e0",
-          gridStroke: isDark ? "#374151" : "#f0f0f0",
+          titleFill: axisTitleFill,
+          labelFill: axisLabelFill,
+          lineStroke: axisLineStroke,
+          gridStroke: axisGridStroke,
         },
         y: {
-          titleFill: isDark ? "#d1d5db" : "#666666",
-          labelFill: isDark ? "#e5e7eb" : "#666666",
-          lineStroke: isDark ? "#6b7280" : "#e0e0e0",
-          gridStroke: isDark ? "#374151" : "#f0f0f0",
+          titleFill: axisTitleFill,
+          labelFill: axisLabelFill,
+          lineStroke: axisLineStroke,
+          gridStroke: axisGridStroke,
         },
       };
     }

@@ -1,14 +1,11 @@
 /**
  * Mobile Safe Area E2E Test
  *
- * Tests that the bottom navigation (MobileTabBar) respects safe area insets
- * and doesn't overlap with the home indicator area on devices with notches.
+ * Tests that the mobile composer dock (chat input container) respects
+ * safe-area insets and keeps interactive content above the home indicator.
  *
  * iPhone 13 viewport: 390x844
  * iPhone 13 safe area inset bottom: 34px (home indicator)
- *
- * NOTE: This test may initially FAIL since safe-area CSS may not be implemented yet.
- * This is intentional for TDD - the test defines the expected behavior.
  */
 
 const baseUrl = process.env.E2E_BASE_URL || "https://chatwithme2mcp.lintao-mailbox.workers.dev";
@@ -36,68 +33,62 @@ async function loadPlaywright() {
 }
 
 /**
- * Get MobileTabBar metrics including safe area padding
+ * Get mobile composer dock metrics including safe-area padding.
  */
-async function getTabBarMetrics(page) {
+async function getComposerDockMetrics(page) {
   return await page.evaluate(() => {
-    // Find the MobileTabBar - it has md:hidden class and is fixed at bottom
-    const tabBar = document.querySelector("nav.fixed.bottom-0");
-    if (!tabBar) return null;
+    const textarea = document.querySelector("textarea");
+    if (!textarea) return null;
 
-    const rect = tabBar.getBoundingClientRect();
-    const style = window.getComputedStyle(tabBar);
+    // ChatPane composer dock uses a border-top + safe-area padding container.
+    const dock = textarea.closest("div.border-t");
+    if (!dock) return null;
 
-    // Check for safe-area-inset-bottom usage
-    const hasSafeAreaPadding =
-      style.paddingBottom.includes("env(safe-area-inset-bottom)") ||
-      style.paddingBottom.includes("constant(safe-area-inset-bottom)");
-
-    // Get actual computed padding (env() may not resolve in Playwright)
+    const rect = dock.getBoundingClientRect();
+    const style = window.getComputedStyle(dock);
+    const inlinePaddingBottom = dock instanceof HTMLElement ? dock.style.paddingBottom : "";
     const computedPaddingBottom = parseFloat(style.paddingBottom) || 0;
+    const hasSafeAreaExpr =
+      inlinePaddingBottom.includes("safe-area-inset-bottom") ||
+      inlinePaddingBottom.includes("--safe-area-inset-bottom");
 
-    // Check if tabBar uses CSS custom properties for safe area
     const rootStyle = window.getComputedStyle(document.documentElement);
     const safeAreaInsetBottom = rootStyle.getPropertyValue("--safe-area-inset-bottom");
 
     return {
-      tabBarTop: Math.round(rect.top),
-      tabBarBottom: Math.round(rect.bottom),
-      tabBarHeight: Math.round(rect.height),
-      tabBarWidth: Math.round(rect.width),
+      dockTop: Math.round(rect.top),
+      dockBottom: Math.round(rect.bottom),
+      dockHeight: Math.round(rect.height),
+      dockWidth: Math.round(rect.width),
+      inlinePaddingBottom,
       computedPaddingBottom,
-      hasSafeAreaPadding,
+      hasSafeAreaExpr,
       safeAreaInsetBottom,
       viewportHeight: window.innerHeight,
       viewportWidth: window.innerWidth,
-      // Distance from tabBar bottom to viewport bottom (should be 0 for fixed bottom)
+      // Distance from dock bottom to viewport bottom (should be 0 in normal chat layout)
       bottomOffset: Math.round(window.innerHeight - rect.bottom)
     };
   });
 }
 
 /**
- * Check if element is properly positioned above home indicator
+ * Check whether composer content area remains above safe area.
  */
 async function checkSafeAreaCompliance(page, expectedSafeArea = HOME_INDICATOR_HEIGHT) {
   return await page.evaluate((safeArea) => {
-    const tabBar = document.querySelector("nav.fixed.bottom-0");
-    if (!tabBar) return { compliant: false, reason: "TabBar not found" };
+    const textarea = document.querySelector("textarea");
+    if (!textarea) return { compliant: false, reason: "Textarea not found" };
 
-    const rect = tabBar.getBoundingClientRect();
-    const style = window.getComputedStyle(tabBar);
+    const dock = textarea.closest("div.border-t");
+    if (!dock) return { compliant: false, reason: "Composer dock not found" };
+
+    const rect = dock.getBoundingClientRect();
+    const style = window.getComputedStyle(dock);
     const paddingBottom = parseFloat(style.paddingBottom) || 0;
 
-    // The tabBar should either:
-    // 1. Have padding-bottom >= safeArea (ideal)
-    // 2. Have its content area end above the safe area
-
-    // Get the content area (tabBar height minus padding)
     const contentHeight = rect.height - paddingBottom;
-
-    // Check if there's sufficient padding
-    const hasSufficientPadding = paddingBottom >= safeArea - 2; // Allow 2px tolerance
-
-    // Check if content is above safe area
+    const hasSufficientPadding = paddingBottom >= safeArea - 2;
     const contentBottom = rect.bottom - paddingBottom;
     const contentAboveSafeArea = (window.innerHeight - contentBottom) >= safeArea - 2;
 
@@ -130,79 +121,62 @@ async function run() {
     // Wait for layout to stabilize
     await page.waitForTimeout(1000);
 
-    // Get tab bar metrics
-    const tabBarMetrics = await getTabBarMetrics(page);
-    console.log("TabBar metrics:", JSON.stringify(tabBarMetrics, null, 2));
+    // Get composer dock metrics
+    const dockMetrics = await getComposerDockMetrics(page);
+    console.log("Composer dock metrics:", JSON.stringify(dockMetrics, null, 2));
 
-    // Core assertion: TabBar should be present on mobile
-    assert(tabBarMetrics, "MobileTabBar not found on mobile viewport");
+    // Core assertion: composer dock should be present on mobile
+    assert(dockMetrics, "Composer dock not found on mobile viewport");
 
-    // Assertion: TabBar should be fixed at bottom
+    // Assertion: composer dock should stay at viewport bottom
     assert(
-      tabBarMetrics.bottomOffset === 0,
-      `TabBar should be at viewport bottom. Bottom offset: ${tabBarMetrics.bottomOffset}px`
+      dockMetrics.bottomOffset === 0,
+      `Composer dock should be at viewport bottom. Bottom offset: ${dockMetrics.bottomOffset}px`
     );
 
     // Check safe area compliance
     const safeAreaCheck = await checkSafeAreaCompliance(page, HOME_INDICATOR_HEIGHT);
     console.log("Safe area check:", JSON.stringify(safeAreaCheck, null, 2));
 
-    // TDD: This assertion may initially fail if safe-area is not implemented
-    // The test documents expected behavior for future implementation
+    // Hard gate: safe-area compliance must be true even when env() resolves to 0 in headless.
+    // This prevents diagnostics from silently passing with latent production risk.
     assert(
       safeAreaCheck.compliant,
-      `MobileTabBar does not respect safe area. ` +
+      `Composer dock does not respect safe area. ` +
         `Padding: ${safeAreaCheck.paddingBottom}px, ` +
-        `Expected: >= ${HOME_INDICATOR_HEIGHT}px. ` +
-        `Content above safe area: ${safeAreaCheck.contentAboveSafeArea}`
+        `Expected: >= ${HOME_INDICATOR_HEIGHT}px or content above safe area. ` +
+        `Content above safe area: ${safeAreaCheck.contentAboveSafeArea}, ` +
+        `Has safe-area expression: ${dockMetrics.hasSafeAreaExpr}, ` +
+        `Inline padding: ${dockMetrics.inlinePaddingBottom || "<empty>"}`
     );
 
-    // Additional check: Tab buttons should be tappable (not obscured by home indicator)
-    const tabButtonsCheck = await page.evaluate((minPadding) => {
-      const tabBar = document.querySelector("nav.fixed.bottom-0");
-      if (!tabBar) return { ok: false, reason: "TabBar not found" };
+    // Additional check: send button should remain tappable above safe area.
+    const sendButtonCheck = await page.evaluate((minPadding) => {
+      const sendButton =
+        document.querySelector('button[aria-label="Send"]') ||
+        Array.from(document.querySelectorAll("button")).find((btn) =>
+          btn.textContent?.trim().toLowerCase().includes("send")
+        );
+      if (!sendButton) return { ok: false, reason: "Send button not found" };
 
-      const buttons = tabBar.querySelectorAll("button");
-      if (buttons.length === 0) return { ok: false, reason: "No buttons found" };
-
-      const results = [];
-      buttons.forEach((btn, index) => {
-        const rect = btn.getBoundingClientRect();
-        const style = window.getComputedStyle(btn);
-        const touchTargetSize = Math.min(rect.width, rect.height);
-
-        results.push({
-          index,
-          bottom: Math.round(rect.bottom),
-          touchTargetSize: Math.round(touchTargetSize),
-          // Apple HIG recommends 44pt minimum touch target
-          meetsMinTouchTarget: touchTargetSize >= 44
-        });
-      });
-
-      // Check if buttons are above safe area
-      const maxButtonBottom = Math.max(...results.map((r) => r.bottom));
-      const buttonsAboveSafeArea = (window.innerHeight - maxButtonBottom) >= minPadding;
+      const rect = sendButton.getBoundingClientRect();
+      const touchTargetSize = Math.min(rect.width, rect.height);
+      const bottomClearance = window.innerHeight - rect.bottom;
+      const aboveSafeArea = bottomClearance >= minPadding;
 
       return {
-        ok: buttonsAboveSafeArea,
-        buttonCount: buttons.length,
-        maxButtonBottom,
-        buttonsAboveSafeArea,
-        minSafePadding: minPadding,
-        results
+        ok: aboveSafeArea && touchTargetSize >= 44,
+        bottom: Math.round(rect.bottom),
+        bottomClearance: Math.round(bottomClearance),
+        touchTargetSize: Math.round(touchTargetSize),
+        meetsMinTouchTarget: touchTargetSize >= 44,
+        aboveSafeArea,
+        minSafePadding: minPadding
       };
     }, MIN_SAFE_PADDING);
 
-    console.log("Tab buttons check:", JSON.stringify(tabButtonsCheck, null, 2));
-
-    // Verify touch targets meet minimum size (Apple HIG: 44pt)
-    tabButtonsCheck.results.forEach((btn) => {
-      assert(
-        btn.meetsMinTouchTarget,
-        `Button ${btn.index} touch target too small: ${btn.touchTargetSize}px (min: 44px)`
-      );
-    });
+    console.log("Send button check:", JSON.stringify(sendButtonCheck, null, 2));
+    assert(sendButtonCheck.ok, `Send button safe-area/touch target check failed: ${JSON.stringify(sendButtonCheck)}`);
 
     // Scroll the page and verify tab bar stays fixed
     const textarea = page.locator("textarea").first();
@@ -210,11 +184,11 @@ async function run() {
     await textarea.fill("Test message to trigger some UI activity");
     await page.waitForTimeout(500);
 
-    // Check tab bar position after interaction
-    const afterInteractionMetrics = await getTabBarMetrics(page);
+    // Check composer dock position after interaction
+    const afterInteractionMetrics = await getComposerDockMetrics(page);
     assert(
       afterInteractionMetrics.bottomOffset === 0,
-      `TabBar position changed after interaction. Bottom offset: ${afterInteractionMetrics.bottomOffset}px`
+      `Composer dock position changed after interaction. Bottom offset: ${afterInteractionMetrics.bottomOffset}px`
     );
 
     await page.screenshot({
@@ -229,9 +203,9 @@ async function run() {
           baseUrl,
           viewport: { width: IPHONE_13_WIDTH, height: IPHONE_13_HEIGHT },
           homeIndicatorHeight: HOME_INDICATOR_HEIGHT,
-          tabBarMetrics,
+          dockMetrics,
           safeAreaCheck,
-          tabButtonsCheck,
+          sendButtonCheck,
           screenshot: "mobile-safe-area-production-check.png"
         },
         null,

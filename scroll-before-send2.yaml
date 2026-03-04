@@ -7,10 +7,11 @@
           - generic [ref=e10]:
             - img [ref=e11]
             - text: Chats
-        - button "Tools" [ref=e13]:
+        - button "Tools 2" [ref=e106]:
           - generic [ref=e14]:
             - img [ref=e15]
             - text: Tools
+          - generic [ref=e107]: "2"
         - button "Resources" [ref=e17]:
           - generic [ref=e18]:
             - img [ref=e19]
@@ -22,9 +23,16 @@
       - button "New Chat" [ref=e25] [cursor=pointer]:
         - img [ref=e26]
         - text: New Chat
-    - generic [ref=e29]:
-      - img [ref=e30]
-      - paragraph [ref=e32]: No conversations yet
+    - button "请输出一段 100 行的编号文本，每行 15 个字左右，不要... 1. 春风吹过大地绿意盎然 2. 夏日的阳光洒在窗台 3. 秋叶飘落在小径旁 4. 冬雪覆盖了整座... now 2 Delete session" [ref=e267]:
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - paragraph [ref=e112]: 请输出一段 100 行的编号文本，每行 15 个字左右，不要...
+          - paragraph [ref=e114]: 1. 春风吹过大地绿意盎然 2. 夏日的阳光洒在窗台 3. 秋叶飘落在小径旁 4. 冬雪覆盖了整座...
+          - generic [ref=e115]:
+            - paragraph [ref=e116]: now
+            - generic [ref=e117]: "2"
+        - button "Delete session" [ref=e118]:
+          - img [ref=e119]
   - generic [ref=e33]:
     - banner [ref=e34]:
       - generic [ref=e35]:
@@ -40,38 +48,54 @@
           - button "New Chat" [ref=e47]:
             - img [ref=e48]
             - generic [ref=e50]: New Chat
-          - button "Export" [disabled] [ref=e51]:
+          - button "Export" [ref=e51]:
             - img [ref=e52]
             - img [ref=e54]
           - button "Toggle theme" [ref=e56]:
             - img [ref=e57]
-          - generic [ref=e59]:
+          - button "Login" [ref=e59]:
             - img [ref=e60]
-            - generic [ref=e62]: connected
-    - main [ref=e64]:
-      - generic [ref=e65]:
-        - generic [ref=e66]:
-          - generic [ref=e67]:
-            - button "Bubble" [ref=e68] [cursor=pointer]
-            - button "Docs" [ref=e69] [cursor=pointer]
-          - generic [ref=e72]:
-            - img [ref=e73]
-            - heading "Start a conversation" [level=2] [ref=e75]
-            - paragraph [ref=e76]: Connect MCP servers in the MCP tab to enable tool access.
-          - button "Back to top" [ref=e77] [cursor=pointer]:
-            - img [ref=e78]
+            - generic [ref=e62]: Login
+          - generic [ref=e63]:
+            - img [ref=e64]
+            - generic [ref=e66]: connected
+    - main [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - button "Bubble" [ref=e72] [cursor=pointer]
+            - button "Docs" [ref=e73] [cursor=pointer]
+          - generic [ref=e123]:
+            - generic [ref=e126]:
+              - paragraph [ref=e129]: User:请输出一段 100 行的编号文本，每行 15 个字左右，不要代码块。
+              - generic [ref=e131]:
+                - status [ref=e132]
+                - button "Copy message" [ref=e133] [cursor=pointer]:
+                  - img [ref=e134]
+                - button "Edit message" [ref=e136] [cursor=pointer]:
+                  - img [ref=e137]
+                - button "Delete message" [ref=e139] [cursor=pointer]:
+                  - img [ref=e140]
+            - generic [ref=e144]:
+              - paragraph [ref=e268]: AI:1. 春风吹过大地绿意盎然 2. 夏日的阳光洒在窗台 3. 秋叶飘落在小径旁 4. 冬雪覆盖了整座村庄 5. 清晨的鸟儿唱着歌 6. 黄昏时分夕阳无限好 7. 夜空中星星闪烁明亮 8. 月光如水洒在湖面上 9. 山间小路蜿蜒曲折 10. 溪水潺潺流向远方 11. 花儿在风中轻轻摇曳 12. 蝴蝶翩翩起舞在花丛 13. 蜜蜂忙碌采蜜不亦乐乎 14. 树枝上鸟儿筑巢安家 15. 草丛中虫鸣声声入耳 16. 池塘里青蛙呱呱叫 17. 鱼儿在水中自由游弋 18. 白云悠悠飘过蓝天 19. 雨后彩虹挂在天空 20. 露珠晶莹挂在草叶 21. 清晨的雾气笼罩田野 22. 阳光穿透云层洒下 23. 微风拂过脸庞温柔 24. 远处的山峦层层叠叠 25. 近处的小河静静流淌 26. 岸边的柳树垂下枝条 27. 水中的倒影清晰可见 28. 石桥横跨在小河之上 29. 桥下流水叮咚作响 30. 岸边的人们悠闲散步 31. 孩童们在草地上奔跑 32. 放风筝的笑声回荡 33. 青春的岁月多么美好 34. 时光如流水般逝去 35. 珍惜当下的每一刻 36. 感恩生活中的点点滴滴 37. 友情如酒越陈越香 38. 亲情永远温暖人心 39. 爱情是最美的风景 40. 梦想照亮前行的路 41. 勇气是前进的动力 42. 坚持才能走向成功 43. 努力终会有收获 44. 失败是成功之母 45. 从挫折中汲取力量 46. 在困境中保持乐观 47. 用微笑面对每一天 48. 心中有爱世界美好 49. 善良是最美的品质 50. 真诚打动人的心灵 51. 信任维系着人际关系 52. 包容化解矛盾冲突 53. 谦虚使人进步成长 54. 自信是成功的基石 55. 学习永无止境 56. 知识改变命运 57. 书籍是人类的朋友 58. 阅读开启智慧之门 59. 思考点亮心灵的灯 60. 创新推动社会发展 61. 科技改变生活方式 62. 人类探索未知宇宙 63. 好奇心驱动发现之旅 64. 实践检验真理标准 65. 历史给我们启示教训 66. 文化传承生生不息 67. 艺术美化人类生活 68. 音乐陶冶人的情操 69. 绘画描绘多彩世界 70. 文学记录人间百态 71. 哲学思考人生意义 72. 科学探索自然规律 73. 数学构建逻辑思维 74. 语言连接你我他 75. 交流促进相互理解 76. 合作共创美好未来 77. 团队凝聚无穷力量 78. 领导引领方向前进 79. 责任重于泰山之重 80. 使命在肩勇往直前 81. 信念支撑着人生路 82. 理想指引前行方向 83. 目标明确奋斗有方 84. 计划周密执行有力 85. 效率提升工作质量 86. 创新带来突破发展 87. 变革适应时代需求 88. 发展推动社会进步 89. 和平是人类共同愿望 90. 合作共赢美好前景 91. 开放包容胸怀天下 92. 互利互惠共同发展 93. 可持续发展之路远 94. 绿色地球美丽家园 95. 保护环境人人有责 96. 节约资源从我做起 97. 文明礼仪体现素养 98. 道德品质塑造人格 99. 优秀传统代代相传 100. 美好生活共同创造
+              - generic [ref=e150]:
+                - status [ref=e151]
+                - button "Copy message" [ref=e152] [cursor=pointer]:
+                  - img [ref=e153]
+                - button "Regenerate response" [ref=e155] [cursor=pointer]:
+                  - img [ref=e156]
+                - button "Delete message" [ref=e158] [cursor=pointer]:
+                  - img [ref=e159]
+          - button "Back to top" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
             - text: Back to top
-          - button "Back to bottom · Following" [ref=e80] [cursor=pointer]:
-            - img [ref=e81]
+          - button "Back to bottom · Following" [ref=e84] [cursor=pointer]:
+            - img [ref=e85]
             - text: Back to bottom · Following
-        - generic [ref=e85]:
-          - generic [ref=e86]:
-            - generic "Multiline input enabled" [ref=e87]:
-              - img [ref=e88]
-            - textbox "Type a message..." [active] [ref=e90]
-            - button "Send" [disabled] [ref=e91]:
-              - img [ref=e92]
-              - generic [ref=e94]: Send
-          - generic [ref=e98]:
-            - paragraph [ref=e100]: Shift+Enter new line, Enter/Ctrl+Enter/Cmd+Enter send
-            - paragraph [ref=e101]: 0/4000
+        - generic [ref=e90]:
+          - generic "Multiline input enabled" [ref=e91]:
+            - img [ref=e92]
+          - textbox "Ask anything... (AI can search web & read pages)" [ref=e269]
+          - button "Send" [disabled] [ref=e270]:
+            - img [ref=e271]
+            - generic [ref=e98]: Send

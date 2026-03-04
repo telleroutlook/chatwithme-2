@@ -35,6 +35,11 @@ const DesktopModal = memo(function DesktopModal({
   zIndex = 1000
 }: Omit<DialogProps, "mobileMode">) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   // Fixed-body scroll lock
   useScrollLock(open);
@@ -46,7 +51,7 @@ const DesktopModal = memo(function DesktopModal({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
       if (event.key !== "Tab" || !panelRef.current) {
         return;
@@ -78,7 +83,7 @@ const DesktopModal = memo(function DesktopModal({
       document.removeEventListener("keydown", onKeyDown);
       previous?.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open || typeof document === "undefined") {
     return null;

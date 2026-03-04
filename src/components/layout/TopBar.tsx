@@ -50,13 +50,15 @@ export function TopBar({
 
   return (
     <header
-      className="app-glass border-b border-kumo-line/80 bg-kumo-base/70 px-3 py-3 sm:px-5"
+      className={`app-glass border-b border-kumo-line/80 bg-kumo-base/70 px-3 sm:px-5 ${
+        mobile ? "py-2" : "py-3"
+      }`}
       style={{
-        paddingTop: mobile ? "calc(0.75rem + var(--safe-area-inset-top))" : undefined
+        paddingTop: mobile ? "calc(0.5rem + var(--safe-area-inset-top))" : undefined
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className={`flex flex-wrap items-center justify-between ${mobile ? "gap-2" : "gap-3"}`}>
+        <div className={`flex items-center ${mobile ? "gap-2" : "gap-3"}`}>
           <button
             type="button"
             onClick={onToggleSidebar}
@@ -69,7 +71,9 @@ export function TopBar({
             <ListIcon size={20} className="text-kumo-subtle" />
           </button>
           <div className="flex items-center gap-2 sm:gap-3">
-            <PlugsConnectedIcon size={22} className="shrink-0 text-kumo-accent" weight="bold" />
+            {!mobile && (
+              <PlugsConnectedIcon size={22} className="shrink-0 text-kumo-accent" weight="bold" />
+            )}
             <div>
               <h1 className="text-base font-semibold leading-tight text-kumo-default sm:text-lg">
                 {t("app_title")}
@@ -81,7 +85,7 @@ export function TopBar({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className={`flex items-center ${mobile ? "gap-1.5" : "gap-2 sm:gap-3"}`}>
           <button
             type="button"
             onClick={onNewSession}

@@ -7,10 +7,11 @@
           - generic [ref=e10]:
             - img [ref=e11]
             - text: Chats
-        - button "Tools" [ref=e13]:
+        - button "Tools 2" [ref=e106]:
           - generic [ref=e14]:
             - img [ref=e15]
             - text: Tools
+          - generic [ref=e107]: "2"
         - button "Resources" [ref=e17]:
           - generic [ref=e18]:
             - img [ref=e19]
@@ -22,9 +23,16 @@
       - button "New Chat" [ref=e25] [cursor=pointer]:
         - img [ref=e26]
         - text: New Chat
-    - generic [ref=e29]:
-      - img [ref=e30]
-      - paragraph [ref=e32]: No conversations yet
+    - button "请输出一段 100 行的编号文本，每行 15 个字左右，不要... 101. 太阳东升西落永不停息 102. 月有阴晴圆缺变化无常 103. 星辰排列成神秘图案 10... now 4 Delete session" [ref=e452]:
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - paragraph [ref=e112]: 请输出一段 100 行的编号文本，每行 15 个字左右，不要...
+          - paragraph [ref=e114]: 101. 太阳东升西落永不停息 102. 月有阴晴圆缺变化无常 103. 星辰排列成神秘图案 10...
+          - generic [ref=e115]:
+            - paragraph [ref=e116]: now
+            - generic [ref=e117]: "4"
+        - button "Delete session" [ref=e118]:
+          - img [ref=e119]
   - generic [ref=e33]:
     - banner [ref=e34]:
       - generic [ref=e35]:
@@ -40,38 +48,108 @@
           - button "New Chat" [ref=e47]:
             - img [ref=e48]
             - generic [ref=e50]: New Chat
-          - button "Export" [disabled] [ref=e51]:
+          - button "Export" [ref=e51]:
             - img [ref=e52]
             - img [ref=e54]
           - button "Toggle theme" [ref=e56]:
             - img [ref=e57]
-          - generic [ref=e59]:
+          - button "Login" [ref=e59]:
             - img [ref=e60]
-            - generic [ref=e62]: connected
-    - main [ref=e64]:
-      - generic [ref=e65]:
-        - generic [ref=e66]:
-          - generic [ref=e67]:
-            - button "Bubble" [ref=e68] [cursor=pointer]
-            - button "Docs" [ref=e69] [cursor=pointer]
-          - generic [ref=e72]:
-            - img [ref=e73]
-            - heading "Start a conversation" [level=2] [ref=e75]
-            - paragraph [ref=e76]: Connect MCP servers in the MCP tab to enable tool access.
-          - button "Back to top" [ref=e77] [cursor=pointer]:
-            - img [ref=e78]
+            - generic [ref=e62]: Login
+          - generic [ref=e63]:
+            - img [ref=e64]
+            - generic [ref=e66]: connected
+    - main [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - button "Bubble" [ref=e72] [cursor=pointer]
+            - button "Docs" [ref=e73] [cursor=pointer]
+          - generic [ref=e123]:
+            - generic [ref=e126]:
+              - paragraph [ref=e129]: User:请输出一段 100 行的编号文本，每行 15 个字左右，不要代码块。
+              - generic [ref=e131]:
+                - status [ref=e132]
+                - button "Copy message" [ref=e133] [cursor=pointer]:
+                  - img [ref=e134]
+                - button "Edit message" [ref=e136] [cursor=pointer]:
+                  - img [ref=e137]
+                - button "Delete message" [ref=e139] [cursor=pointer]:
+                  - img [ref=e140]
+            - generic [ref=e273]:
+              - paragraph [ref=e276]: AI:1. 春风吹过大地绿意盎然 2. 夏日的阳光洒在窗台 3. 秋叶飘落在小径旁 4. 冬雪覆盖了整座村庄 5. 清晨的鸟儿唱着歌 6. 黄昏时分夕阳无限好 7. 夜空中星星闪烁明亮 8. 月光如水洒在湖面上 9. 山间小路蜿蜒曲折 10. 溪水潺潺流向远方 11. 花儿在风中轻轻摇曳 12. 蝴蝶翩翩起舞在花丛 13. 蜜蜂忙碌采蜜不亦乐乎 14. 树枝上鸟儿筑巢安家 15. 草丛中虫鸣声声入耳 16. 池塘里青蛙呱呱叫 17. 鱼儿在水中自由游弋 18. 白云悠悠飘过蓝天 19. 雨后彩虹挂在天空 20. 露珠晶莹挂在草叶 21. 清晨的雾气笼罩田野 22. 阳光穿透云层洒下 23. 微风拂过脸庞温柔 24. 远处的山峦层层叠叠 25. 近处的小河静静流淌 26. 岸边的柳树垂下枝条 27. 水中的倒影清晰可见 28. 石桥横跨在小河之上 29. 桥下流水叮咚作响 30. 岸边的人们悠闲散步 31. 孩童们在草地上奔跑 32. 放风筝的笑声回荡 33. 青春的岁月多么美好 34. 时光如流水般逝去 35. 珍惜当下的每一刻 36. 感恩生活中的点点滴滴 37. 友情如酒越陈越香 38. 亲情永远温暖人心 39. 爱情是最美的风景 40. 梦想照亮前行的路 41. 勇气是前进的动力 42. 坚持才能走向成功 43. 努力终会有收获 44. 失败是成功之母 45. 从挫折中汲取力量 46. 在困境中保持乐观 47. 用微笑面对每一天 48. 心中有爱世界美好 49. 善良是最美的品质 50. 真诚打动人的心灵 51. 信任维系着人际关系 52. 包容化解矛盾冲突 53. 谦虚使人进步成长 54. 自信是成功的基石 55. 学习永无止境 56. 知识改变命运 57. 书籍是人类的朋友 58. 阅读开启智慧之门 59. 思考点亮心灵的灯 60. 创新推动社会发展 61. 科技改变生活方式 62. 人类探索未知宇宙 63. 好奇心驱动发现之旅 64. 实践检验真理标准 65. 历史给我们启示教训 66. 文化传承生生不息 67. 艺术美化人类生活 68. 音乐陶冶人的情操 69. 绘画描绘多彩世界 70. 文学记录人间百态 71. 哲学思考人生意义 72. 科学探索自然规律 73. 数学构建逻辑思维 74. 语言连接你我他 75. 交流促进相互理解 76. 合作共创美好未来 77. 团队凝聚无穷力量 78. 领导引领方向前进 79. 责任重于泰山之重 80. 使命在肩勇往直前 81. 信念支撑着人生路 82. 理想指引前行方向 83. 目标明确奋斗有方 84. 计划周密执行有力 85. 效率提升工作质量 86. 创新带来突破发展 87. 变革适应时代需求 88. 发展推动社会进步 89. 和平是人类共同愿望 90. 合作共赢美好前景 91. 开放包容胸怀天下 92. 互利互惠共同发展 93. 可持续发展之路远 94. 绿色地球美丽家园 95. 保护环境人人有责 96. 节约资源从我做起 97. 文明礼仪体现素养 98. 道德品质塑造人格 99. 优秀传统代代相传 100. 美好生活共同创造
+              - generic [ref=e278]:
+                - status [ref=e279]
+                - button "Copy message" [ref=e280] [cursor=pointer]:
+                  - img [ref=e281]
+                - button "Regenerate response" [ref=e283] [cursor=pointer]:
+                  - img [ref=e284]
+                - button "Delete message" [ref=e286] [cursor=pointer]:
+                  - img [ref=e287]
+            - generic [ref=e299]:
+              - paragraph [ref=e302]: User:继续输出 100 行编号文本。
+              - generic [ref=e304]:
+                - status [ref=e305]
+                - button "Copy message" [ref=e306] [cursor=pointer]:
+                  - img [ref=e307]
+                - button "Edit message" [ref=e309] [cursor=pointer]:
+                  - img [ref=e310]
+                - button "Delete message" [ref=e312] [cursor=pointer]:
+                  - img [ref=e313]
+            - generic [ref=e317]:
+              - generic [ref=e319]:
+                - paragraph [ref=e453]:
+                  - text: AI:101. 太阳东升西落永不停息 102. 月有阴晴圆缺变化无常 103. 星辰排列成神秘图案 104. 银河横跨夜空壮观 105. 流星划过瞬间许愿 106. 彗星拖着长尾飞逝 107. 北极星指引方向明 108. 日月星辰运行有序 109. 宇宙浩瀚无垠深邃 110. 地球转动生命不息 111. 海洋辽阔包容万物 112. 波涛汹涌气势磅礴 113. 海浪拍打着岩石 114. 潮汐涨落有规律 115. 海鸥翱翔在海面 116. 渔船出海捕鱼忙 117. 港口码头人来人往 118. 货物装卸有序进行 119. 贸易繁荣经济发展 120. 城市建筑高耸入云 121. 霓虹灯闪烁不夜城 122. 街道上车流如织 123. 行人匆匆忙忙赶路 124. 商店琳琅满目商品 125. 市场热闹非凡景象 126. 公园里人们休闲 127. 广场上舞步翩翩 128. 社区邻里和谐相处 129. 家庭温馨幸福满溢 130. 厨房飘来饭菜香 131. 餐桌上家人围坐 132. 欢声笑语满堂 133. 亲子时光珍贵无比 134. 童年记忆永难忘 135. 学生时代青涩美好 136. 校园生活多姿多彩 137. 课堂学习知识增长 138. 操场奔跑青春飞扬 139. 图书馆里安静阅读 140. 实验室里探索奥秘 141. 毕业离别依依不舍 142. 同学情谊地久天长 143. 教师恩情铭记于心 144. 师生情谊珍贵无比 145. 校园记忆刻骨铭心 146. 青春岁月如歌如梦 147. 少年壮志当拿云 148. 青年奋发图强时 149. 中年沉稳肩负重任 150. 老年安享晚年幸福 151. 人生每个阶段精彩 152. 岁月沉淀智慧增长 153. 经验积累财富增添 154. 阅历丰富眼界开阔 155. 心态平和生活美好 156. 身体健康是本钱 157. 运动锻炼强健体魄 158. 合理饮食营养均衡 159. 充足睡眠精力充沛 160. 良好习惯益终生 161. 早起晨练精神好 162. 坚持跑步身体棒 163. 游泳健身效果佳 164. 瑜伽修身养性静 165. 登山望远心胸广 166. 骑行赏景两相宜 167. 球类运动趣味多 168. 棋类博弈动脑筋 169. 书画陶冶情操雅 170. 音乐舒缓心情好 171. 舞蹈展现活力美 172. 戏剧演绎人生戏 173. 影视作品引人入胜 174. 摄影记录美好瞬间 175. 旅行开拓眼界宽 176. 游览名胜古迹多 177. 体验不同文化风 178. 品尝各地美食香 179. 结识新朋友快乐 180. 收集纪念品留忆 181. 品茶悟道心境静 182. 闻香识花意趣浓 183. 养花种草怡情操 184. 垂钓静心耐心足 185. 园艺劳作乐无穷 186. 手工制作创意多 187. 编织刺绣精细巧 188. 木工雕刻技艺精 189. 陶艺塑形趣味多 190. 书法绘画修身性 191. 收藏爱好乐趣多 192. 邮票钱币价值藏 193. 古董文玩历史重 194. 珠宝玉石璀璨美 195. 艺术品欣赏雅趣高 196. 时尚潮流变幻快 197. 服饰搭配显品味 198. 美容护肤养容颜 199. 健身塑形身材好 200. 自信美丽由内而外</think>以下是对这段输出的
+                  - strong [ref=e454]: 批判性回顾
+                  - text: ：
+                - separator [ref=e455]
+                - heading "可能的问题与改进方向：" [level=3] [ref=e456]
+                - list [ref=e457]:
+                  - listitem [ref=e458]:
+                    - paragraph [ref=e459]:
+                      - strong [ref=e460]: 字数波动较大
+                    - list [ref=e461]:
+                      - listitem [ref=e462]: 部分行不足15字（如"北极星指引方向明"仅8字）
+                      - listitem [ref=e463]: 部分行超过15字（如"童年记忆永难忘才几字"略显不足）
+                      - listitem [ref=e464]: 建议：每行严格控制在14-16字之间更美观
+                  - listitem [ref=e465]:
+                    - paragraph [ref=e466]:
+                      - strong [ref=e467]: 内容连贯性
+                    - list [ref=e468]:
+                      - listitem [ref=e469]: 从101-200行主题跳跃较多（宇宙→海洋→城市→校园→运动→爱好）
+                      - listitem [ref=e470]: 若需连贯主题，可考虑按场景分段输出
+                  - listitem [ref=e471]:
+                    - paragraph [ref=e472]:
+                      - strong [ref=e473]: 编号准确性
+                    - list [ref=e474]:
+                      - listitem [ref=e475]: 编号从101到200连续无误，但用户未指定起始编号
+                      - listitem [ref=e476]: 若需调整起始编号可说明
+                  - listitem [ref=e477]:
+                    - paragraph [ref=e478]:
+                      - strong [ref=e479]: 语言风格
+                    - list [ref=e480]:
+                      - listitem [ref=e481]: 整体偏诗意/散文风格，与第一段风格一致
+                      - listitem [ref=e482]: 若需其他风格（如对话、叙事等）可调整
+                - separator [ref=e483]
+                - paragraph [ref=e484]: 如需调整字数精确度、主题连贯性或风格方向，请告知具体需求。
+              - generic [ref=e323]:
+                - status [ref=e324]
+                - button "Copy message" [ref=e325] [cursor=pointer]:
+                  - img [ref=e326]
+                - button "Regenerate response" [ref=e328] [cursor=pointer]:
+                  - img [ref=e329]
+                - button "Delete message" [ref=e331] [cursor=pointer]:
+                  - img [ref=e332]
+          - button "Back to top" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
             - text: Back to top
-          - button "Back to bottom · Following" [ref=e80] [cursor=pointer]:
-            - img [ref=e81]
+          - button "Back to bottom · Following" [ref=e84] [cursor=pointer]:
+            - img [ref=e85]
             - text: Back to bottom · Following
-        - generic [ref=e85]:
-          - generic [ref=e86]:
-            - generic "Multiline input enabled" [ref=e87]:
-              - img [ref=e88]
-            - textbox "Type a message..." [active] [ref=e90]
-            - button "Send" [disabled] [ref=e91]:
-              - img [ref=e92]
-              - generic [ref=e94]: Send
-          - generic [ref=e98]:
-            - paragraph [ref=e100]: Shift+Enter new line, Enter/Ctrl+Enter/Cmd+Enter send
-            - paragraph [ref=e101]: 0/4000
+        - generic [ref=e90]:
+          - generic "Multiline input enabled" [ref=e91]:
+            - img [ref=e92]
+          - textbox "Ask anything... (AI can search web & read pages)" [ref=e485]
+          - button "Send" [disabled] [ref=e486]:
+            - img [ref=e487]
+            - generic [ref=e98]: Send

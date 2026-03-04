@@ -46,6 +46,7 @@ export const BottomSheet = memo(function BottomSheet({
   zIndex = 1100
 }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
   const dragStartY = useRef<number>(0);
   const dragStartTime = useRef<number>(0);
   const currentDragY = useRef<number>(0);
@@ -56,6 +57,10 @@ export const BottomSheet = memo(function BottomSheet({
   // Fixed-body scroll lock
   useScrollLock(open);
 
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   // Handle keyboard and focus
   useEffect(() => {
     if (!open) return;
@@ -65,7 +70,7 @@ export const BottomSheet = memo(function BottomSheet({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -102,7 +107,7 @@ export const BottomSheet = memo(function BottomSheet({
       document.removeEventListener("keydown", handleKeyDown);
       previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   // Calculate snap point height
   const getSnapHeight = useCallback(() => {
@@ -194,13 +199,13 @@ export const BottomSheet = memo(function BottomSheet({
       deltaY > SWIPE_CLOSE_THRESHOLD || (deltaY > 20 && velocity > SWIPE_VELOCITY_THRESHOLD);
 
     if (shouldClose) {
-      onClose();
+      onCloseRef.current();
     }
 
     // Reset transform
     sheetRef.current.style.transform = "";
     sheetRef.current.style.transition = "";
-  }, [enableSwipeToClose, onClose]);
+  }, [enableSwipeToClose]);
 
   // Handle touchcancel for consistency
   const handleTouchCancel = useCallback(() => {
@@ -234,7 +239,7 @@ export const BottomSheet = memo(function BottomSheet({
           "absolute inset-0 bg-[var(--app-overlay)] transition-opacity duration-200",
           open ? "opacity-100" : "opacity-0"
         )}
-        onClick={onClose}
+        onClick={() => onCloseRef.current()}
         aria-hidden="true"
       />
 
@@ -245,7 +250,6 @@ export const BottomSheet = memo(function BottomSheet({
         aria-modal="true"
         aria-label={title ?? "Bottom sheet"}
         tabIndex={-1}
-        data-drag-handle
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
