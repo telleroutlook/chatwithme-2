@@ -57,8 +57,8 @@ const getAllowedOrigins = (env: Env): string[] => {
 app.use("*", cors({
   origin: (origin, c) => {
     const allowed = getAllowedOrigins(c.env);
-    // Allow requests without origin (like mobile apps, curl, server-to-server)
-    if (!origin) return origin;
+    // Allow requests without origin (mobile apps, curl, server-to-server)
+    if (!origin) return origin ?? null;
     // Allow if origin is in whitelist
     if (allowed.includes(origin)) return origin;
     // Block other origins

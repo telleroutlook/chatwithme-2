@@ -37,7 +37,7 @@ import {
   getToolTimeoutMs,
   getChartPrimary
 } from "./runtime-config";
-import { buildSystemPrompt } from "./system-prompt";
+import { buildSystemPromptWithKeywords } from "./system-prompt";
 import {
   // Types
   type McpServerConnectionState,
@@ -164,21 +164,11 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   private appendRuntimeEvent(
     event: Omit<AgentRuntimeEvent, "id" | "timestamp">
   ): AgentRuntimeEvent {
-    const runtimeEvent: AgentRuntimeEvent = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      ...event
-    };
-    const nextEvents = [...this.state.runtime.events, runtimeEvent].slice(-120);
-    this.updateState({
-      ...this.state,
-      runtime: {
-        ...this.state.runtime,
-        events: nextEvents,
-        stateVersion: this.state.runtime.stateVersion + 1
-      }
-    });
-    return runtimeEvent;
+    const nextState = appendRuntimeEvent(this.state, event);
+    this.updateState(nextState);
+    // Return the last event that was just added
+    const events = nextState.runtime.events;
+    return events[events.length - 1];
   }
 
   private updateLastError(message?: string): void {
@@ -406,12 +396,15 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     emitProgress?: ProgressEmitter,
     mcpProgressGroupKey?: string
   ): Promise<void> {
+    // If init is already in flight, join the existing promise instead of
+    // starting a second one. We only clear the promise once it settles so
+    // concurrent callers share the same result.
     if (this.mcpInitPromise) {
       await this.mcpInitPromise;
       return;
     }
 
-    this.mcpInitPromise = (async () => {
+    const initPromise = (async () => {
       const activeServers = MCP_SERVERS.filter((config) => config.active);
       await Promise.all(activeServers.map(async (config) => {
         emitProgress?.({
@@ -433,10 +426,15 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       }));
     })();
 
+    this.mcpInitPromise = initPromise;
+
     try {
-      await this.mcpInitPromise;
+      await initPromise;
     } finally {
-      this.mcpInitPromise = null;
+      // Only clear if still our promise (avoids clearing a newer init)
+      if (this.mcpInitPromise === initPromise) {
+        this.mcpInitPromise = null;
+      }
     }
   }
 
@@ -478,7 +476,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
             status: "info",
             message: "Still thinking..."
           });
-        }, 1200);
+        }, 3000);
 
         writer.write({ type: "text-start", id: textId });
         writer.write({
@@ -560,7 +558,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       : "context:mcp-init";
     const { tools, toolList } = await this.buildAiTools(emitProgress, mcpProgressGroupKey);
     const chartPrimary = getChartPrimary(this.runtimeEnv);
-    const systemPrompt = buildSystemPrompt(toolList, chartPrimary);
+    const systemPrompt = buildSystemPromptWithKeywords(toolList, chartPrimary, message);
     emitProgress?.({
       phase: "context",
       status: "success",
@@ -637,7 +635,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       });
 
       if (finalResponse.trim().length === 0) {
-        finalResponse = "I encountered an empty model response after using tools. Please retry the request.";
+        finalResponse = "工具调用后模型未生成有效回复，请重试。 / Empty model response after tool use — please retry.";
         this.appendRuntimeEvent({
           level: "error",
           source: "chat",

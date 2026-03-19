@@ -39,11 +39,11 @@
     "@ant-design/charts": "^2.6.7",
     "@antv/g2": "^5.4.8",
     "@cloudflare/agents-ui": "*",
-    "@cloudflare/ai-chat": "*",
+    "@cloudflare/ai-chat": "^0.1.9",
     "@cloudflare/kumo": "^1.7.0",
     "@hono/zod-validator": "^0.7.6",
     "@phosphor-icons/react": "^2.1.10",
-    "agents": "*",
+    "agents": "^0.7.9",
     "ai": "^6.0.0",
     "drizzle-kit": "^0.31.9",
     "drizzle-orm": "^0.45.1",
@@ -68,7 +68,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.0.0",
+    "@cloudflare/vite-plugin": "^1.29.1",
     "@eslint/js": "^9.39.3",
     "@tailwindcss/vite": "^4",
     "@testing-library/dom": "^10.4.1",
@@ -90,6 +90,6 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^6.0.0",
     "vitest": "^4.0.18",
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.75.0"
   }
 }

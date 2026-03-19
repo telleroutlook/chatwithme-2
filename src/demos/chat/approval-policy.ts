@@ -10,6 +10,11 @@ export function requiresApprovalPolicy(toolName: string, args: Record<string, un
   return serialized.length > 8000;
 }
 
+/**
+ * Build a deterministic approval signature by sorting keys.
+ * This ensures that the same tool+args always produce the same signature
+ * regardless of object key order.
+ */
 export function buildApprovalSignature(
   toolName: string,
   serverId: string | undefined,
@@ -18,6 +23,16 @@ export function buildApprovalSignature(
   return JSON.stringify({
     toolName,
     serverId: serverId ?? "",
-    args
+    args: sortKeysDeep(args)
   });
+}
+
+function sortKeysDeep(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(sortKeysDeep);
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+    sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
+  }
+  return sorted;
 }

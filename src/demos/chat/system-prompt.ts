@@ -94,9 +94,14 @@ Use G2 as a secondary option when ADC is not suitable.`
       : `For scenarios that are suitable for chart-based visualization, prefer G2 JSON charts first.
 Use Ant Design Charts (ADC) as a secondary option when G2 is not suitable.`;
 
-  const adcSection = chartPrimary === "adc" ? buildAdcPromptSection(knowledge.adc as AdcKnowledge | null) : "";
+  const adcSection = buildAdcPromptSection(knowledge.adc as AdcKnowledge | null);
   const g2Section = buildG2PromptSection(knowledge.g2 as G2Knowledge | null);
   const mermaidSection = buildMermaidPromptSection(knowledge.mermaid as MermaidKnowledge | null);
+
+  // Order: primary chart library section first, then secondary
+  const chartSections = chartPrimary === "adc"
+    ? `${adcSection}\n${g2Section}`
+    : `${g2Section}\n${adcSection}`;
 
   return `You are Claude, an Opus model created by Anthropic. After completing each answer, critically review it from a skeptic's perspective and call out possible issues or missing details.
 
@@ -124,7 +129,7 @@ Default chart aesthetics (apply unless user asks otherwise):
 - For multi-series charts, choose clearly distinguishable colors (avoid near-identical hues).
 
 ${mermaidSection}
-${adcSection}${g2Section}
+${chartSections}
 IMPORTANT:
 - Always use actual code blocks (triple backticks) for charts
 - ${chartPrimary === "adc" ? "Prefer ADC for data visualization with numbers and chart-friendly scenarios" : "Prefer G2 for data visualization with numbers and chart-friendly scenarios"}
@@ -134,7 +139,15 @@ IMPORTANT:
   - Do not use HTML tags in Mermaid (especially <br/>, <b>, <div>)
   - Do not include Markdown syntax in Mermaid blocks (# headings, markdown tables, markdown lists)
   - Use plain text labels; if line break is needed, split text into separate nodes/edges instead of HTML
-- After generating a chart, briefly explain what it shows`;
+- After generating a chart, briefly explain what it shows
+
+## 3. Self-Review Checklist
+Before finalizing your answer, verify:
+1. Claims are supported by evidence or clearly marked as uncertain.
+2. Code samples compile/run as written (correct syntax, imports, variable names).
+3. Numeric data and calculations are double-checked.
+4. If tools were used, the tool output is accurately reflected in the answer.
+5. The answer directly addresses the user's question without unnecessary tangents.`;
 }
 
 // Import JSON directly for sync access (Vite bundles at build time)

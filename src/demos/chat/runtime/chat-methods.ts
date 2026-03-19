@@ -59,7 +59,10 @@ export async function clearChat(
 }
 
 /**
- * Delete a single chat message by id
+ * Delete a single chat message by id.
+ *
+ * Note: `sql` is a D1 tagged template that returns a promise (or sync result
+ * depending on the runtime). We `await` it to be safe in both cases.
  */
 export async function deleteMessage(
   messageId: string,
@@ -72,7 +75,7 @@ export async function deleteMessage(
   }
 
   try {
-    const existing = sql`
+    const existing = await sql`
       select count(*) as cnt
       from cf_ai_chat_agent_messages
       where id = ${messageId}
@@ -80,7 +83,7 @@ export async function deleteMessage(
 
     const deleted = (existing[0]?.cnt ?? 0) > 0;
 
-    sql`
+    await sql`
       delete from cf_ai_chat_agent_messages
       where id = ${messageId}
     `;
@@ -144,7 +147,10 @@ export async function editUserMessage(
 }
 
 /**
- * Regenerate assistant response starting from a specific message
+ * Regenerate assistant response starting from a specific message.
+ *
+ * Trims history up to (and including) the anchor user message, then
+ * generates a fresh assistant response and appends it.
  */
 export async function regenerateFrom(
   messageId: string,
@@ -183,15 +189,16 @@ export async function regenerateFrom(
       return { success: false, error: "User message content is empty" };
     }
 
-    const latestMessages = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
-    const historyEndsWithUser = latestMessages[latestMessages.length - 1]?.role === "user";
-    const regenerated = await generateAssistantResponse(userText, historyEndsWithUser);
+    // Trim history: keep messages up to and including the anchor user message,
+    // discarding any subsequent assistant/tool messages that follow it.
+    const trimmedMessages = msgArray.slice(0, anchorIndex + 1);
+    const regenerated = await generateAssistantResponse(userText, true);
     const assistantMessage: ChatMessage = {
       id: `assistant-${Date.now()}`,
       role: "assistant" as const,
       parts: [{ type: "text" as const, text: regenerated }]
     };
-    await persistMessages([...latestMessages, assistantMessage]);
+    await persistMessages([...trimmedMessages, assistantMessage]);
 
     return { success: true, response: regenerated };
   } catch (error) {

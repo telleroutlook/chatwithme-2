@@ -147,39 +147,65 @@ export async function callMcpToolWithRetry(
   }
 }
 
-// ============ Tool Factory ============
+// ============ Tool List Builder ============
 
 /**
- * Create AI SDK tool from MCP tool definition
+ * Build AI tools from MCP server tools
  */
-export function createAiTool(
-  item: { name: string; description?: string; serverId: string },
-  aliases: string[],
-  context: ToolExecutionContext,
+export async function buildAiTools(
+  mcp: ToolExecutionContext["mcp"],
+  context: Omit<ToolExecutionContext, "mcp">,
   emitProgress?: ProgressEmitter
-): { toolDefinition: ToolSet[string]; aliases: string[] } {
-  const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
-  const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
+): Promise<{
+  tools: ToolSet;
+  toolList: string[];
+}> {
+  if (!mcp) {
+    return { tools: {}, toolList: [] };
+  }
 
-  const toolDefinition = tool({
-    description: item.description || `MCP tool ${rawName}`,
-    inputSchema: z.object({}).passthrough(),
-    execute: async (args: Record<string, unknown>) => {
-      return executeToolCall(rawName, serverId, args, context, emitProgress);
+  const availableTools = mcp.listTools();
+  const shortNameCounts = new Map<string, number>();
+
+  for (const item of availableTools) {
+    const shortName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
+    shortNameCounts.set(shortName, (shortNameCounts.get(shortName) || 0) + 1);
+  }
+
+  const tools: ToolSet = {};
+  const toolList: string[] = [];
+
+  for (const item of availableTools) {
+    const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
+    const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
+    const shortName = rawName;
+
+    const aliases = shortNameCounts.get(shortName) === 1 ? [shortName, item.name] : [item.name];
+
+    for (const alias of aliases) {
+      if (tools[alias]) continue;
+
+      const toolDef = tool({
+        description: item.description || `MCP tool ${rawName}`,
+        inputSchema: z.object({}).passthrough(),
+        execute: async (args: Record<string, unknown>) => {
+          return executeToolCallInternal(rawName, serverId, alias, args, {
+            ...context,
+            mcp
+          }, emitProgress);
+        }
+      });
+      tools[alias] = toolDef;
     }
-  });
+    toolList.push(`${item.name}: ${item.description || "No description"}`);
+  }
 
-  const toolEntry = aliases.reduce((acc, alias) => {
-    acc[alias] = toolDefinition;
-    return acc;
-  }, {} as ToolSet);
-
-  return { toolDefinition: toolEntry[aliases[0]], aliases };
+  return { tools, toolList };
 }
 
 /**
- * Internal implementation for tool execution with full state management
- * Handles: validation, approval, retry, runtime state/events, and progress emission
+ * Internal implementation for tool execution with full state management.
+ * Handles: validation, approval, retry, runtime state/events, and progress emission.
  */
 async function executeToolCallInternal(
   rawName: string,
@@ -346,93 +372,6 @@ async function executeToolCallInternal(
     });
     return { error: message };
   }
-}
-
-/**
- * Execute a single tool call with full state management
- * Computes alias from serverId and rawName
- */
-async function executeToolCall(
-  rawName: string,
-  serverId: string | undefined,
-  args: Record<string, unknown>,
-  context: ToolExecutionContext,
-  emitProgress?: ProgressEmitter
-): Promise<unknown> {
-  const alias = serverId ? `${serverId}.${rawName}` : rawName;
-  return executeToolCallInternal(rawName, serverId, alias, args, context, emitProgress);
-}
-
-// ============ Tool List Builder ============
-
-/**
- * Build AI tools from MCP server tools
- */
-export async function buildAiTools(
-  mcp: ToolExecutionContext["mcp"],
-  context: Omit<ToolExecutionContext, "mcp">,
-  emitProgress?: ProgressEmitter
-): Promise<{
-  tools: ToolSet;
-  toolList: string[];
-}> {
-  if (!mcp) {
-    return { tools: {}, toolList: [] };
-  }
-
-  const availableTools = mcp.listTools();
-  const shortNameCounts = new Map<string, number>();
-
-  for (const item of availableTools) {
-    const shortName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
-    shortNameCounts.set(shortName, (shortNameCounts.get(shortName) || 0) + 1);
-  }
-
-  const tools: ToolSet = {};
-  const toolList: string[] = [];
-
-  for (const item of availableTools) {
-    const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
-    const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
-    const shortName = rawName;
-
-    const aliases = shortNameCounts.get(shortName) === 1 ? [shortName, item.name] : [item.name];
-
-    for (const alias of aliases) {
-      if (tools[alias]) continue;
-
-      const toolDef = tool({
-        description: item.description || `MCP tool ${rawName}`,
-        inputSchema: z.object({}).passthrough(),
-        execute: async (args: Record<string, unknown>) => {
-          return executeToolCallWithContext(rawName, serverId, alias, args, {
-            ...context,
-            mcp
-          }, emitProgress);
-        }
-      });
-      tools[alias] = toolDef;
-    }
-    toolList.push(`${item.name}: ${item.description || "No description"}`);
-  }
-
-  return { tools, toolList };
-}
-
-/**
- * Execute tool call with mutable context state
- * This is a helper that maintains state across calls
- * Accepts alias as parameter (used by buildAiTools)
- */
-async function executeToolCallWithContext(
-  rawName: string,
-  serverId: string | undefined,
-  alias: string,
-  args: Record<string, unknown>,
-  context: ToolExecutionContext,
-  emitProgress?: ProgressEmitter
-): Promise<unknown> {
-  return executeToolCallInternal(rawName, serverId, alias, args, context, emitProgress);
 }
 
 // Re-export for convenience
