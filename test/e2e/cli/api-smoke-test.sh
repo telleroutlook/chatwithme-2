@@ -13,7 +13,7 @@ echo "   Session ID: $SESSION_ID"
 
 # Test 1: Home page reachable
 echo "📍 Testing home page..."
-HOME_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/")
+HOME_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" "$BASE_URL/")
 if [ "$HOME_STATUS" != "200" ]; then
     echo "❌ Home page failed with status: $HOME_STATUS"
     exit 1
@@ -22,7 +22,7 @@ echo "   ✅ Home page reachable (200)"
 
 # Test 2: Get chat history (should be empty for new session)
 echo "📜 Testing history endpoint..."
-HISTORY_RESPONSE=$(curl -s "${BASE_URL}/api/chat/history?sessionId=${SESSION_ID}")
+HISTORY_RESPONSE=$(curl -4 -s "${BASE_URL}/api/chat/history?sessionId=${SESSION_ID}")
 HISTORY_SUCCESS=$(echo "$HISTORY_RESPONSE" | grep -o '"success":[^,}]*' | grep -o 'true\|false')
 
 if [ "$HISTORY_SUCCESS" != "true" ]; then
@@ -33,7 +33,7 @@ echo "   ✅ History endpoint working"
 
 # Test 3: Send a chat message
 echo "💬 Testing chat endpoint..."
-CHAT_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/chat" \
+CHAT_RESPONSE=$(curl -4 -s -X POST "${BASE_URL}/api/chat" \
     -H "Content-Type: application/json" \
     -d "{\"sessionId\":\"${SESSION_ID}\",\"message\":\"E2E API smoke test\"}")
 
@@ -53,7 +53,7 @@ echo "   ✅ Chat endpoint working"
 
 # Test 4: Test invalid edit (should return 400)
 echo "✏️  Testing edit validation..."
-EDIT_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${BASE_URL}/api/chat/edit" \
+EDIT_RESPONSE=$(curl -4 -s -w "\n%{http_code}" -X POST "${BASE_URL}/api/chat/edit" \
     -H "Content-Type: application/json" \
     -d "{\"sessionId\":\"${SESSION_ID}\"}")
 EDIT_STATUS=$(echo "$EDIT_RESPONSE" | tail -1)
@@ -66,7 +66,7 @@ echo "   ✅ Edit validation working (400 for invalid request)"
 
 # Test 5: Clear history
 echo "🗑️  Testing history clear..."
-CLEAR_RESPONSE=$(curl -s -X DELETE "${BASE_URL}/api/chat/history?sessionId=${SESSION_ID}")
+CLEAR_RESPONSE=$(curl -4 -s -X DELETE "${BASE_URL}/api/chat/history?sessionId=${SESSION_ID}")
 CLEAR_SUCCESS=$(echo "$CLEAR_RESPONSE" | grep -o '"success":[^,}]*' | grep -o 'true\|false')
 
 if [ "$CLEAR_SUCCESS" != "true" ]; then

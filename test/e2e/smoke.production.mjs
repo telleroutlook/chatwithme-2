@@ -1,3 +1,6 @@
+import { setDefaultResultOrder } from "node:dns";
+setDefaultResultOrder("ipv4first");
+
 const baseUrl = process.env.E2E_BASE_URL || "https://chatwithme2mcp.lintao-mailbox.workers.dev";
 const sessionId = `e2e-smoke-${Date.now()}`;
 
