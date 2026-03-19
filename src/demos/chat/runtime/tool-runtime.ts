@@ -33,7 +33,8 @@ import {
 // ============ Types ============
 
 export interface ToolExecutionContext {
-  state: ChatAgentState;
+  getState: () => ChatAgentState;
+  setState: (state: ChatAgentState) => void;
   mcp: {
     callTool: (params: { name: string; serverId: string; arguments: Record<string, unknown> }) => Promise<unknown>;
     listTools: () => Array<{ name: string; description?: string; serverId: string }>;
@@ -82,13 +83,11 @@ export async function callMcpToolWithRetry(
   const maxAttempts = context.getToolMaxAttempts();
   const retryEnabled = maxAttempts > 1;
 
-  let currentState = context.state;
-
   const runner = async (attempt: number) => {
-    currentState = updateRetryStatsState(currentState, "tool", (stats) => ({
+    context.setState(updateRetryStatsState(context.getState(), "tool", (stats) => ({
       ...stats,
       attempts: stats.attempts + 1
-    }));
+    })));
     if (attempt > 1) {
       params.emitProgress?.({
         phase: "tool",
@@ -115,16 +114,16 @@ export async function callMcpToolWithRetry(
   if (!retryEnabled) {
     try {
       const result = await runner(1);
-      currentState = updateRetryStatsState(currentState, "tool", (stats) => ({
+      context.setState(updateRetryStatsState(context.getState(), "tool", (stats) => ({
         ...stats,
         success: stats.success + 1
-      }));
-      return { result, newState: currentState };
+      })));
+      return { result, newState: context.getState() };
     } catch (error) {
-      currentState = updateRetryStatsState(currentState, "tool", (stats) => ({
+      context.setState(updateRetryStatsState(context.getState(), "tool", (stats) => ({
         ...stats,
         exhausted: stats.exhausted + 1
-      }));
+      })));
       throw error;
     }
   }
@@ -134,16 +133,16 @@ export async function callMcpToolWithRetry(
       maxAttempts,
       shouldRetry: (error) => isRetryableToolError(error)
     });
-    currentState = updateRetryStatsState(currentState, "tool", (stats) => ({
+    context.setState(updateRetryStatsState(context.getState(), "tool", (stats) => ({
       ...stats,
       success: stats.success + 1
-    }));
-    return { result, newState: currentState };
+    })));
+    return { result, newState: context.getState() };
   } catch (error) {
-    currentState = updateRetryStatsState(currentState, "tool", (stats) => ({
+    context.setState(updateRetryStatsState(context.getState(), "tool", (stats) => ({
       ...stats,
       exhausted: stats.exhausted + 1
-    }));
+    })));
     throw error;
   }
 }
@@ -194,8 +193,6 @@ async function executeToolCallInternal(
   const runId = crypto.randomUUID();
   const runStart = new Date().toISOString();
 
-  let currentState = context.state;
-
   const baseRun: ToolRunRecord = {
     id: runId,
     toolName: alias,
@@ -208,20 +205,18 @@ async function executeToolCallInternal(
   // Validate input
   const inputValidationError = validateToolArguments(rawName, normalizedArgs, { alias, serverId });
   if (inputValidationError) {
-    currentState = upsertToolRunState(currentState, {
+    context.setState(updateLastErrorState(appendRuntimeEvent(upsertToolRunState(context.getState(), {
       ...baseRun,
       status: "error",
       finishedAt: new Date().toISOString(),
       error: inputValidationError
-    });
-    currentState = appendRuntimeEvent(currentState, {
+    }), {
       level: "error",
       source: "tool",
       type: "tool_input_error",
       message: `Tool ${alias} input validation failed`,
       data: { toolName: alias }
-    });
-    currentState = updateLastErrorState(currentState, inputValidationError);
+    }), inputValidationError));
     emitProgress?.({
       phase: "tool",
       status: "error",
@@ -232,17 +227,13 @@ async function executeToolCallInternal(
     return { error: inputValidationError };
   }
 
-  currentState = upsertToolRunState(currentState, baseRun);
-  currentState = appendRuntimeEvent(currentState, {
+  context.setState(appendRuntimeEvent(upsertToolRunState(context.getState(), baseRun), {
     level: "info",
     source: "tool",
     type: "tool_start",
     message: `Tool ${alias} started`,
-    data: {
-      toolName: alias,
-      serverId
-    }
-  });
+    data: { toolName: alias, serverId }
+  }));
   emitProgress?.({
     phase: "tool",
     status: "start",
@@ -254,44 +245,40 @@ async function executeToolCallInternal(
   try {
     if (!context.mcp) {
       const error = "MCP unavailable";
-      currentState = upsertToolRunState(currentState, {
+      context.setState(updateLastErrorState(upsertToolRunState(context.getState(), {
         ...baseRun,
         status: "error",
         finishedAt: new Date().toISOString(),
         error
-      });
-      currentState = updateLastErrorState(currentState, error);
+      }), error));
       return { error };
     }
 
     // Check approval
     const approvalSignature = buildApprovalSignature(rawName, serverId, normalizedArgs);
     if (requiresApprovalPolicy(rawName, normalizedArgs)) {
-      const { found, nextState } = hasApprovedSignature(currentState, approvalSignature);
-      currentState = nextState;
+      const { found, nextState } = hasApprovedSignature(context.getState(), approvalSignature);
+      context.setState(nextState);
       if (!found) {
-        const { approval, nextState: queuedState } = queueApproval(currentState, {
+        const { approval, nextState: queuedState } = queueApproval(context.getState(), {
           signature: approvalSignature,
           toolName: alias,
           serverId,
           argsSnippet: JSON.stringify(normalizedArgs).slice(0, 320)
         });
-        currentState = queuedState;
         const error = `Tool "${alias}" requires approval (id: ${approval.id}).`;
-        currentState = upsertToolRunState(currentState, {
+        context.setState(updateLastErrorState(appendRuntimeEvent(upsertToolRunState(queuedState, {
           ...baseRun,
           status: "blocked",
           finishedAt: new Date().toISOString(),
           error
-        });
-        currentState = appendRuntimeEvent(currentState, {
+        }), {
           level: "info",
           source: "tool",
           type: "tool_approval_required",
           message: `Tool ${alias} pending approval`,
           data: { toolName: alias, approvalId: approval.id }
-        });
-        currentState = updateLastErrorState(currentState, error);
+        }), error));
         emitProgress?.({
           phase: "tool",
           status: "info",
@@ -304,34 +291,30 @@ async function executeToolCallInternal(
     }
 
     // Execute tool with retry
-    const { result, newState } = await callMcpToolWithRetry(
+    const { result } = await callMcpToolWithRetry(
       {
         name: rawName,
         serverId: serverId!,
         arguments: normalizedArgs,
         emitProgress
       },
-      { ...context, state: currentState }
+      context
     );
-    currentState = newState;
 
     const resultSnippet =
       typeof result === "string" ? result : JSON.stringify(result, null, 2);
-    currentState = upsertToolRunState(currentState, {
+    context.setState(appendRuntimeEvent(upsertToolRunState(context.getState(), {
       ...baseRun,
       status: "success",
       finishedAt: new Date().toISOString(),
       resultSnippet: resultSnippet.slice(0, 480)
-    });
-    currentState = appendRuntimeEvent(currentState, {
+    }), {
       level: "success",
       source: "tool",
       type: "tool_success",
       message: `Tool ${alias} completed`,
-      data: {
-        toolName: alias
-      }
-    });
+      data: { toolName: alias }
+    }));
     emitProgress?.({
       phase: "tool",
       status: "success",
@@ -342,22 +325,18 @@ async function executeToolCallInternal(
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    currentState = upsertToolRunState(currentState, {
+    context.setState(updateLastErrorState(appendRuntimeEvent(upsertToolRunState(context.getState(), {
       ...baseRun,
       status: "error",
       finishedAt: new Date().toISOString(),
       error: message
-    });
-    currentState = appendRuntimeEvent(currentState, {
+    }), {
       level: "error",
       source: "tool",
       type: "tool_error",
       message: `Tool ${alias} failed`,
-      data: {
-        toolName: alias
-      }
-    });
-    currentState = updateLastErrorState(currentState, message);
+      data: { toolName: alias }
+    }), message));
     emitProgress?.({
       phase: "tool",
       status: "error",
@@ -391,16 +370,14 @@ async function executeToolCall(
  */
 export async function buildAiTools(
   mcp: ToolExecutionContext["mcp"],
-  state: ChatAgentState,
-  context: Omit<ToolExecutionContext, "state" | "mcp">,
+  context: Omit<ToolExecutionContext, "mcp">,
   emitProgress?: ProgressEmitter
 ): Promise<{
   tools: ToolSet;
   toolList: string[];
-  newState: ChatAgentState;
 }> {
   if (!mcp) {
-    return { tools: {}, toolList: [], newState: state };
+    return { tools: {}, toolList: [] };
   }
 
   const availableTools = mcp.listTools();
@@ -413,7 +390,6 @@ export async function buildAiTools(
 
   const tools: ToolSet = {};
   const toolList: string[] = [];
-  const currentState = state;
 
   for (const item of availableTools) {
     const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
@@ -429,10 +405,8 @@ export async function buildAiTools(
         description: item.description || `MCP tool ${rawName}`,
         inputSchema: z.object({}).passthrough(),
         execute: async (args: Record<string, unknown>) => {
-          // Note: This captures context at build time
           return executeToolCallWithContext(rawName, serverId, alias, args, {
             ...context,
-            state: currentState,
             mcp
           }, emitProgress);
         }
@@ -442,7 +416,7 @@ export async function buildAiTools(
     toolList.push(`${item.name}: ${item.description || "No description"}`);
   }
 
-  return { tools, toolList, newState: currentState };
+  return { tools, toolList };
 }
 
 /**

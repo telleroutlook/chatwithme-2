@@ -164,7 +164,7 @@ export function useChatAutoScroll({
       }
       observer.disconnect();
     };
-  }, [messagesLength, mode, scrollRef]);
+  }, [mode, scrollRef]);
 
   const onScroll = useCallback(() => {
     const element = scrollRef.current;

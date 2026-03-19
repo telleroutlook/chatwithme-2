@@ -94,7 +94,15 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
     // Build the shadow DOM content
     const styleContent = parsed.styles.join("\n");
     const externalStyleLinks = parsed.externalStyles
-      .map((href) => `<link rel="stylesheet" href="${href}">`)
+      .filter((href) => {
+        try {
+          const url = new URL(href);
+          return url.protocol === "https:" || url.protocol === "http:";
+        } catch {
+          return false;
+        }
+      })
+      .map((href) => `<link rel="stylesheet" href="${href.replace(/"/g, "&quot;")}">`)
       .join("\n");
 
     shadow.innerHTML = `

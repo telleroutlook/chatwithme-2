@@ -283,8 +283,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
     const { tools, toolList } = await buildAiTools(
       this.mcp,
-      this.state,
       {
+        getState: () => this.state,
+        setState: (s) => this.updateState(s),
         retry: this.retry.bind(this),
         getToolTimeoutMs: this.getToolTimeoutMs.bind(this),
         getToolMaxAttempts: this.getToolMaxAttempts.bind(this)
