@@ -17,7 +17,7 @@ import { registerAgentsRoutes } from "./server/routes/agents";
 import { registerAuthRoutes } from "./server/routes/auth";
 import { registerChatSyncRoutes } from "./server/routes/chat-sync";
 
-// Re-exports for backward compatibility
+// Exports required by Cloudflare Workers / agents framework
 export { ChatAgentV2 };
 export { parseAgentName, buildAgentName } from "./server/auth";
 

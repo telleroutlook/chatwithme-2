@@ -7,7 +7,7 @@ import { z } from "zod";
 import { getAgentByName } from "agents";
 import { chatHistoryQuerySchema, mcpServerBodySchema } from "../../schema/api";
 import { errorJson, successJson, unknownErrorMessage } from "../http";
-import { authMiddleware, buildAgentName } from "../auth";
+import { resolveAuthContext, buildAgentName } from "../auth";
 import { resolveSessionId, validateJson, validateQuery } from "../validators";
 
 type AppBindings = { Bindings: Env; Variables: { requestId: string } };
@@ -17,7 +17,7 @@ export function registerMcpRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const { userId } = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const servers = await agent.getPreconfiguredServers();
@@ -36,7 +36,7 @@ export function registerMcpRoutes(app: Hono<AppBindings>): void {
     try {
       const body = c.req.valid("json") as z.infer<typeof mcpServerBodySchema>;
       const sessionId = resolveSessionId(body);
-      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const { userId } = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const result = await agent.toggleServer(body.name);
@@ -59,7 +59,7 @@ export function registerMcpRoutes(app: Hono<AppBindings>): void {
     try {
       const body = c.req.valid("json") as z.infer<typeof mcpServerBodySchema>;
       const sessionId = resolveSessionId(body);
-      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const { userId } = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const result = await agent.activateServer(body.name);
@@ -81,7 +81,7 @@ export function registerMcpRoutes(app: Hono<AppBindings>): void {
     try {
       const body = c.req.valid("json") as z.infer<typeof mcpServerBodySchema>;
       const sessionId = resolveSessionId(body);
-      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const { userId } = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const result = await agent.deactivateServer(body.name);
@@ -103,7 +103,7 @@ export function registerMcpRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const { userId } = await authMiddleware(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const { userId } = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const agentName = buildAgentName(userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const tools = await agent.getAvailableTools();

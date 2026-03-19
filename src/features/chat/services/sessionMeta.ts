@@ -107,26 +107,6 @@ export function deleteSessionMeta(userId: string, sessionId: string): void {
   saveSessions(userId, sessions);
 }
 
-export function remapSessionMeta(userId: string, oldSessionId: string, newSessionId: string): void {
-  const from = oldSessionId.trim();
-  const to = newSessionId.trim();
-  if (!from || !to || from === to) return;
-
-  const sessions = loadSessions(userId);
-  const fromIndex = sessions.findIndex((session) => session.id === from);
-  if (fromIndex < 0) return;
-
-  const toIndex = sessions.findIndex((session) => session.id === to);
-  if (toIndex >= 0) {
-    sessions.splice(fromIndex, 1);
-    saveSessions(userId, sessions);
-    return;
-  }
-
-  sessions[fromIndex] = { ...sessions[fromIndex], id: to };
-  saveSessions(userId, sessions);
-}
-
 interface SessionMigrationResult {
   mergedCount: number;
   currentSessionId: string | null;

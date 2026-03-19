@@ -32,9 +32,6 @@ export default defineConfig({
           if (id.includes("node_modules/@ant-design/charts/")) {
             return "vendor-adc";
           }
-          if (id.includes("node_modules/echarts/")) {
-            return "vendor-chart";
-          }
 
           // Export utilities - lazy loaded for PDF/image export
           if (id.includes('node_modules/jspdf/') || id.includes('node_modules/html-to-image/')) {
@@ -51,9 +48,7 @@ export default defineConfig({
             id.includes('node_modules/react-markdown/') ||
             id.includes('node_modules/remark-gfm/') ||
             id.includes('node_modules/remark-math/') ||
-            id.includes('node_modules/rehype-katex/') ||
-            id.includes('node_modules/rehype-highlight/') ||
-            id.includes('node_modules/highlight.js/')
+            id.includes('node_modules/rehype-katex/')
           ) {
             return 'vendor-markdown';
           }
@@ -64,7 +59,7 @@ export default defineConfig({
           }
 
           // Virtual scrolling
-          if (id.includes('node_modules/react-virtuoso/') || id.includes('node_modules/virtua/')) {
+          if (id.includes('node_modules/react-virtuoso/')) {
             return 'vendor-virtual';
           }
 

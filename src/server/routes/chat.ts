@@ -15,7 +15,7 @@ import {
   regenerateBodySchema
 } from "../../schema/api";
 import { errorJson, successJson, unknownErrorMessage } from "../http";
-import { allowGuest, buildAgentName, logAuthContext, type AuthContext } from "../auth";
+import { resolveAuthContext, buildAgentName, logAuthContext, type AuthContext } from "../auth";
 import { resolveSessionId, parseSessionIds, validateJson, validateQuery } from "../validators";
 
 type AppBindings = { Bindings: Env; Variables: { requestId: string } };
@@ -41,7 +41,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const body = c.req.valid("json") as z.infer<typeof chatBodySchema>;
       const sessionId = resolveSessionId(body);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       // Log auth context for observability
       logAuthContext(c.get("requestId"), authCtx, "/api/chat");
@@ -61,7 +61,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/history");
 
@@ -84,7 +84,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatSessionsQuerySchema>;
       const requestedSessionIds = parseSessionIds(query.sessionIds);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/sessions");
 
@@ -139,7 +139,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
       const mode = c.req.query("mode");
       const readonly = mode === "view";
 
@@ -160,7 +160,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/history:delete");
 
@@ -184,7 +184,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof deleteSessionQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/session:delete");
 
@@ -209,7 +209,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const query = c.req.valid("query") as z.infer<typeof deleteMessageQuerySchema>;
       const sessionId = resolveSessionId(query);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/message:delete");
 
@@ -234,7 +234,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const body = c.req.valid("json") as z.infer<typeof editBodySchema>;
       const sessionId = resolveSessionId(body);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/edit");
 
@@ -259,7 +259,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
     try {
       const body = c.req.valid("json") as z.infer<typeof regenerateBodySchema>;
       const sessionId = resolveSessionId(body);
-      const authCtx = await allowGuest(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/regenerate");
 

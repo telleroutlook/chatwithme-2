@@ -1,4 +1,3 @@
-export { PrimitiveButton } from "./button";
 export { Tabs } from "./tabs";
 export { Dialog, DesktopModal } from "./dialog";
 export { Popover } from "./popover";

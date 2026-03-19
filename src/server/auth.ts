@@ -27,13 +27,6 @@ export interface AuthContext {
   _token?: string;
 }
 
-/**
- * Legacy authentication result (backward compatible).
- */
-export interface AuthResult {
-  userId: string;
-}
-
 interface ResolveAuthOptions {
   jwtSecret?: string | null;
 }
@@ -149,15 +142,6 @@ export async function resolveAuthContext(request: Request, options: ResolveAuthO
 }
 
 /**
- * Legacy auth middleware for backward compatibility.
- * Delegates to resolveAuthContext and returns simplified result.
- */
-export async function authMiddleware(request: Request, options: ResolveAuthOptions = {}): Promise<AuthResult> {
-  const ctx = await resolveAuthContext(request, options);
-  return { userId: ctx.userId };
-}
-
-/**
  * Create an auth middleware that requires authentication.
  * Returns 401 for guest users.
  */
@@ -182,24 +166,15 @@ export async function requireAuth(request: Request, options: ResolveAuthOptions 
 }
 
 /**
- * Create an auth middleware that allows guests.
- * Returns full AuthContext for logging.
- */
-export async function allowGuest(request: Request, options: ResolveAuthOptions = {}): Promise<AuthContext> {
-  return resolveAuthContext(request, options);
-}
-
-/**
  * Parse composite agent name into userId and sessionId.
- * Format: "userId:sessionId" or legacy "sessionId"
+ * Format: "userId:sessionId"
  */
 export function parseAgentName(fullName: string): { userId: string; sessionId: string } {
   const parts = fullName.split(":");
   if (parts.length === 2) {
     return { userId: parts[0], sessionId: parts[1] };
   }
-  // Backward compatibility: treat as legacy sessionId
-  return { userId: "legacy", sessionId: fullName };
+  throw new Error(`Invalid agent name format: expected "userId:sessionId", got "${fullName}"`);
 }
 
 /**
@@ -208,13 +183,6 @@ export function parseAgentName(fullName: string): { userId: string; sessionId: s
  */
 export function buildAgentName(userId: string, sessionId: string): string {
   return `${userId}:${sessionId}`;
-}
-
-/**
- * Generate request ID for logging correlation.
- */
-export function generateRequestId(): string {
-  return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**

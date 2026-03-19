@@ -25,16 +25,6 @@ export interface CommandSuggestionItem {
   badge?: string;
 }
 
-export interface CommandExecutionIntent {
-  rawInput: string;
-  normalizedInput: string;
-  selectedCommands: Array<{
-    trigger: CommandTrigger;
-    value: string;
-    label: string;
-  }>;
-}
-
 export function parseCommandToken(input: string, caretIndex: number): ParsedCommandToken | null {
   const safeCaret = Math.min(Math.max(caretIndex, 0), input.length);
   const textBeforeCaret = input.slice(0, safeCaret);
@@ -69,17 +59,3 @@ export function applyCommandSuggestion(
   return { nextInput, nextCaret };
 }
 
-export function normalizeCommandInput(
-  input: string,
-  selected: CommandSuggestionItem[]
-): CommandExecutionIntent {
-  return {
-    rawInput: input,
-    normalizedInput: input.trim(),
-    selectedCommands: selected.map((item) => ({
-      trigger: item.trigger,
-      value: item.value,
-      label: item.label
-    }))
-  };
-}

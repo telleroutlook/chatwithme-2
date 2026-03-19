@@ -3,7 +3,10 @@ node_modules/
 .wrangler/
 dist/
 
-# Playwright CLI test artifacts
+# Debug / test artifacts
 .playwright-cli/
+.playwright-mcp/
 *.png
-smoke-*.yaml
+*.yaml
+*.log
+*.pid
