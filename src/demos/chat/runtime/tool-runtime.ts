@@ -12,7 +12,7 @@ import { z } from "zod";
 import { tool, type ToolSet } from "ai";
 import { classifyRetryableError } from "../retry-policy";
 import { buildApprovalSignature, requiresApprovalPolicy } from "../approval-policy";
-import { getMessageText, normalizeToolArguments as normalizeArgs } from "../model-utils";
+import { normalizeToolArguments as normalizeArgs } from "../model-utils";
 import { validateToolArguments } from "./model-execution";
 import {
   type ChatAgentState,
@@ -79,6 +79,7 @@ export async function callMcpToolWithRetry(
   },
   context: ToolExecutionContext
 ): Promise<{ result: unknown; newState: ChatAgentState }> {
+  if (!context.mcp) throw new Error("MCP context is not available");
   const timeoutMs = context.getToolTimeoutMs();
   const maxAttempts = context.getToolMaxAttempts();
   const retryEnabled = maxAttempts > 1;
@@ -97,18 +98,23 @@ export async function callMcpToolWithRetry(
       });
     }
 
-    return await Promise.race([
-      context.mcp!.callTool({
-        name: params.name,
-        serverId: params.serverId,
-        arguments: params.arguments
-      }),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Tool timeout after ${timeoutMs}ms`));
-        }, timeoutMs);
-      })
-    ]);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        context.mcp!.callTool({
+          name: params.name,
+          serverId: params.serverId,
+          arguments: params.arguments
+        }),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error(`Tool timeout after ${timeoutMs}ms`));
+          }, timeoutMs);
+        })
+      ]);
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }
   };
 
   if (!retryEnabled) {
@@ -280,6 +286,25 @@ async function executeToolCallInternal(
       return { error };
     }
 
+    // Validate serverId before calling MCP
+    if (!serverId) {
+      const error = `Cannot execute tool "${alias}": no serverId resolved`;
+      context.setState(updateLastErrorState(upsertToolRunState(context.getState(), {
+        ...baseRun,
+        status: "error",
+        finishedAt: new Date().toISOString(),
+        error
+      }), error));
+      emitProgress?.({
+        phase: "tool",
+        status: "error",
+        toolName: alias,
+        message: `Tool "${alias}" has no serverId`,
+        snippet: error
+      });
+      return { error };
+    }
+
     // Check approval
     const approvalSignature = buildApprovalSignature(rawName, serverId, normalizedArgs);
     if (requiresApprovalPolicy(rawName, normalizedArgs)) {
@@ -320,7 +345,7 @@ async function executeToolCallInternal(
     const { result } = await callMcpToolWithRetry(
       {
         name: rawName,
-        serverId: serverId!,
+        serverId: serverId,
         arguments: normalizedArgs,
         emitProgress
       },
@@ -373,6 +398,3 @@ async function executeToolCallInternal(
     return { error: message };
   }
 }
-
-// Re-export for convenience
-export { getMessageText };

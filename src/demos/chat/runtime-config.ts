@@ -47,6 +47,20 @@ export function getToolMaxAttempts(env: Env): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
 }
 
+export function getModelTemperature(env: Env): number {
+  const raw = env.CHAT_MODEL_TEMPERATURE;
+  if (!raw) return 0.5;
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 2 ? parsed : 0.5;
+}
+
+export function getMaxToolSteps(env: Env): number {
+  const raw = env.CHAT_MAX_TOOL_STEPS;
+  if (!raw) return 4;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 10 ? parsed : 4;
+}
+
 export type ChartPrimaryType = "adc" | "g2";
 
 export function getChartPrimary(env: Env): ChartPrimaryType {

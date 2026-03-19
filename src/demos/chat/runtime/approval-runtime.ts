@@ -34,8 +34,7 @@ export function pruneApprovalState(state: ChatAgentState): ChatAgentState {
     runtime: {
       ...state.runtime,
       approvals: keptApprovals,
-      approvedSignatures,
-      stateVersion: state.runtime.stateVersion + 1
+      approvedSignatures
     }
   };
 }
@@ -61,8 +60,7 @@ export function hasApprovedSignature(
     ...state,
     runtime: {
       ...state.runtime,
-      approvedSignatures: remaining,
-      stateVersion: state.runtime.stateVersion + 1
+      approvedSignatures: remaining
     }
   };
   return { found: true, nextState };
@@ -99,8 +97,7 @@ export function queueApproval(
     ...state,
     runtime: {
       ...state.runtime,
-      approvals: [...state.runtime.approvals, nextApproval].slice(-120),
-      stateVersion: state.runtime.stateVersion + 1
+      approvals: [...state.runtime.approvals, nextApproval].slice(-120)
     }
   };
   return { approval: nextApproval, nextState };
@@ -136,8 +133,7 @@ export function approveToolCallState(
           signature: target.signature,
           expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
-      ].slice(-200),
-      stateVersion: state.runtime.stateVersion + 1
+      ].slice(-200)
     }
   };
   return { success: true, nextState };
@@ -169,8 +165,7 @@ export function rejectToolCallState(
         item.id === approvalId
           ? { ...item, status: "rejected" as const, resolvedAt, reason: reason || "Rejected by operator" }
           : item
-      ),
-      stateVersion: state.runtime.stateVersion + 1
+      )
     }
   };
   return { success: true, nextState };

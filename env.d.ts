@@ -15,6 +15,8 @@ declare namespace Cloudflare {
     CHAT_MODEL_MAX_TOKENS?: string;
     CHAT_TOOL_TIMEOUT_MS?: string;
     CHAT_TOOL_MAX_ATTEMPTS?: string;
+    CHAT_MODEL_TEMPERATURE?: string;
+    CHAT_MAX_TOOL_STEPS?: string;
     AGENT_IDLE_TIMEOUT_SECONDS?: string;
     CHAT_CHART_PRIMARY?: string;
     ALLOWED_ORIGINS?: string;

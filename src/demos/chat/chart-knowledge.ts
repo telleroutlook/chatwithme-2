@@ -315,20 +315,24 @@ export function sortMermaidKnowledgeTypes(
 let cachedKnowledge: ChartKnowledge | null = null;
 
 /**
- * Load chart knowledge from bundled JSON files
+ * Get chart knowledge synchronously (uses bundled JSON)
+ */
+export function getChartKnowledge(): ChartKnowledge {
+  if (!cachedKnowledge) {
+    cachedKnowledge = {
+      adc: adcJson as AdcKnowledge,
+      g2: g2Json as G2Knowledge,
+      mermaid: mermaidJson as MermaidKnowledge,
+    };
+  }
+  return cachedKnowledge;
+}
+
+/**
+ * Load chart knowledge from bundled JSON files (async compat)
  */
 export async function loadChartKnowledge(): Promise<ChartKnowledge> {
-  if (cachedKnowledge) {
-    return cachedKnowledge;
-  }
-
-  cachedKnowledge = {
-    adc: adcJson as AdcKnowledge,
-    g2: g2Json as G2Knowledge,
-    mermaid: mermaidJson as MermaidKnowledge,
-  };
-
-  return cachedKnowledge;
+  return getChartKnowledge();
 }
 
 /**

@@ -35,6 +35,7 @@ export interface ModelExecutionOptions {
   abortSignal?: AbortSignal;
   emitProgress?: ProgressEmitter;
   maxOutputTokens?: number | undefined;
+  maxToolSteps?: number;
   thinkingType: "enabled" | "disabled";
   streamEnabled: boolean;
 }
@@ -51,7 +52,7 @@ export async function requestModelText(params: ModelExecutionOptions): Promise<s
     messages: params.messages,
     temperature: params.temperature,
     tools: params.tools,
-    stopWhen: stepCountIs(6),
+    stopWhen: stepCountIs(params.maxToolSteps ?? 4),
     abortSignal: params.abortSignal,
     ...(params.maxOutputTokens ? { maxOutputTokens: params.maxOutputTokens } : {}),
     providerOptions: {

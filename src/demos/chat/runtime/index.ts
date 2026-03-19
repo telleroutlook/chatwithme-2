@@ -52,8 +52,7 @@ export {
   isRetryableToolError,
   isRetryableMcpConnectionError,
   callMcpToolWithRetry,
-  buildAiTools,
-  getMessageText
+  buildAiTools
 } from "./tool-runtime";
 
 // MCP server runtime

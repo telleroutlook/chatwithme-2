@@ -133,8 +133,7 @@ export function appendRuntimeEvent(
     ...state,
     runtime: {
       ...state.runtime,
-      events: nextEvents,
-      stateVersion: state.runtime.stateVersion + 1
+      events: nextEvents
     }
   };
 }
@@ -151,8 +150,7 @@ export function updateLastErrorState(
     ...state,
     runtime: {
       ...state.runtime,
-      lastError: message,
-      stateVersion: state.runtime.stateVersion + 1
+      lastError: message
     }
   };
 }
@@ -173,8 +171,7 @@ export function updateRetryStatsState(
     ...state,
     runtime: {
       ...state.runtime,
-      retryStats: nextStats,
-      stateVersion: state.runtime.stateVersion + 1
+      retryStats: nextStats
     }
   };
 }
@@ -192,8 +189,7 @@ export function upsertToolRunState(
     ...state,
     runtime: {
       ...state.runtime,
-      toolRuns: nextRuns,
-      stateVersion: state.runtime.stateVersion + 1
+      toolRuns: nextRuns
     }
   };
 }
@@ -222,10 +218,6 @@ export function setServerConnectionState(
           ...next
         }
       }
-    },
-    runtime: {
-      ...state.runtime,
-      stateVersion: state.runtime.stateVersion + 1
     }
   };
 }

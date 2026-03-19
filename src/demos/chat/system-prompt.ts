@@ -1,7 +1,7 @@
 import type { ChartPrimaryType } from "./runtime-config";
 import type { ChartKnowledge, AdcKnowledge, G2Knowledge, MermaidKnowledge } from "../../types/chart-kb";
 import {
-  loadChartKnowledge,
+  getChartKnowledge,
   buildAdcPromptSection,
   buildG2PromptSection,
   buildMermaidPromptSection,
@@ -15,68 +15,81 @@ import {
 } from "./chart-knowledge";
 
 /**
- * Build the system prompt for the chat agent (async version).
- */
-export async function buildSystemPromptAsync(
-  toolList: string[],
-  chartPrimary: ChartPrimaryType = "adc"
-): Promise<string> {
-  const knowledge = await loadChartKnowledge();
-  return buildPromptFromKnowledge(toolList, chartPrimary, knowledge);
-}
-
-/**
- * Build the system prompt for the chat agent (sync version).
- *
- * Uses pre-loaded JSON knowledge (bundled at build time).
- */
-export function buildSystemPrompt(
-  toolList: string[],
-  chartPrimary: ChartPrimaryType = "adc"
-): string {
-  // Synchronously load knowledge (JSON is bundled at build time)
-  const knowledge = getSyncKnowledge();
-  return buildPromptFromKnowledge(toolList, chartPrimary, knowledge);
-}
-
-/**
  * Build the system prompt with keyword-based filtering.
  *
  * Detects chart keywords from user message and filters knowledge accordingly.
  * Falls back to core set when no keywords detected or no matches.
+ * For non-chart queries, omits chart knowledge entirely to save tokens.
  */
 export function buildSystemPromptWithKeywords(
   toolList: string[],
   chartPrimary: ChartPrimaryType,
   userMessage: string
 ): string {
-  const knowledge = getSyncKnowledge();
+  const knowledge = getChartKnowledge();
 
   // Detect keywords from user message
   const keywords = detectChartKeywords(userMessage);
+
+  // Check if the query is chart-related at all using word-boundary matching
+  const isChartRelated =
+    /\b(chart|graph|diagram|visualiz|plot|flowchart|sequence|gantt|timeline|mindmap|pie|bar\s*chart|line\s*chart|area\s*chart|scatter|radar|gauge|heatmap|funnel|histogram|mermaid|adc|g2)\b|图表|流程|架构|图形|饼图|柱状|折线|散点|雷达|仪表|热力|漏斗|甘特|思维导图/i.test(userMessage);
+
+  if (!isChartRelated) {
+    return buildMinimalPrompt(toolList);
+  }
 
   // Filter knowledge by keywords
   const filteredMermaid = sortMermaidKnowledgeTypes(
     filterMermaidKnowledge(knowledge.mermaid, keywords.mermaid)
   );
-  const filteredAdc = {
-    ...knowledge.adc,
-    chartTypes: sortAdcChartTypes(
-      filterAdcKnowledge(knowledge.adc, keywords.adc)?.chartTypes || []
-    ),
-  };
-  const filteredG2 = {
-    ...knowledge.g2,
-    chartTypes: sortG2ChartTypes(
-      filterG2Knowledge(knowledge.g2, keywords.g2)?.chartTypes || []
-    ),
-  };
+  const filteredAdcKb = filterAdcKnowledge(knowledge.adc, keywords.adc);
+  const filteredAdc: AdcKnowledge | null = filteredAdcKb ? {
+    outputContract: filteredAdcKb.outputContract,
+    typeWhitelist: filteredAdcKb.typeWhitelist,
+    chartTypes: sortAdcChartTypes(filteredAdcKb.chartTypes),
+  } : null;
+  const filteredG2Kb = filterG2Knowledge(knowledge.g2, keywords.g2);
+  const filteredG2: G2Knowledge | null = filteredG2Kb ? {
+    outputContract: filteredG2Kb.outputContract,
+    chartTypes: sortG2ChartTypes(filteredG2Kb.chartTypes),
+  } : null;
 
   return buildPromptFromKnowledge(toolList, chartPrimary, {
     adc: filteredAdc,
     g2: filteredG2,
     mermaid: filteredMermaid,
   });
+}
+
+/**
+ * Build a minimal prompt without chart knowledge (for non-chart queries).
+ * Saves ~2000-3000 tokens per non-chart query.
+ */
+function buildMinimalPrompt(toolList: string[]): string {
+  return `You are ChatWithMe, an intelligent AI assistant. Before finalizing each answer, internally verify your claims and fix any errors — but do not expose your review process to the user unless explicitly asked.
+
+You are a helpful AI assistant with the following capabilities:
+
+## 1. Web Tools (MCP)
+${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
+
+You can call the tools directly when external information is required.
+
+## Response Language
+- Respond in the same language as the user's latest message.
+- Keep technical terms, APIs, and code identifiers in English when needed for accuracy.
+
+## 2. Charts & Diagrams
+You can generate charts and diagrams when asked. Use code blocks with appropriate language tags (adc, g2, mermaid).
+
+## 3. Internal Quality Checks (do NOT include these in your visible response)
+Before finalizing your answer, silently verify:
+1. Claims are supported by evidence or clearly marked as uncertain.
+2. Code samples have correct syntax, imports, and variable names.
+3. Numeric data and calculations are correct.
+4. Tool output is accurately reflected in the answer.
+5. The answer directly addresses the user's question.`;
 }
 
 /**
@@ -103,7 +116,7 @@ Use Ant Design Charts (ADC) as a secondary option when G2 is not suitable.`;
     ? `${adcSection}\n${g2Section}`
     : `${g2Section}\n${adcSection}`;
 
-  return `You are Claude, an Opus model created by Anthropic. After completing each answer, critically review it from a skeptic's perspective and call out possible issues or missing details.
+  return `You are ChatWithMe, an intelligent AI assistant. Before finalizing each answer, internally verify your claims and fix any errors — but do not expose your review process to the user unless explicitly asked.
 
 You are a helpful AI assistant with the following capabilities:
 
@@ -141,37 +154,11 @@ IMPORTANT:
   - Use plain text labels; if line break is needed, split text into separate nodes/edges instead of HTML
 - After generating a chart, briefly explain what it shows
 
-## 3. Self-Review Checklist
-Before finalizing your answer, verify:
+## 3. Internal Quality Checks (do NOT include these in your visible response)
+Before finalizing your answer, silently verify:
 1. Claims are supported by evidence or clearly marked as uncertain.
-2. Code samples compile/run as written (correct syntax, imports, variable names).
-3. Numeric data and calculations are double-checked.
-4. If tools were used, the tool output is accurately reflected in the answer.
-5. The answer directly addresses the user's question without unnecessary tangents.`;
-}
-
-// Import JSON directly for sync access (Vite bundles at build time)
-import adcJson from "../../../knowledge-base/charts/adc.json";
-import g2Json from "../../../knowledge-base/charts/g2.json";
-import mermaidJson from "../../../knowledge-base/charts/mermaid.json";
-
-// Cache for sync knowledge
-let syncKnowledgeCache: {
-  adc: typeof adcJson;
-  g2: typeof g2Json;
-  mermaid: typeof mermaidJson;
-} | null = null;
-
-/**
- * Get knowledge synchronously (uses bundled JSON)
- */
-function getSyncKnowledge() {
-  if (!syncKnowledgeCache) {
-    syncKnowledgeCache = {
-      adc: adcJson,
-      g2: g2Json,
-      mermaid: mermaidJson,
-    };
-  }
-  return syncKnowledgeCache;
+2. Code samples have correct syntax, imports, and variable names.
+3. Numeric data and calculations are correct.
+4. Tool output is accurately reflected in the answer.
+5. The answer directly addresses the user's question.`;
 }

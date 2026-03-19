@@ -35,7 +35,9 @@ import {
   getThinkingType,
   getToolMaxAttempts,
   getToolTimeoutMs,
-  getChartPrimary
+  getChartPrimary,
+  getModelTemperature,
+  getMaxToolSteps
 } from "./runtime-config";
 import { buildSystemPromptWithKeywords } from "./system-prompt";
 import {
@@ -123,42 +125,18 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   private mcpInitPromise: Promise<void> | null = null;
   private pendingSessionDeletion = false;
 
-  private get runtimeEnv(): Env {
-    return (this as unknown as { env: Env }).env;
-  }
-
-  private isModelStreamEnabled(): boolean {
-    return getModelStreamEnabled(this.runtimeEnv);
-  }
-
-  private getThinkingType(): "enabled" | "disabled" {
-    return getThinkingType(this.runtimeEnv);
-  }
-
-  private getModelId(): string {
-    return getModelId(this.runtimeEnv);
-  }
-
-  private getMaxOutputTokens(): number | undefined {
-    return getMaxOutputTokens(this.runtimeEnv);
-  }
-
-  private getToolTimeoutMs(): number {
-    return getToolTimeoutMs(this.runtimeEnv);
-  }
-
-  private getToolMaxAttempts(): number {
-    return getToolMaxAttempts(this.runtimeEnv);
-  }
-
-  private isThinkingEnabled(): boolean {
-    return getThinkingEnabled(this.runtimeEnv);
-  }
+  declare readonly env: Env;
 
   // ============ State Update Helpers ============
 
   private updateState(newState: ChatAgentState): void {
-    this.setState(newState);
+    this.setState({
+      ...newState,
+      runtime: {
+        ...newState.runtime,
+        stateVersion: this.state.runtime.stateVersion + 1
+      }
+    });
   }
 
   private appendRuntimeEvent(
@@ -197,7 +175,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   // ============ Progress Emission ============
 
   private emitProgress(writer: UIMessageStreamWriter, event: LiveProgressEvent): void {
-    if (event.phase === "thinking" && !this.isThinkingEnabled()) {
+    if (event.phase === "thinking" && !getThinkingEnabled(this.env)) {
       return;
     }
     writer.write({
@@ -230,9 +208,10 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       tools: params.tools,
       abortSignal: params.abortSignal,
       emitProgress: params.emitProgress,
-      maxOutputTokens: this.getMaxOutputTokens(),
-      thinkingType: this.getThinkingType(),
-      streamEnabled: this.isModelStreamEnabled()
+      maxOutputTokens: getMaxOutputTokens(this.env),
+      maxToolSteps: getMaxToolSteps(this.env),
+      thinkingType: getThinkingType(this.env),
+      streamEnabled: getModelStreamEnabled(this.env)
     });
   }
 
@@ -277,8 +256,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         getState: () => this.state,
         setState: (s) => this.updateState(s),
         retry: this.retry.bind(this),
-        getToolTimeoutMs: this.getToolTimeoutMs.bind(this),
-        getToolMaxAttempts: this.getToolMaxAttempts.bind(this)
+        getToolTimeoutMs: () => getToolTimeoutMs(this.env),
+        getToolMaxAttempts: () => getToolMaxAttempts(this.env)
       },
       emitProgress
     );
@@ -320,29 +299,34 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     });
     if (this.pendingSessionDeletion) {
       void (async () => {
-        const destroyed = await destroyIfIdle(this as never);
-        if (!destroyed) {
-          return;
+        try {
+          const destroyed = await destroyIfIdle(this as never);
+          if (!destroyed) {
+            scheduleIdleDestroy(this as never, {
+              idleTimeoutSeconds: resolveIdleTimeoutSeconds(this.env.AGENT_IDLE_TIMEOUT_SECONDS)
+            });
+          }
+        } catch (err) {
+          console.error("Failed to destroy after session deletion:", err);
+        } finally {
+          this.pendingSessionDeletion = false;
         }
-        this.pendingSessionDeletion = false;
       })();
       return;
     }
     scheduleIdleDestroy(this as never, {
-      idleTimeoutSeconds: resolveIdleTimeoutSeconds(this.runtimeEnv.AGENT_IDLE_TIMEOUT_SECONDS)
+      idleTimeoutSeconds: resolveIdleTimeoutSeconds(this.env.AGENT_IDLE_TIMEOUT_SECONDS)
     });
   }
 
   async onIdleTimeout() {
-    const destroyed = await destroyIfIdle(this as never);
-    if (destroyed) {
-      this.appendRuntimeEvent({
-        level: "info",
-        source: "system",
-        type: "idle_destroy",
-        message: "Agent destroyed after idle timeout."
-      });
-    }
+    this.appendRuntimeEvent({
+      level: "info",
+      source: "system",
+      type: "idle_destroy",
+      message: "Agent destroying after idle timeout."
+    });
+    await destroyIfIdle(this as never);
   }
 
   async onStart() {
@@ -386,8 +370,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
             type: "agent_start",
             message: "ChatAgentV2 started."
           }
-        ].slice(-120),
-        stateVersion: this.state.runtime.stateVersion + 1
+        ].slice(-120)
       }
     });
   }
@@ -557,7 +540,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       ? `context:mcp-init:${requestTraceId}`
       : "context:mcp-init";
     const { tools, toolList } = await this.buildAiTools(emitProgress, mcpProgressGroupKey);
-    const chartPrimary = getChartPrimary(this.runtimeEnv);
+    const chartPrimary = getChartPrimary(this.env);
     const systemPrompt = buildSystemPromptWithKeywords(toolList, chartPrimary, message);
     emitProgress?.({
       phase: "context",
@@ -568,7 +551,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
     const glm = createOpenAICompatible({
       name: "glm",
-      apiKey: this.runtimeEnv.BIGMODEL_API_KEY,
+      apiKey: this.env.BIGMODEL_API_KEY,
       baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
     });
 
@@ -601,17 +584,36 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       status: "start",
       message: "Model is generating the response."
     });
+    const temperature = getModelTemperature(this.env);
     let finalResponse = await this.requestModelTextInternal({
-      model: glm(this.getModelId()),
+      model: glm(getModelId(this.env)),
       system: systemPrompt,
       messages,
       tools,
-      temperature: 0.7,
+      temperature,
       abortSignal,
       emitProgress
     });
 
     if (finalResponse.trim().length === 0) {
+      // Diagnose why the response was empty to build a better fallback prompt
+      const hasToolResults = messages.some(
+        m => m.role === "tool" ||
+        (m.role === "assistant" && Array.isArray(m.content) &&
+         m.content.some(c => typeof c === "object" && c !== null && "type" in c && c.type === "tool-call"))
+      );
+      const contextEstimate = JSON.stringify(messages).length / 4;
+      const contextPossiblyTooLong = contextEstimate > 50000;
+
+      let fallbackAddendum: string;
+      if (hasToolResults) {
+        fallbackAddendum = "\n\nTool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls.";
+      } else if (contextPossiblyTooLong) {
+        fallbackAddendum = "\n\nThe conversation history is very long. Focus only on the user's most recent question and produce a concise answer.";
+      } else {
+        fallbackAddendum = "\n\nYour previous attempt produced no output. Please respond directly to the user's question with a complete answer. If you are uncertain, say so rather than remaining silent.";
+      }
+
       emitProgress?.({
         phase: "model",
         status: "info",
@@ -621,15 +623,22 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         level: "info",
         source: "chat",
         type: "generate_empty_retry",
-        message: "Primary model response was empty; fallback retry started."
+        message: `Primary model response was empty; fallback retry started (hasToolResults=${hasToolResults}, longContext=${contextPossiblyTooLong}).`
+      });
+
+      // Use more aggressive message pruning for fallback
+      const fallbackMessages = pruneMessages({
+        messages: candidateMessages,
+        toolCalls: "before-last-message",
+        reasoning: "before-last-message"
       });
 
       finalResponse = await this.requestModelTextInternal({
-        model: glm(this.getModelId()),
-        system: `${systemPrompt}\n\nIf tool output already exists, summarize it directly and produce a complete answer.`,
-        messages,
+        model: glm(getModelId(this.env)),
+        system: `${systemPrompt}${fallbackAddendum}`,
+        messages: fallbackMessages,
         tools: {},
-        temperature: 0.4,
+        temperature: Math.max(0.2, temperature - 0.2),
         abortSignal,
         emitProgress
       });
@@ -715,13 +724,11 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   }> {
     try {
       await this.persistMessages([]);
-      this.messages = [];
 
       this.updateState({
         ...this.state,
         runtime: {
-          ...this.initialState.runtime,
-          stateVersion: this.state.runtime.stateVersion + 1
+          ...this.initialState.runtime
         }
       });
 
@@ -796,12 +803,12 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   private getMcpServerContext() {
     return {
       state: this.state,
-      runtimeEnv: this.runtimeEnv,
+      runtimeEnv: this.env,
       mcp: this.mcp,
       addMcpServer: this.addMcpServer.bind(this),
       removeMcpServer: this.removeMcpServer.bind(this),
       retry: this.retry.bind(this),
-      getToolMaxAttempts: this.getToolMaxAttempts.bind(this),
+      getToolMaxAttempts: () => getToolMaxAttempts(this.env),
       updateRetryStats: this.updateRetryStats.bind(this),
       setServerConnectionState: this.setServerConnectionState.bind(this),
       updateLastError: this.updateLastError.bind(this),
@@ -847,8 +854,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
   @callable({ description: "List tool approval requests" })
   listToolApprovals(): ToolApprovalRequest[] {
-    this.updateState(pruneApprovalState(this.state));
-    return this.state.runtime.approvals;
+    const prunedState = pruneApprovalState(this.state);
+    this.updateState(prunedState);
+    return prunedState.runtime.approvals;
   }
 
   @callable({ description: "Approve pending tool call request" })
@@ -901,8 +909,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     retryStats: RetryStats;
     stateVersion: number;
   }> {
-    this.updateState(pruneApprovalState(this.state));
-    return getRuntimeSnapshot(this.state);
+    const prunedState = pruneApprovalState(this.state);
+    this.updateState(prunedState);
+    return getRuntimeSnapshot(prunedState);
   }
 
   @callable({ description: "Get current connection permissions" })
