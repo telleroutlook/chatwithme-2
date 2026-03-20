@@ -371,7 +371,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   };
 
   return (
-    <div className="markdown-content prose prose-sm max-w-none dark:prose-invert">
+    <div className="markdown-content max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
@@ -757,14 +757,14 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
           },
           th({ children }) {
             return (
-              <th className="px-4 py-2 text-left text-sm font-semibold border-b border-border">
+              <th className="px-4 py-2 text-left text-sm font-semibold text-foreground border-b border-border">
                 {children}
               </th>
             );
           },
           td({ children }) {
             return (
-              <td className="px-4 py-2 text-sm border-b border-border last:border-b-0">
+              <td className="px-4 py-2 text-sm text-foreground border-b border-border last:border-b-0">
                 {children}
               </td>
             );

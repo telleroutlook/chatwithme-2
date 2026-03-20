@@ -40,6 +40,20 @@ interface MermaidThemeVariables {
   pieSectionTextColor: string;
   pieLegendTextSize: string;
   pieLegendTextColor: string;
+  // Timeline / generic
+  textColor: string;
+  cScale0: string;
+  cScale1: string;
+  cScale2: string;
+  cScale3: string;
+  cScale4: string;
+  cScale5: string;
+  cScaleLabel0: string;
+  cScaleLabel1: string;
+  cScaleLabel2: string;
+  cScaleLabel3: string;
+  cScaleLabel4: string;
+  cScaleLabel5: string;
 }
 
 interface G2ThemePreset {
@@ -170,6 +184,20 @@ export function getChartVisualPreset(isDark: boolean): ChartVisualPreset {
       pieSectionTextColor: "#ffffff",
       pieLegendTextSize: "12px",
       pieLegendTextColor: isDark ? "#d1d5db" : "#374151",
+      // Timeline / generic text color
+      textColor: isDark ? "#e2e8f0" : "#0f172a",
+      cScale0: isDark ? "#1e3a5f" : "#eff6ff",
+      cScale1: isDark ? "#14432a" : "#ecfdf5",
+      cScale2: isDark ? "#3b1f6e" : "#f5f3ff",
+      cScale3: isDark ? "#4a2c0a" : "#fffbeb",
+      cScale4: isDark ? "#4c0519" : "#fff1f2",
+      cScale5: isDark ? "#0e4a5c" : "#ecfeff",
+      cScaleLabel0: isDark ? "#93c5fd" : "#1e40af",
+      cScaleLabel1: isDark ? "#6ee7b7" : "#065f46",
+      cScaleLabel2: isDark ? "#c4b5fd" : "#5b21b6",
+      cScaleLabel3: isDark ? "#fcd34d" : "#92400e",
+      cScaleLabel4: isDark ? "#fda4af" : "#9f1239",
+      cScaleLabel5: isDark ? "#67e8f9" : "#155e75",
     },
     echartsTheme: {
       color: category10,

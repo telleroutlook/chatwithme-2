@@ -501,6 +501,7 @@ export function AntDesignChartsRenderer({
         >
           <ChartComponent
             {...chartConfig}
+            theme={adcCommonConfig.theme}
             animate={inViewport ? true : false}
             onReady={onReady}
           />
