@@ -39,17 +39,29 @@ export async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml",
-      "Accept-Language": "en-US,en;q=0.9"
-    }
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7"
+    },
+    redirect: "follow"
   });
+
+  console.log(`[DDG] query="${query}" status=${resp.status} url=${resp.url}`);
+
+  // DDG returns 202 when bot-detected — treat as empty results, not a hard error
+  if (resp.status === 202) {
+    console.warn(`[DDG] Bot detection (202) for query="${query}"`);
+    return [];
+  }
 
   if (!resp.ok) {
     throw new Error(`DuckDuckGo search failed: HTTP ${resp.status}`);
   }
 
   const html = await resp.text();
-  return parseDdgHtml(html);
+  console.log(`[DDG] HTML length=${html.length} for query="${query}"`);
+  const results = parseDdgHtml(html);
+  console.log(`[DDG] Parsed ${results.length} results for query="${query}"`);
+  return results;
 }
 
 /**
