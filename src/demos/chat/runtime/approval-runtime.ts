@@ -12,6 +12,11 @@ import {
   type ToolApprovalRequest
 } from "./state-runtime";
 
+// ============ Constants ============
+
+const MAX_APPROVALS = 120;
+const MAX_APPROVED_SIGNATURES = 200;
+
 // ============ Approval State Helpers ============
 
 /**
@@ -25,7 +30,7 @@ export function pruneApprovalState(state: ChatAgentState): ChatAgentState {
       if (!item.resolvedAt) return true;
       return now - new Date(item.resolvedAt).getTime() < 1000 * 60 * 60 * 24;
     })
-    .slice(-120);
+    .slice(-MAX_APPROVALS);
   const approvedSignatures = state.runtime.approvedSignatures.filter(
     (entry) => new Date(entry.expiresAt).getTime() > now
   );
@@ -139,7 +144,7 @@ export function approveToolCallState(
           signature: target.signature,
           expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
-      ].slice(-200)
+      ].slice(-MAX_APPROVED_SIGNATURES)
     }
   };
   return { success: true, nextState };

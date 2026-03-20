@@ -1,7 +1,6 @@
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import {
   callable,
-  getAgentByName,
   getCurrentAgent,
   type Connection,
   type ConnectionContext
@@ -50,25 +49,23 @@ import {
   type ProgressPhase,
   type LiveProgressEvent,
   type ProgressEmitter,
+  // Constants
+  MAX_RUNTIME_EVENTS,
   // State helpers
   createInitialRuntimeState,
   appendRuntimeEvent,
   updateLastErrorState,
   updateRetryStatsState,
-  upsertToolRunState,
   setServerConnectionState,
   getRuntimeSnapshot,
   // Approval helpers
   pruneApprovalState,
-  hasApprovedSignature,
-  queueApproval,
   approveToolCallState,
   rejectToolCallState,
   // Model execution
   requestModelText,
   streamModelTextToWriter,
   // Tool runtime
-  isRetryableMcpConnectionError,
   buildAiTools,
   // MCP server runtime
   activateMcpServer,
@@ -369,7 +366,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
             type: "agent_start",
             message: "ChatAgentV2 started."
           }
-        ].slice(-120)
+        ].slice(-MAX_RUNTIME_EVENTS)
       }
     });
   }

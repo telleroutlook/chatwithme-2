@@ -20,6 +20,7 @@ export {
   type ProgressPhase,
   type LiveProgressEvent,
   type ProgressEmitter,
+  MAX_RUNTIME_EVENTS,
   createInitialRuntimeState,
   appendRuntimeEvent,
   updateLastErrorState,

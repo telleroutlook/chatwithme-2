@@ -147,9 +147,10 @@ export function ChatPane({
   // Keep the live feed panel visible as new progress entries arrive.
   useEffect(() => {
     if (awaitingFirstAssistant) {
-      requestAnimationFrame(() => {
+      const id = requestAnimationFrame(() => {
         scrollToBottom();
       });
+      return () => cancelAnimationFrame(id);
     }
   }, [awaitingFirstAssistant, liveProgress.length, scrollToBottom]);
 
@@ -162,12 +163,13 @@ export function ChatPane({
     if (!liveFeedScroller) {
       return;
     }
-    requestAnimationFrame(() => {
+    const id = requestAnimationFrame(() => {
       liveFeedScroller.scrollTo({
         top: liveFeedScroller.scrollHeight,
         behavior: "auto"
       });
     });
+    return () => cancelAnimationFrame(id);
   }, [awaitingFirstAssistant, liveProgress]);
 
   const formatProgressTime = (timestamp: string) => {

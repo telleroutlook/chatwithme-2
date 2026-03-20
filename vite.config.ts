@@ -38,6 +38,12 @@ export default defineConfig({
           if (id.includes("node_modules/@excalidraw/")) {
             return "vendor-excalidraw";
           }
+          if (id.includes("node_modules/vega/") || id.includes("node_modules/vega-lite/") || id.includes("node_modules/vega-embed/")) {
+            return "vendor-vega";
+          }
+          if (id.includes("node_modules/xlsx/")) {
+            return "vendor-xlsx";
+          }
 
           // Export utilities - lazy loaded for PDF/image export
           if (id.includes('node_modules/jspdf/') || id.includes('node_modules/html-to-image/')) {

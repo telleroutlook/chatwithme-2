@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, lazy, Suspense, type ComponentType, type ReactNode, Children, isValidElement } from "react";
+import { memo, useMemo, useState, lazy, Suspense, type ReactNode, Children, isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -31,7 +31,6 @@ import { MarkdownAlert, type AlertType } from "./MarkdownAlert";
 import {
   decodeHtmlEntities,
   looksLikeHtmlDocument,
-  stripEmptySourceMapDirectives,
 } from "../utils/htmlParser";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
@@ -253,6 +252,14 @@ function stripFootnotes(content: string): string {
     .replace(/^\[\^[^\]]+\]:.*$/gim, "");
 }
 
+function looksLikeMermaid(code: string): boolean {
+  const normalized = code.trim();
+  if (!normalized) return false;
+  return /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline|gitGraph)\b/i.test(
+    normalized
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Table data extraction helpers — used to convert react-markdown's nested
 // React element tree (table > thead/tbody > tr > th/td) into plain arrays
@@ -361,14 +368,6 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     }
     return normalized;
   }, [content, enableAlerts, enableFootnotes]);
-
-  const looksLikeMermaid = (code: string): boolean => {
-    const normalized = code.trim();
-    if (!normalized) return false;
-    return /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline|gitGraph)\b/i.test(
-      normalized
-    );
-  };
 
   return (
     <div className="markdown-content max-w-none">

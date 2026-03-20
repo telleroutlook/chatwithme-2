@@ -131,6 +131,12 @@ export function MarkmapRenderer({ code }: MarkmapRendererProps) {
 
     return () => {
       mounted = false;
+      // Dispose markmap instance to release SVG event listeners
+      const mm = markmapInstanceRef.current;
+      if (mm && typeof (mm as { destroy?: () => void }).destroy === "function") {
+        (mm as { destroy: () => void }).destroy();
+      }
+      markmapInstanceRef.current = null;
     };
   }, [markdownCode, currentSessionId]);
 

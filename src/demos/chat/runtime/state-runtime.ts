@@ -10,6 +10,11 @@
 
 import type { McpServerConfig } from "../../../mcp-config";
 
+// ============ Constants ============
+
+export const MAX_RUNTIME_EVENTS = 120;
+const MAX_TOOL_RUNS = 80;
+
 // ============ Types ============
 
 export interface McpServerConnectionState {
@@ -128,7 +133,7 @@ export function appendRuntimeEvent(
     timestamp: new Date().toISOString(),
     ...event
   };
-  const nextEvents = [...state.runtime.events, runtimeEvent].slice(-120);
+  const nextEvents = [...state.runtime.events, runtimeEvent].slice(-MAX_RUNTIME_EVENTS);
   return {
     ...state,
     runtime: {
@@ -184,7 +189,7 @@ export function upsertToolRunState(
   run: ToolRunRecord
 ): ChatAgentState {
   const withoutCurrent = state.runtime.toolRuns.filter((item) => item.id !== run.id);
-  const nextRuns = [...withoutCurrent, run].slice(-80);
+  const nextRuns = [...withoutCurrent, run].slice(-MAX_TOOL_RUNS);
   return {
     ...state,
     runtime: {
