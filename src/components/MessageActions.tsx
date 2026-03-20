@@ -151,10 +151,10 @@ export const MessageActions = memo(function MessageActions({
   );
 
   return (
-    <div className={`mt-0.5 inline-flex items-center gap-1 rounded-lg bg-surface/60 px-1 py-1 backdrop-blur-sm transition-opacity duration-200 ${
+    <div className={`relative z-10 mt-0.5 inline-flex items-center gap-1 rounded-lg bg-surface-elevated border border-border px-1 py-1 shadow-sm transition-opacity duration-200 ${
       isTouchDevice
-        ? "opacity-95"
-        : "opacity-95 md:opacity-70 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+        ? "opacity-100"
+        : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
     }`}>
       <span className="sr-only" role="status" aria-live="polite">
         {copyAnnouncement}
