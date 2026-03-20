@@ -94,7 +94,7 @@ function detectChartType(spec: EChartsOption): string {
 // Component
 // ---------------------------------------------------------------------------
 
-function EChartsRendererInner({ spec }: EChartsRendererProps): ReactNode {
+const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChartsRendererProps): ReactNode {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof import("echarts")["init"]> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -334,10 +334,10 @@ function EChartsRendererInner({ spec }: EChartsRendererProps): ReactNode {
       )}
     </div>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
-// Memo export (matches ADC pattern)
+// Lazy export — thin wrapper for code-splitting boundary
 // ---------------------------------------------------------------------------
 
 export const LazyEChartsRenderer = memo(function LazyEChartsRenderer(

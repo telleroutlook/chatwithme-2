@@ -158,6 +158,7 @@ export function InteractiveTable({ headers, rows }: InteractiveTableProps) {
           value={globalFilter}
           onChange={handleFilterChange}
           placeholder="Search table..."
+          aria-label="Search table contents"
           className="w-full max-w-xs text-xs rounded-md border border-border bg-surface px-2.5 py-1.5 text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
@@ -171,9 +172,11 @@ export function InteractiveTable({ headers, rows }: InteractiveTableProps) {
                 {headerGroup.headers.map((header) => {
                   const colIdx = Number(header.id);
                   const isNumeric = numericFlags[colIdx];
+                  const sortDir = header.column.getIsSorted();
                   return (
                     <th
                       key={header.id}
+                      aria-sort={sortDir === "asc" ? "ascending" : sortDir === "desc" ? "descending" : "none"}
                       className={`group px-4 py-2.5 font-semibold text-foreground select-none cursor-pointer transition-colors hover:bg-muted/50 ${
                         isNumeric ? "text-right" : "text-left"
                       }`}

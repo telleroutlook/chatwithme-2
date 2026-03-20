@@ -248,11 +248,14 @@ export async function getMcpTools(
     if (!context.mcp) {
       return [];
     }
-    return context.mcp.listTools().map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      serverId: tool.name.includes(".") ? tool.name.split(".")[0] : tool.serverId
-    }));
+    return context.mcp.listTools().map((tool) => {
+      const dotIdx = tool.name.indexOf(".");
+      return {
+        name: tool.name,
+        description: tool.description,
+        serverId: dotIdx >= 0 ? tool.name.slice(0, dotIdx) : tool.serverId
+      };
+    });
   } catch (error) {
     console.error("Failed to get MCP tools:", error);
     context.updateLastError(error instanceof Error ? error.message : String(error));

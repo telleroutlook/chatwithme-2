@@ -47,15 +47,21 @@ export function hasApprovedSignature(
   signature: string
 ): { found: boolean; nextState: ChatAgentState } {
   const now = Date.now();
-  const exists = state.runtime.approvedSignatures.some(
-    (entry) => entry.signature === signature && new Date(entry.expiresAt).getTime() > now
-  );
-  if (!exists) {
+  // Combine check and consumption in a single pass to avoid TOCTOU race.
+  const remaining: typeof state.runtime.approvedSignatures = [];
+  let found = false;
+  for (const entry of state.runtime.approvedSignatures) {
+    const isMatch = entry.signature === signature && new Date(entry.expiresAt).getTime() > now;
+    if (isMatch && !found) {
+      // Consume the first matching signature (skip it from remaining)
+      found = true;
+    } else {
+      remaining.push(entry);
+    }
+  }
+  if (!found) {
     return { found: false, nextState: state };
   }
-  const remaining = state.runtime.approvedSignatures.filter(
-    (entry) => !(entry.signature === signature && new Date(entry.expiresAt).getTime() > now)
-  );
   const nextState = {
     ...state,
     runtime: {

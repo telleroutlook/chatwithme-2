@@ -243,7 +243,7 @@ export async function buildAiTools(
         });
 
         try {
-          const result = await (originalExecute as (a: typeof args, opts: never) => Promise<unknown>)(args, undefined as never);
+          const result = await originalExecute(args, { toolCallId: runId, messages: [], abortSignal: undefined as unknown as AbortSignal });
           const resultSnippet = typeof result === "string" ? result : JSON.stringify(result, null, 2);
           context.setState(
             appendRuntimeEvent(upsertToolRunState(context.getState(), {
@@ -316,8 +316,9 @@ export async function buildAiTools(
     // Build a lookup: namespacedKey -> { rawName, serverId } from listTools
     const toolMeta = new Map<string, { rawName: string; serverId: string }>();
     for (const item of availableTools) {
-      const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
-      const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
+      const dotIdx = item.name.indexOf(".");
+      const rawName = dotIdx >= 0 ? item.name.slice(dotIdx + 1) : item.name;
+      const serverId = dotIdx >= 0 ? item.name.slice(0, dotIdx) : item.serverId;
       const aiToolKey = `tool_${serverId.replace(/-/g, "")}_${rawName}`;
       toolMeta.set(aiToolKey, { rawName, serverId });
     }

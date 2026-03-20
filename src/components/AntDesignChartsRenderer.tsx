@@ -492,7 +492,7 @@ export function sanitizeAdcConfig(config: Record<string, unknown>): AdcConfigSan
 
 // ============ Main Renderer ============
 
-export function AntDesignChartsRenderer({
+const AntDesignChartsRenderer = memo(function AntDesignChartsRenderer({
   spec,
 }: AntDesignChartsRendererProps): ReactNode {
   const isDark = useThemeDetector();
@@ -648,7 +648,7 @@ export function AntDesignChartsRenderer({
       )}
     </div>
   );
-}
+});
 
 // ============ Lazy Export ============
 

@@ -22,8 +22,8 @@ interface ChatMessage {
   parts: MessagePart[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SqlFunction = (strings: TemplateStringsArray, ...values: any[]) => any;
+type SqlResult = Record<string, unknown>[];
+type SqlFunction = (strings: TemplateStringsArray, ...values: unknown[]) => SqlResult | Promise<SqlResult>;
 type PersistMessagesFunction = (messages: ChatMessage[]) => Promise<void>;
 type SetMessagesFunction = (messages: ChatMessage[]) => void;
 
@@ -76,13 +76,14 @@ export async function deleteMessage(
   }
 
   try {
-    const existing = await sql`
+    const existing = (await sql`
       select count(*) as cnt
       from cf_ai_chat_agent_messages
       where id = ${messageId}
-    ` ?? [];
+    `) ?? [];
 
-    const deleted = (existing[0]?.cnt ?? 0) > 0;
+    const cnt = existing[0]?.cnt;
+    const deleted = (typeof cnt === "number" ? cnt : 0) > 0;
 
     await sql`
       delete from cf_ai_chat_agent_messages

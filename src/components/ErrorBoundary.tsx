@@ -79,7 +79,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       if (level === "chart") {
         return (
-          <div className="rounded-xl border border-border bg-surface-elevated rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+          <div role="alert" className="rounded-xl border border-border bg-surface-elevated rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
             <div className="flex items-center gap-2">
               <WarningIcon size={14} className="app-text-danger" />
               <span className="text-xs app-text-danger">Render error</span>
@@ -90,7 +90,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       // message level
       return (
-        <div className="rounded-xl border border-border bg-surface-elevated rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+        <div role="alert" className="rounded-xl border border-border bg-surface-elevated rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
               <WarningIcon size={16} className="mt-0.5 app-text-danger" weight="fill" />
