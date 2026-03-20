@@ -59,7 +59,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
-    "drizzle-kit": "^0.31.9",
     "drizzle-orm": "^0.45.1",
     "echarts": "^5.6.0",
     "hono": "^4.6.0",
@@ -87,6 +86,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.29.1",
+    "drizzle-kit": "^0.31.9",
     "@eslint/js": "^9.39.3",
     "@tailwindcss/vite": "^4",
     "@testing-library/dom": "^10.4.1",

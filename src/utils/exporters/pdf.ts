@@ -143,8 +143,13 @@ export async function exportContentToPdf(
   if (exportType === "html") {
     container.innerHTML = content;
   } else if (exportType === "markdown") {
-    // Simple markdown to HTML conversion
-    const html = content
+    // Simple markdown to HTML conversion — escape HTML entities first to prevent XSS
+    const escaped = content
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+    const html = escaped
       .replace(/^### (.*)$/gm, "<h3>$1</h3>")
       .replace(/^## (.*)$/gm, "<h2>$1</h2>")
       .replace(/^# (.*)$/gm, "<h1>$1</h1>")
@@ -154,7 +159,11 @@ export async function exportContentToPdf(
       .replace(/\n/g, "<br>");
     container.innerHTML = html;
   } else {
-    container.innerHTML = `<pre style="white-space: pre-wrap;">${content}</pre>`;
+    // Plain text — use textContent to prevent XSS
+    const pre = document.createElement("pre");
+    pre.style.whiteSpace = "pre-wrap";
+    pre.textContent = content;
+    container.appendChild(pre);
   }
 
   document.body.appendChild(container);

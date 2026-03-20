@@ -185,7 +185,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
       const db = c.env.DB;
 
       if (!db) {
-        return errorJson(c, 500, "DB_NOT_CONFIGURED", "Database not configured");
+        return errorJson(c, 500, "INTERNAL_ERROR", "Server configuration error");
       }
       await ensureAuthSchema(db);
 
@@ -202,7 +202,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
       // Generate JWT token
       const jwtSecret = c.env.AUTH_JWT_SECRET;
       if (!jwtSecret) {
-        return errorJson(c, 500, "JWT_SECRET_MISSING", "JWT secret not configured");
+        return errorJson(c, 500, "INTERNAL_ERROR", "Server configuration error");
       }
 
       const token = await signJwt({ sub: user.id }, jwtSecret);
@@ -235,7 +235,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
       const db = c.env.DB;
 
       if (!db) {
-        return errorJson(c, 500, "DB_NOT_CONFIGURED", "Database not configured");
+        return errorJson(c, 500, "INTERNAL_ERROR", "Server configuration error");
       }
       await ensureAuthSchema(db);
 
@@ -254,7 +254,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
       // Generate JWT token
       const jwtSecret = c.env.AUTH_JWT_SECRET;
       if (!jwtSecret) {
-        return errorJson(c, 500, "JWT_SECRET_MISSING", "JWT secret not configured");
+        return errorJson(c, 500, "INTERNAL_ERROR", "Server configuration error");
       }
 
       const token = await signJwt({ sub: user.id }, jwtSecret);
@@ -300,7 +300,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
 
       const db = c.env.DB;
       if (!db) {
-        return errorJson(c, 500, "DB_NOT_CONFIGURED", "Database not configured");
+        return errorJson(c, 500, "INTERNAL_ERROR", "Server configuration error");
       }
       await ensureAuthSchema(db);
 
@@ -374,7 +374,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
 
       const db = c.env.DB;
       if (!db) {
-        return errorJson(c, 500, "DB_NOT_CONFIGURED", "Database not configured");
+        return errorJson(c, 500, "INTERNAL_ERROR", "Server configuration error");
       }
       await ensureAuthSchema(db);
 

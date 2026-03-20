@@ -111,14 +111,13 @@ export async function exportContentToImage(
     padding: 16px;
   `;
 
-  if (exportType === "svg") {
-    container.innerHTML = content;
-  } else if (exportType === "html") {
+  if (exportType === "svg" || exportType === "html") {
     container.innerHTML = content;
   } else if (exportType === "markdown") {
-    // For markdown, we'd need to render it first
-    // This is a simplified version - in production, use react-dom/server
-    container.innerHTML = `<pre>${content}</pre>`;
+    // Plain text — use textContent to prevent XSS
+    const pre = document.createElement("pre");
+    pre.textContent = content;
+    container.appendChild(pre);
   }
 
   document.body.appendChild(container);

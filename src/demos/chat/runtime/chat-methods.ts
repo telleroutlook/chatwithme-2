@@ -48,13 +48,14 @@ export function getHistory(
  */
 export async function clearChat(
   persistMessages: () => Promise<void>
-): Promise<{ success: boolean }> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     await persistMessages();
     return { success: true };
   } catch (e) {
+    const error = e instanceof Error ? e.message : "Unknown error";
     console.error("Error clearing messages:", e);
-    return { success: false };
+    return { success: false, error };
   }
 }
 

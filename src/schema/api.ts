@@ -12,12 +12,12 @@ export const requiredSessionBodySchema = z.object({
 });
 
 export const chatBodySchema = requiredSessionBodySchema.extend({
-  message: z.string().trim().min(1, "message is required")
+  message: z.string().trim().min(1, "message is required").max(32000, "message too long")
 });
 
 export const editBodySchema = requiredSessionBodySchema.extend({
   messageId: z.string().trim().min(1, "messageId is required"),
-  content: z.string().trim().min(1, "content is required")
+  content: z.string().trim().min(1, "content is required").max(32000, "content too long")
 });
 
 export const regenerateBodySchema = requiredSessionBodySchema.extend({

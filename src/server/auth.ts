@@ -79,16 +79,20 @@ function extractToken(request: Request): TokenInfo | null {
     return { token: authHeader.slice(7), source: "header" };
   }
 
+  // Query params: only accept guest (UUID) tokens — never JWTs.
+  // WebSocket connections cannot set custom headers during handshake,
+  // so guest tokens are passed via ?token=. JWTs are too sensitive
+  // to place in URLs (they appear in logs, referrers, and browser history).
   const tokenParam = url.searchParams.get("token");
-  if (tokenParam) {
+  if (tokenParam && !looksLikeJwt(tokenParam)) {
     return { token: tokenParam, source: "query" };
   }
 
   const cookie = request.headers.get("Cookie");
   if (cookie) {
-    const match = cookie.match(/auth_token=([^;]+)/);
+    const match = cookie.match(/auth_token=([^;\s]+)/);
     if (match?.[1]) {
-      return { token: match[1], source: "cookie" };
+      return { token: match[1].trim(), source: "cookie" };
     }
   }
 

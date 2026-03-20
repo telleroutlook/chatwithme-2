@@ -123,7 +123,6 @@ const DANGEROUS_TAGS = ["script", "iframe", "object", "embed", "form"];
  */
 const DANGEROUS_ATTR_PATTERNS = [
   /^on/i, // Event handlers: onclick, onload, etc.
-  /^data-/i, // Some data attributes can be exploited
   /^srcdoc$/i, // iframe srcdoc
   /^formaction$/i, // Form action override
 ];

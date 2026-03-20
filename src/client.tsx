@@ -307,8 +307,8 @@ function App() {
   const { messages, sendMessage, status, stop, setMessages } = useAgentChat({
     agent,
     resume: true,
-    onToolCall: async ({ toolCall }) => {
-      console.log("Tool call:", toolCall);
+    onToolCall: async ({ toolCall: _toolCall }) => {
+      // Tool calls are handled server-side
     },
     onData: (part) => {
       const progress = parseLiveProgressPart(part);
