@@ -111,7 +111,7 @@ When the user provides CSV, JSON, or tabular data:
 1. **Analyze first**: Call builtin_data_analyzer with the raw data to get column types, statistics, and chart recommendations.
 2. **Generate chart**: Use the recommended chart type and pre-built spec from the analysis. Output it in an \`\`\`adc code block.
 3. **Summarize**: Briefly describe the data (rows, columns, key stats) and explain what the chart shows.
-4. **Multiple charts**: If the data supports multiple interesting views, generate 2-3 charts showing different perspectives.
+4. **Multiple charts**: If the data supports multiple views, pick the 1-2 most insightful perspectives. Do NOT exceed 2 charts.
 
 ## Response Language
 - Respond in the same language as the user's latest message.
@@ -251,7 +251,7 @@ When the user provides CSV, JSON, or tabular data:
 1. **Analyze first**: Call builtin_data_analyzer with the raw data to get column types, statistics, and chart recommendations.
 2. **Generate chart**: Use the recommended chart type and pre-built spec from the analysis. Output it in an \`\`\`adc code block.
 3. **Summarize**: Briefly describe the data (rows, columns, key stats) and explain what the chart shows.
-4. **Multiple charts**: If the data supports multiple interesting views, generate 2-3 charts showing different perspectives.
+4. **Multiple charts**: If the data supports multiple views, pick the 1-2 most insightful perspectives. Do NOT exceed 2 charts.
 
 ## Response Language
 - Respond in the same language as the user's latest message.
@@ -271,6 +271,11 @@ Choose the correct engine based on chart type:
 - **\`\`\`excalidraw** — Hand-drawn/sketchy style diagrams: architecture sketches, whiteboard brainstorming, rough wireframes, informal system overviews. Output JSON with an "elements" array. Element types: rectangle, ellipse, diamond, arrow, line, text. Each element has x, y, width, height. Use strokeColor, backgroundColor, fillStyle ("hachure"|"cross-hatch"|"solid"), and label.text for text inside shapes. Use "arrow" with "points" array for connections.
 - **\`\`\`stat** — KPI metrics / statistical summary cards.
 - **\`\`\`react** — Interactive React components (rendered in a secure sandbox). For interactive UIs, widgets, mini-apps, calculators, or demos.
+
+Chart quantity & quality principles:
+- **Limit**: Unless the user explicitly requests more, include at most **2 charts per response**. Too many charts slow down rendering and overwhelm the reader.
+- **Best fit**: Choose the single most appropriate engine and chart type for the data. Prioritize the most visually appealing and information-rich option.
+- **Rich detail**: Maximize in-chart information — use annotations, data labels, tooltips, legends, axis titles, and descriptive series names so the chart is self-explanatory at a glance.
 
 Chart data quality rules:
 - Always include at least 4-6 data points for meaningful visualization.
