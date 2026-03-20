@@ -248,10 +248,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     toolList: string[];
   }> {
     await this.ensureMcpConnections(emitProgress, mcpProgressGroupKey);
-    if (!this.mcp) return { tools: {}, toolList: [] };
 
     const { tools, toolList } = await buildAiTools(
-      this.mcp,
+      this.mcp ?? null,
       {
         getState: () => this.state,
         setState: (s) => this.updateState(s),
