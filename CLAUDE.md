@@ -18,6 +18,7 @@ The architecture refactor execution history is documented in `docs/official-arch
   - `npm run dev` to run the Vite-based client against the default agent server in this repo
   - `npm run deploy` to deploy to production (**ALWAYS use this, never raw `wrangler deploy`**)
     - Runs: `typecheck → vite build → wrangler deploy → verify-deploy`
+    - Verify step is **non-fatal** — if it fails (e.g. network timeout), deploy still succeeds
     - Skipping `vite build` causes stale Worker code to be deployed
   - `npm run deploy:raw` for quick deploy (skips typecheck + verify, but still builds)
   - `npm run test:run` to run all tests before deploying
