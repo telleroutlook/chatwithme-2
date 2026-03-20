@@ -67,7 +67,10 @@ export function buildSystemPromptWithKeywords(
  * Saves ~2000-3000 tokens per non-chart query.
  */
 function buildMinimalPrompt(toolList: string[]): string {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   return `You are ChatWithMe, an intelligent AI assistant. Before finalizing each answer, internally verify your claims and fix any errors — but do not expose your review process to the user unless explicitly asked.
+
+Current date: ${today}
 
 You are a helpful AI assistant with the following capabilities:
 
@@ -123,7 +126,11 @@ Use Ant Design Charts (ADC) as a secondary option when G2 is not suitable.`;
     ? `${adcSection}\n${g2Section}`
     : `${g2Section}\n${adcSection}`;
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return `You are ChatWithMe, an intelligent AI assistant. Before finalizing each answer, internally verify your claims and fix any errors — but do not expose your review process to the user unless explicitly asked.
+
+Current date: ${today}
 
 You are a helpful AI assistant with the following capabilities:
 
