@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
 
+/* Map Tailwind's dark: variant to our data-mode attribute */
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
 /* ============================================
    Design Tokens — ChatGPT-like theme
    ============================================ */
