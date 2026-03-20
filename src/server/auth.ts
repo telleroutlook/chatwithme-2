@@ -190,6 +190,19 @@ export function buildAgentName(userId: string, sessionId: string): string {
 }
 
 /**
+ * Hash a userId for logging (privacy: don't store raw IDs in logs).
+ */
+function hashForLog(userId: string): string {
+  // Simple FNV-1a hash for log privacy — not cryptographic
+  let h = 0x811c9dc5;
+  for (let i = 0; i < userId.length; i++) {
+    h ^= userId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/**
  * Log auth context for observability.
  */
 export function logAuthContext(
@@ -202,7 +215,7 @@ export function logAuthContext(
     requestId,
     endpoint,
     authMode: ctx.authMode,
-    userId: ctx.userId,
+    userHash: hashForLog(ctx.userId),
     tokenSource: ctx.tokenSource,
   }));
 }

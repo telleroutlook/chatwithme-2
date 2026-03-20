@@ -58,6 +58,7 @@ app.use("*", cors({
   origin: (origin, c) => {
     const allowed = getAllowedOrigins(c.env);
     // Allow requests without origin (mobile apps, curl, server-to-server)
+    // only for safe (non-mutating) methods
     if (!origin) return null;
     // Allow if origin is in whitelist
     if (allowed.includes(origin)) return origin;
@@ -68,6 +69,7 @@ app.use("*", cors({
   allowHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
   exposeHeaders: ['X-Request-Id'],
   maxAge: 86400,
+  credentials: true,
 }));
 
 // Request ID middleware

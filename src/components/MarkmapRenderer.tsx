@@ -94,7 +94,7 @@ export function MarkmapRenderer({ code }: MarkmapRendererProps) {
         if (!mounted || !svgRef.current) return;
 
         // Clear any previous instance
-        svgRef.current.innerHTML = "";
+        svgRef.current.textContent = "";
 
         const mm = Markmap.create(svgRef.current, {
           duration: 300,

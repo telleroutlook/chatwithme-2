@@ -73,6 +73,7 @@ function CodeMirrorEditor({ value, onChange, isDark }: CodeMirrorEditorProps): R
 function EChartsPreview({ spec }: { spec: Record<string, unknown> }): ReactNode {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ReturnType<typeof import("echarts")["init"]> | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
   const isDark = useThemeDetector();
 
   useEffect(() => {
@@ -97,16 +98,18 @@ function EChartsPreview({ spec }: { spec: Record<string, unknown> }): ReactNode 
         if (!disposed && chart && !chart.isDisposed()) chart.resize();
       });
       ro.observe(containerRef.current);
-      (chart as unknown as Record<string, unknown>).__ro = ro;
+      roRef.current = ro;
     };
 
     run();
 
     return () => {
       disposed = true;
+      if (roRef.current) {
+        roRef.current.disconnect();
+        roRef.current = null;
+      }
       if (chartInstanceRef.current) {
-        const ro = (chartInstanceRef.current as unknown as Record<string, unknown>).__ro;
-        if (ro instanceof ResizeObserver) ro.disconnect();
         chartInstanceRef.current.dispose();
         chartInstanceRef.current = null;
       }

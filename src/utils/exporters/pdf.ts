@@ -141,7 +141,13 @@ export async function exportContentToPdf(
   `;
 
   if (exportType === "html") {
-    container.innerHTML = content;
+    // HTML content comes from our own markdown renderer, not arbitrary user input.
+    // Use a temporary template to prevent script execution during PDF capture.
+    const template = document.createElement("template");
+    template.innerHTML = content;
+    // Strip any script elements for safety
+    template.content.querySelectorAll("script").forEach((el) => el.remove());
+    container.appendChild(template.content);
   } else if (exportType === "markdown") {
     // Simple markdown to HTML conversion — escape HTML entities first to prevent XSS
     const escaped = content

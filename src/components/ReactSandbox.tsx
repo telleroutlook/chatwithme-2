@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { CodeIcon, ArrowsOutIcon } from "@phosphor-icons/react";
 import { useThemeDetector } from "../hooks/useThemeDetector";
 import { buildSandboxHtml } from "../utils/reactSandboxTemplate";
@@ -24,21 +24,21 @@ export const ReactSandbox = memo(function ReactSandbox({ code }: ReactSandboxPro
   const [height, setHeight] = useState(MIN_HEIGHT);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
 
   const srcdoc = useMemo(() => buildSandboxHtml(code, isDark), [code, isDark]);
 
-  // Listen for postMessage from iframe
-  const handleMessage = useCallback(
-    (event: MessageEvent) => {
-      // Since sandbox has no allow-same-origin, event.origin will be "null"
-      // We verify by checking the iframe's contentWindow
+  // Stable message handler — reads expanded from ref to avoid re-registering
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
       if (iframeRef.current && event.source === iframeRef.current.contentWindow) {
         const data = event.data;
         if (data && typeof data === "object") {
           if (data.type === "resize" && typeof data.height === "number") {
             const clampedHeight = Math.max(
               MIN_HEIGHT,
-              Math.min(data.height + 2, expanded ? 2000 : MAX_HEIGHT)
+              Math.min(data.height + 2, expandedRef.current ? 2000 : MAX_HEIGHT)
             );
             setHeight(clampedHeight);
           } else if (data.type === "error" && typeof data.message === "string") {
@@ -46,14 +46,11 @@ export const ReactSandbox = memo(function ReactSandbox({ code }: ReactSandboxPro
           }
         }
       }
-    },
-    [expanded]
-  );
+    };
 
-  useEffect(() => {
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [handleMessage]);
+  }, []);
 
   // Reset error when code changes
   useEffect(() => {

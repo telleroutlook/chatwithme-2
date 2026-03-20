@@ -28,9 +28,13 @@ const registerSchema = z.object({
   username: z
     .string()
     .trim()
-    .min(3, "Username must be at least 3 characters")
-    .max(32, "Username must be at most 32 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscore, and hyphen"),
+    .transform((s) => s.normalize("NFKC"))
+    .pipe(
+      z.string()
+        .min(3, "Username must be at least 3 characters")
+        .max(32, "Username must be at most 32 characters")
+        .regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscore, and hyphen")
+    ),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")

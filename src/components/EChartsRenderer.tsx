@@ -97,6 +97,7 @@ function detectChartType(spec: EChartsOption): string {
 const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChartsRendererProps): ReactNode {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof import("echarts")["init"]> | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { ref: viewportRef, inViewport } = useInViewport({ threshold: 0.1 });
@@ -227,7 +228,7 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
         ro.observe(containerRef.current);
 
         // Store for cleanup
-        (chart as unknown as Record<string, unknown>).__ro = ro;
+        roRef.current = ro;
       } catch (err) {
         if (!disposed) {
           const msg = err instanceof Error ? err.message : "Failed to render ECharts";
@@ -249,12 +250,11 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
 
     return () => {
       disposed = true;
+      if (roRef.current) {
+        roRef.current.disconnect();
+        roRef.current = null;
+      }
       if (chartRef.current) {
-        // Disconnect ResizeObserver
-        const ro = (chartRef.current as unknown as Record<string, unknown>).__ro;
-        if (ro instanceof ResizeObserver) {
-          ro.disconnect();
-        }
         chartRef.current.dispose();
         chartRef.current = null;
       }

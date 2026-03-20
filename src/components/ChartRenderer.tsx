@@ -130,7 +130,8 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
         const { svg } = await mermaid.render(renderId, sanitizedCode.sanitized.trim());
 
         if (mounted && containerRef.current) {
-          containerRef.current.innerHTML = "";
+          // Mermaid's securityLevel: "strict" sanitizes SVG output
+          containerRef.current.textContent = "";
           containerRef.current.innerHTML = svg;
 
           trackChatEvent("chart_render_success", {

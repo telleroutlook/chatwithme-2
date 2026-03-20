@@ -89,6 +89,7 @@ function buildVegaLiteThemeConfig(isDark: boolean): Record<string, unknown> {
 function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<{ finalize: () => void } | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { ref: viewportRef, inViewport } = useInViewport({ threshold: 0.1 });
@@ -144,7 +145,7 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
         }
 
         // Clear the container before rendering
-        containerRef.current.innerHTML = "";
+        containerRef.current.textContent = "";
 
         const result = await vegaEmbed(containerRef.current, spec as Record<string, unknown>, {
           theme: isDark ? "dark" : undefined,
@@ -176,7 +177,7 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
         ro.observe(containerRef.current);
 
         // Store for cleanup
-        (containerRef.current as unknown as Record<string, unknown>).__vlRo = ro;
+        roRef.current = ro;
       } catch (err) {
         if (!disposed) {
           const msg = err instanceof Error ? err.message : "Failed to render Vega-Lite chart";
@@ -199,11 +200,9 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
     return () => {
       disposed = true;
       // Disconnect ResizeObserver
-      if (containerRef.current) {
-        const ro = (containerRef.current as unknown as Record<string, unknown>).__vlRo;
-        if (ro instanceof ResizeObserver) {
-          ro.disconnect();
-        }
+      if (roRef.current) {
+        roRef.current.disconnect();
+        roRef.current = null;
       }
       if (viewRef.current) {
         viewRef.current.finalize();

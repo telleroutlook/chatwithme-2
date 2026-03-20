@@ -7,7 +7,7 @@
  * - LRU caching for performance
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { HighlighterCore } from "shiki";
 
 interface CacheEntry {
@@ -110,7 +110,6 @@ export function useShikiHighlight(
   const [html, setHtml] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const currentCodeRef = useRef(code);
 
   const normalizedLang = useMemo(() => normalizeLanguage(language), [language]);
 
@@ -120,7 +119,6 @@ export function useShikiHighlight(
       return;
     }
 
-    currentCodeRef.current = code;
     const cacheKey = getCacheKey(code, normalizedLang, theme);
     const cached = highlightCache.get(cacheKey);
     if (cached) {
@@ -128,12 +126,13 @@ export function useShikiHighlight(
       return;
     }
 
+    let cancelled = false;
     setIsLoading(true);
     setError(null);
 
     getHighlighter()
       .then(async (shiki) => {
-        if (currentCodeRef.current !== code) return;
+        if (cancelled) return;
 
         const highlighted = await shiki.codeToHtml(code, {
           lang: normalizedLang,
@@ -144,18 +143,24 @@ export function useShikiHighlight(
         if (highlightCache.size > MAX_CACHE_SIZE / 2) {
           cleanupCache();
         }
-        setHtml(highlighted);
+        if (!cancelled) {
+          setHtml(highlighted);
+        }
       })
       .catch((err) => {
-        if (currentCodeRef.current === code) {
+        if (!cancelled) {
           setError(err instanceof Error ? err : new Error(String(err)));
         }
       })
       .finally(() => {
-        if (currentCodeRef.current === code) {
+        if (!cancelled) {
           setIsLoading(false);
         }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [code, enabled, normalizedLang, theme]);
 
   return { html, isLoading, error };
