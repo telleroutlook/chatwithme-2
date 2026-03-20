@@ -49,6 +49,110 @@ const CHART_COMPONENTS: Record<AdcChartType, FC<Record<string, unknown>>> = {
   dualAxes: DualAxes,
 };
 
+// ============ Wide-to-Long Data Format Conversion ============
+
+/**
+ * Detect and convert "wide format" data to "long/tidy format" for ADC 2.x.
+ *
+ * Wide format (WRONG for ADC):
+ *   data: [{ category: "A", "美国": 100, "中国": 50 }]
+ *   yField: ["美国", "中国"]   or   seriesField: "type" with no matching field
+ *
+ * Long format (CORRECT for ADC):
+ *   data: [{ category: "A", value: 100, series: "美国" }, { category: "A", value: 50, series: "中国" }]
+ *   yField: "value", colorField: "series"
+ *
+ * This function auto-detects wide format and converts it, preventing blank charts.
+ */
+function normalizeWideToLong(
+  type: AdcChartType,
+  config: Record<string, unknown>
+): Record<string, unknown> {
+  // Only applies to chart types that use xField + yField (not pie, funnel, histogram, gauge)
+  const applicableTypes = new Set(["line", "column", "bar", "area", "scatter", "radar"]);
+  if (!applicableTypes.has(type)) return config;
+
+  const data = config.data;
+  if (!Array.isArray(data) || data.length === 0) return config;
+
+  const xField = config.xField;
+  if (typeof xField !== "string") return config;
+
+  const yField = config.yField;
+
+  // Case 1: yField is an array of strings → wide format (e.g., yField: ["美国", "中国"])
+  // This is a DualAxes pattern that doesn't work for Column/Radar/etc.
+  if (Array.isArray(yField) && yField.length >= 2 && yField.every((f) => typeof f === "string")) {
+    const seriesNames = yField as string[];
+    // Verify the data actually has these fields as keys
+    const firstRow = data[0] as Record<string, unknown>;
+    const hasWideFields = seriesNames.every((s) => s in firstRow);
+    if (!hasWideFields) return config;
+
+    // Pivot wide → long
+    const longData: Record<string, unknown>[] = [];
+    for (const row of data as Record<string, unknown>[]) {
+      for (const series of seriesNames) {
+        longData.push({
+          [xField]: row[xField],
+          _value: row[series],
+          _series: series,
+        });
+      }
+    }
+
+    const result = { ...config };
+    result.data = longData;
+    result.yField = "_value";
+    result.colorField = "_series";
+    // For column charts, enable grouping so bars appear side by side
+    if (type === "column" || type === "bar") {
+      result.group = true;
+    }
+    // Remove legacy seriesField if present
+    delete result.seriesField;
+    return result;
+  }
+
+  // Case 2: yField is a string but doesn't exist in data rows, while multiple numeric
+  // fields exist → likely wide format without explicit yField array
+  if (typeof yField === "string") {
+    const firstRow = data[0] as Record<string, unknown>;
+    if (yField in firstRow) return config; // yField exists, data is fine
+
+    // yField doesn't exist in data. Check if there are multiple numeric keys
+    // that look like series names (i.e., not the xField)
+    const numericKeys = Object.keys(firstRow).filter(
+      (k) => k !== xField && typeof firstRow[k] === "number"
+    );
+    if (numericKeys.length >= 2) {
+      // Pivot wide → long
+      const longData: Record<string, unknown>[] = [];
+      for (const row of data as Record<string, unknown>[]) {
+        for (const key of numericKeys) {
+          longData.push({
+            [xField]: row[xField],
+            _value: row[key],
+            _series: key,
+          });
+        }
+      }
+
+      const result = { ...config };
+      result.data = longData;
+      result.yField = "_value";
+      result.colorField = "_series";
+      if (type === "column" || type === "bar") {
+        result.group = true;
+      }
+      delete result.seriesField;
+      return result;
+    }
+  }
+
+  return config;
+}
+
 // ============ Config Normalization for ADC 2.x React ============
 
 /**
@@ -66,17 +170,26 @@ export function normalizeConfigForADC2(
   config: Record<string, unknown>,
   isDark: boolean
 ): Record<string, unknown> {
+  // First: auto-convert wide format to long format if needed
+  const normalizedConfig = normalizeWideToLong(type, config);
+
   // Preserve user config by default, then override fields that require normalization.
-  const result: Record<string, unknown> = { ...config };
+  const result: Record<string, unknown> = { ...normalizedConfig };
   const themeTokens = getChartThemeTokens(isDark);
+
+  // Migrate legacy seriesField → colorField (v1 → v2)
+  if (typeof result.seriesField === "string" && !result.colorField) {
+    result.colorField = result.seriesField;
+  }
+  delete result.seriesField;
 
   // Remove title — it's for our header display, not an ADC config field
   delete result.title;
 
   // ============ Core Data (Required) ============
-  const rawData = config.data;
+  const rawData = result.data;
   if (type === "dualAxes" && Array.isArray(rawData)) {
-    const yField = config.yField;
+    const yField = result.yField;
     const hasDualYFields =
       Array.isArray(yField) &&
       yField.length >= 2 &&

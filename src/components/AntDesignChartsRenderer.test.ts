@@ -129,4 +129,88 @@ describe("normalizeConfigForADC2", () => {
     expect(style.fontSize).toBe(15);
     expect(style.fill).toBe("#e5e7eb");
   });
+
+  it("converts wide-format data with yField array to long format for column charts", () => {
+    const input = {
+      data: [
+        { category: "核弹头", "美国": 5244, "中国": 500 },
+        { category: "军机", "美国": 13200, "中国": 3300 },
+      ],
+      xField: "category",
+      yField: ["美国", "中国"],
+    };
+
+    const result = normalizeConfigForADC2("column", input, false);
+    const data = result.data as Record<string, unknown>[];
+
+    // Should be pivoted to long format: 2 categories × 2 series = 4 rows
+    expect(data).toHaveLength(4);
+    expect(data[0]).toEqual({ category: "核弹头", _value: 5244, _series: "美国" });
+    expect(data[1]).toEqual({ category: "核弹头", _value: 500, _series: "中国" });
+    expect(result.yField).toBe("_value");
+    expect(result.colorField).toBe("_series");
+    expect(result.group).toBe(true);
+  });
+
+  it("converts wide-format radar data with missing yField value to long format", () => {
+    const input = {
+      data: [
+        { item: "航母", "美国": 10, "中国": 2.5 },
+        { item: "潜艇", "美国": 65, "中国": 60 },
+      ],
+      xField: "item",
+      yField: "value", // doesn't exist in data
+      seriesField: "type", // legacy v1 field
+    };
+
+    const result = normalizeConfigForADC2("radar", input, false);
+    const data = result.data as Record<string, unknown>[];
+
+    // Should pivot: 2 items × 2 series = 4 rows
+    expect(data).toHaveLength(4);
+    expect(data[0]).toEqual({ item: "航母", _value: 10, _series: "美国" });
+    expect(result.yField).toBe("_value");
+    expect(result.colorField).toBe("_series");
+    // seriesField should be removed
+    expect(result.seriesField).toBeUndefined();
+  });
+
+  it("migrates legacy seriesField to colorField for properly formatted data", () => {
+    const input = {
+      data: [
+        { dim: "Speed", score: 90, product: "A" },
+        { dim: "Speed", score: 70, product: "B" },
+      ],
+      xField: "dim",
+      yField: "score",
+      seriesField: "product",
+    };
+
+    const result = normalizeConfigForADC2("radar", input, false);
+
+    expect(result.colorField).toBe("product");
+    expect(result.seriesField).toBeUndefined();
+  });
+
+  it("does not convert long-format data that is already correct", () => {
+    const input = {
+      data: [
+        { quarter: "Q1", revenue: 120, department: "Sales" },
+        { quarter: "Q1", revenue: 90, department: "Marketing" },
+      ],
+      xField: "quarter",
+      yField: "revenue",
+      colorField: "department",
+      group: true,
+    };
+
+    const result = normalizeConfigForADC2("column", input, false);
+    const data = result.data as Record<string, unknown>[];
+
+    // Should remain unchanged — already long format
+    expect(data).toHaveLength(2);
+    expect(data[0]).toEqual(input.data[0]);
+    expect(result.yField).toBe("revenue");
+    expect(result.colorField).toBe("department");
+  });
 });

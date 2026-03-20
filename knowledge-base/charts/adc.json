@@ -8,7 +8,13 @@
     "Supported chart types: line, column, bar, area, pie, rose, scatter, radar, heatmap, funnel, histogram, dualAxes",
     "Always include at least 4-6 realistic data points for visual clarity",
     "Use descriptive field names (e.g., 'month', 'revenue') rather than generic ('x', 'y')",
-    "For multi-series charts, include a seriesField or colorField to distinguish categories",
+    "CRITICAL: Data MUST be in LONG (tidy) format — one observation per row. NEVER use wide format where series are column names.",
+    "WRONG wide format: {\"category\":\"A\", \"美国\":100, \"中国\":50} with yField:[\"美国\",\"中国\"]",
+    "CORRECT long format: [{\"category\":\"A\",\"value\":100,\"series\":\"美国\"},{\"category\":\"A\",\"value\":50,\"series\":\"中国\"}] with yField:\"value\", colorField:\"series\"",
+    "For multi-series charts (line/column/bar/area/radar/scatter), use colorField to distinguish series — NOT yField as an array",
+    "yField must always be a single string field name, never an array (arrays only work in dualAxes)",
+    "seriesField is a legacy v1 field — use colorField instead in ADC 2.x",
+    "For grouped column/bar charts, add group:true alongside colorField",
     "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes"
   ],
   "typeWhitelist": [
@@ -51,9 +57,10 @@
       "example": "{\"type\":\"column\",\"data\":[{\"quarter\":\"Q1\",\"revenue\":120,\"department\":\"Sales\"},{\"quarter\":\"Q2\",\"revenue\":180,\"department\":\"Sales\"},{\"quarter\":\"Q3\",\"revenue\":150,\"department\":\"Sales\"},{\"quarter\":\"Q4\",\"revenue\":200,\"department\":\"Sales\"},{\"quarter\":\"Q1\",\"revenue\":90,\"department\":\"Marketing\"},{\"quarter\":\"Q2\",\"revenue\":130,\"department\":\"Marketing\"},{\"quarter\":\"Q3\",\"revenue\":110,\"department\":\"Marketing\"},{\"quarter\":\"Q4\",\"revenue\":160,\"department\":\"Marketing\"}],\"xField\":\"quarter\",\"yField\":\"revenue\",\"colorField\":\"department\",\"group\":true,\"style\":{\"radiusTopLeft\":4,\"radiusTopRight\":4},\"interaction\":{\"tooltip\":true}}",
       "commonErrors": [
         "Confusing column (vertical) with bar (horizontal)",
-        "Missing required fields"
+        "Missing required fields",
+        "Using wide format with yField as array — WRONG. Use long format with yField as string + colorField + group:true"
       ],
-      "tips": "Use group:true or stack:true for multi-series. Add style.radiusTopLeft/radiusTopRight for rounded tops."
+      "tips": "Use group:true or stack:true for multi-series. yField must be a single string. Use colorField to split series. Add style.radiusTopLeft/radiusTopRight for rounded tops."
     },
     {
       "type": "bar",
@@ -135,9 +142,11 @@
       "example": "{\"type\":\"radar\",\"data\":[{\"dimension\":\"Speed\",\"score\":90,\"product\":\"Product A\"},{\"dimension\":\"Reliability\",\"score\":75,\"product\":\"Product A\"},{\"dimension\":\"Design\",\"score\":85,\"product\":\"Product A\"},{\"dimension\":\"Price\",\"score\":60,\"product\":\"Product A\"},{\"dimension\":\"Features\",\"score\":80,\"product\":\"Product A\"},{\"dimension\":\"Speed\",\"score\":70,\"product\":\"Product B\"},{\"dimension\":\"Reliability\",\"score\":90,\"product\":\"Product B\"},{\"dimension\":\"Design\",\"score\":65,\"product\":\"Product B\"},{\"dimension\":\"Price\",\"score\":85,\"product\":\"Product B\"},{\"dimension\":\"Features\",\"score\":75,\"product\":\"Product B\"}],\"xField\":\"dimension\",\"yField\":\"score\",\"colorField\":\"product\",\"area\":{\"style\":{\"fillOpacity\":0.25}},\"interaction\":{\"tooltip\":true}}",
       "commonErrors": [
         "Wrong field names for radar dimensions",
-        "Not normalizing values to similar scale"
+        "Not normalizing values to similar scale",
+        "Using wide format with series as column names — WRONG. Each row must have one value + one series identifier",
+        "Using seriesField (legacy v1) instead of colorField (v2)"
       ],
-      "tips": "Include 5-8 dimensions. Use colorField for multi-product comparison. Add area.style.fillOpacity for filled radar."
+      "tips": "Include 5-8 dimensions. Use colorField for multi-product comparison. Data must be long format: each row = {dimension, score, product}. Add area.style.fillOpacity for filled radar."
     },
     {
       "type": "heatmap",
