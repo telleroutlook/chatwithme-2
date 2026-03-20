@@ -81,14 +81,6 @@ app.use("*", async (c, next) => {
 
 // ============ Route Registration ============
 
-registerAuthRoutes(app);
-registerChatSyncRoutes(app);
-registerChatRoutes(app);
-registerMcpRoutes(app);
-registerRuntimeRoutes(app);
-registerHealthRoutes(app);
-registerAgentsRoutes(app);
-
 // Temporary diagnostic endpoint for DDG search testing
 app.get("/api/debug/search", async (c) => {
   const query = c.req.query("q") || "today news";
@@ -109,6 +101,14 @@ app.get("/api/debug/search", async (c) => {
     }, 500);
   }
 });
+
+registerAuthRoutes(app);
+registerChatSyncRoutes(app);
+registerChatRoutes(app);
+registerMcpRoutes(app);
+registerRuntimeRoutes(app);
+registerHealthRoutes(app);
+registerAgentsRoutes(app);
 
 // ============ Error Handler ============
 
