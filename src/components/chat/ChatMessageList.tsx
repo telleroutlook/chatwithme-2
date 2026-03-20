@@ -60,7 +60,7 @@ function ChatMessageListInner({
   // Render individual message item
   const itemContent = useCallback(
     (index: number, message: UIMessage) => (
-      <div className="mb-4">
+      <div className="mx-auto w-full max-w-3xl px-4 mb-4 sm:px-6">
         <ChatMessageItem
           key={message.id}
           message={message}
@@ -122,7 +122,7 @@ function ChatMessageListInner({
     }
 
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2">
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-4">
         <ChatCircleIcon
           size={48}
           className={cn("text-foreground-subtle opacity-30")}

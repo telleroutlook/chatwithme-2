@@ -201,27 +201,25 @@ export function ChatPane({
           onScroll={onScroll}
           className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [overflow-anchor:none]"
         >
-          {/* Centered content column */}
-          <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-            <ChatMessageList
-              messages={messages}
-              isStreaming={isStreaming}
-              canEdit={canEdit}
-              variant={activeMessageVariant}
-              markdownPrefs={markdownPrefs}
-              activeToolsCount={activeToolsCount}
-              onDeleteMessage={onDeleteMessage}
-              onEditMessage={onEditMessage}
-              onRegenerateMessage={onRegenerateMessage}
-              getMessageText={getMessageText}
-              t={t}
-              onScrollerReady={handleScrollerReady}
-              bottomInset={messageListBottomInset}
-            />
+          <ChatMessageList
+            messages={messages}
+            isStreaming={isStreaming}
+            canEdit={canEdit}
+            variant={activeMessageVariant}
+            markdownPrefs={markdownPrefs}
+            activeToolsCount={activeToolsCount}
+            onDeleteMessage={onDeleteMessage}
+            onEditMessage={onEditMessage}
+            onRegenerateMessage={onRegenerateMessage}
+            getMessageText={getMessageText}
+            t={t}
+            onScrollerReady={handleScrollerReady}
+            bottomInset={messageListBottomInset}
+          />
 
-            {/* Live progress feed */}
-            {awaitingFirstAssistant && (
-              <div className="mt-4">
+          {/* Live progress feed */}
+          {awaitingFirstAssistant && (
+            <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 mt-4">
                 <div className="rounded-lg border border-border bg-surface-chat/80 px-4 py-3">
                   {/* Header */}
                   <div className="mb-2 flex items-center gap-2">
@@ -308,7 +306,6 @@ export function ChatPane({
                 </div>
               </div>
             )}
-          </div>
         </div>
 
         <ScrollJumpControls
