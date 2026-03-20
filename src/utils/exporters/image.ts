@@ -8,8 +8,23 @@ export interface ExportOptions {
   pixelRatio?: number;
   backgroundColor?: string;
   filename?: string;
-  /** CSS filter to apply on the cloned node (e.g. "invert(1) hue-rotate(180deg)" for dark→light). */
-  filter?: string;
+}
+
+/**
+ * Capture DOM element as PNG data-URL (does not download).
+ */
+export async function toPngDataUrl(
+  element: HTMLElement,
+  options: Omit<ExportOptions, "filename"> = {}
+): Promise<string> {
+  const {
+    quality = 1,
+    pixelRatio = 2,
+    backgroundColor = "#fff",
+  } = options;
+
+  const { toPng } = await import("html-to-image");
+  return toPng(element, { quality, pixelRatio, backgroundColor });
 }
 
 /**
@@ -19,29 +34,8 @@ export async function exportToPng(
   element: HTMLElement,
   options: ExportOptions = {}
 ): Promise<void> {
-  const {
-    quality = 1,
-    pixelRatio = 2,
-    backgroundColor = "#fff",
-    filename = "export.png",
-    filter: cssFilter,
-  } = options;
-
-  // Dynamic import html-to-image
-  const { toPng } = await import("html-to-image");
-
-  const dataUrl = await toPng(element, {
-    quality,
-    pixelRatio,
-    backgroundColor,
-    // Apply CSS filter on the cloned node (e.g. dark→light inversion)
-    ...(cssFilter
-      ? {
-          style: { filter: cssFilter },
-        }
-      : {}),
-  });
-
+  const { filename = "export.png" } = options;
+  const dataUrl = await toPngDataUrl(element, options);
   downloadFile(dataUrl, filename);
 }
 

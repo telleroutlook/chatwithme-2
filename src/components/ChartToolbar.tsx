@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, type RefObject } from "react";
-import { exportToPng, downloadTextFile, downloadFile } from "../utils/exporters/image";
+import { exportToPng, toPngDataUrl, downloadTextFile, downloadFile } from "../utils/exporters/image";
 import { exportToPdf } from "../utils/exporters/pdf";
 
 // ---------------------------------------------------------------------------
@@ -48,13 +48,55 @@ function makeFilename(engine: ChartEngine, chartType: string | undefined, ext: s
 }
 
 /**
+ * Invert + hue-rotate a canvas image in-place using pixel manipulation.
+ * Equivalent to CSS `filter: invert(1) hue-rotate(180deg)` but works
+ * in all browsers (Safari lacks CanvasRenderingContext2D.filter).
+ *
+ * Effect: dark backgrounds → white, light text → dark, data colors ≈ preserved.
+ */
+function invertHueRotatePixels(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const d = imageData.data;
+
+  // W3C hue-rotate(180deg) matrix (cos=−1, sin=0):
+  //   R' = 0.213 − 0.787·R + 1.430·G + 0.144·B   (using luminance weights)
+  //   G' = 0.426·R + 0.430·G + 0.144·B             (not exact — let's use full matrix)
+  //
+  // Exact W3C feColorMatrix for hue-rotate(a), with c=cos(a), s=sin(a):
+  //   | 0.213+0.787c-0.213s   0.715-0.715c-0.715s   0.072-0.072c+0.928s |
+  //   | 0.213-0.213c+0.143s   0.715+0.285c+0.140s   0.072-0.072c-0.283s |
+  //   | 0.213-0.213c-0.787s   0.715-0.715c+0.715s   0.072+0.928c+0.072s |
+  //
+  // For a=180deg: c=−1, s=0:
+  const m00 = 0.213 - 0.787; // −0.574
+  const m01 = 0.715 + 0.715; //  1.430
+  const m02 = 0.072 + 0.072; //  0.144
+  const m10 = 0.213 + 0.213; //  0.426
+  const m11 = 0.715 - 0.285; //  0.430
+  const m12 = 0.072 + 0.072; //  0.144
+  const m20 = 0.213 + 0.213; //  0.426
+  const m21 = 0.715 + 0.715; //  1.430
+  const m22 = 0.072 - 0.928; // −0.856
+
+  for (let i = 0; i < d.length; i += 4) {
+    // Step 1: invert
+    const r = 255 - d[i];
+    const g = 255 - d[i + 1];
+    const b = 255 - d[i + 2];
+    // Step 2: hue-rotate 180deg
+    d[i]     = Math.max(0, Math.min(255, Math.round(m00 * r + m01 * g + m02 * b)));
+    d[i + 1] = Math.max(0, Math.min(255, Math.round(m10 * r + m11 * g + m12 * b)));
+    d[i + 2] = Math.max(0, Math.min(255, Math.round(m20 * r + m21 * g + m22 * b)));
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+/**
  * Build a composited PNG data-URL from a canvas-based chart container.
  * Draws a white background + the chart canvas pixels onto an offscreen canvas.
  *
- * When `invertDark` is true (dark-mode export), applies CSS filter
- * `invert(1) hue-rotate(180deg)` so the image looks natural on a white
- * background — dark bg becomes white, light text becomes dark, and data
- * colors stay approximately the same hue.
+ * When `invertDark` is true (dark-mode export), applies pixel-level
+ * invert + hue-rotate(180deg) so the image looks natural on a white background.
  */
 function compositeCanvasPng(
   container: HTMLElement,
@@ -79,18 +121,71 @@ function compositeCanvasPng(
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, outWidth, outHeight);
 
-  if (invertDark) {
-    // Invert brightness while preserving hue (dark→light conversion)
-    ctx.filter = "invert(1) hue-rotate(180deg)";
-  }
-
   // Draw chart canvas
   ctx.drawImage(chartCanvas, padding, padding);
 
-  // Reset filter for any subsequent draws
-  ctx.filter = "none";
+  if (invertDark) {
+    invertHueRotatePixels(ctx, outWidth, outHeight);
+  }
 
   return offscreen.toDataURL("image/png");
+}
+
+/**
+ * Apply invert + hue-rotate(180deg) to a PNG data-URL and return a new data-URL.
+ * Used for SVG-based engine exports in dark mode.
+ */
+function invertDataUrl(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext("2d");
+      if (!ctx) { reject(new Error("no 2d context")); return; }
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0);
+      invertHueRotatePixels(ctx, c.width, c.height);
+      resolve(c.toDataURL("image/png"));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+/** Save a PNG data-URL as a single-page PDF. */
+async function dataUrlToPdf(dataUrl: string, filename: string): Promise<void> {
+  const { default: jsPDF } = await import("jspdf");
+
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  const landscape = img.width > img.height;
+  const pdf = new jsPDF({
+    orientation: landscape ? "landscape" : "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const ratio = Math.min(
+    (pageW - margin * 2) / img.width,
+    (pageH - margin * 2) / img.height,
+  );
+  const w = img.width * ratio;
+  const h = img.height * ratio;
+  const x = (pageW - w) / 2;
+
+  pdf.addImage(dataUrl, "PNG", x, margin, w, h);
+  pdf.save(filename);
 }
 
 // ---------------------------------------------------------------------------
@@ -124,13 +219,18 @@ export function ChartToolbar({
         }
       } else {
         // SVG-based engines (Mermaid, Vega-Lite, ECharts): html-to-image works fine
-        // In dark mode, apply invert filter on the cloned node for light-background export
-        await exportToPng(el, {
-          pixelRatio: 2,
-          backgroundColor: "#ffffff",
-          filename: makeFilename(engine, chartType, "png"),
-          ...(isDark ? { filter: "invert(1) hue-rotate(180deg)" } : {}),
-        });
+        if (isDark) {
+          // Capture, then pixel-level invert for dark→light conversion
+          const raw = await toPngDataUrl(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+          const inverted = await invertDataUrl(raw);
+          downloadFile(inverted, makeFilename(engine, chartType, "png"));
+        } else {
+          await exportToPng(el, {
+            pixelRatio: 2,
+            backgroundColor: "#ffffff",
+            filename: makeFilename(engine, chartType, "png"),
+          });
+        }
       }
     } catch (err) {
       console.error("PNG export failed:", err);
@@ -174,47 +274,22 @@ export function ChartToolbar({
     setBusy("pdf");
     try {
       if (isCanvasEngine) {
-        // Build PDF directly from canvas pixels — avoids html2canvas color issues
-        // In dark mode, invert colors for readable export
+        // Read canvas pixels directly (with dark-mode inversion if needed)
         const dataUrl = compositeCanvasPng(el, isDark);
         if (dataUrl) {
-          const { default: jsPDF } = await import("jspdf");
-
-          const img = new Image();
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = reject;
-            img.src = dataUrl;
-          });
-
-          const isLandscape = img.width > img.height;
-          const pdf = new jsPDF({
-            orientation: isLandscape ? "landscape" : "portrait",
-            unit: "mm",
-            format: "a4",
-          });
-
-          const pageW = pdf.internal.pageSize.getWidth();
-          const pageH = pdf.internal.pageSize.getHeight();
-          const margin = 10;
-          const ratio = Math.min(
-            (pageW - margin * 2) / img.width,
-            (pageH - margin * 2) / img.height
-          );
-          const w = img.width * ratio;
-          const h = img.height * ratio;
-          const x = (pageW - w) / 2;
-          const y = margin;
-
-          pdf.addImage(dataUrl, "PNG", x, y, w, h);
-          pdf.save(makeFilename(engine, chartType, "pdf"));
+          await dataUrlToPdf(dataUrl, makeFilename(engine, chartType, "pdf"));
         }
       } else {
-        // SVG-based engines: use html2canvas with invert filter in dark mode
-        await exportToPdf(el, {
-          filename: makeFilename(engine, chartType, "pdf"),
-          ...(isDark ? { filter: "invert(1) hue-rotate(180deg)" } : {}),
-        });
+        if (isDark) {
+          // SVG engines dark mode: capture → invert → PDF
+          const raw = await toPngDataUrl(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+          const inverted = await invertDataUrl(raw);
+          await dataUrlToPdf(inverted, makeFilename(engine, chartType, "pdf"));
+        } else {
+          await exportToPdf(el, {
+            filename: makeFilename(engine, chartType, "pdf"),
+          });
+        }
       }
     } catch (err) {
       console.error("PDF export failed:", err);
