@@ -7,7 +7,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { errorJson, unknownErrorMessage } from "./server/http";
 import { ChatAgentV2 } from "./demos/chat/chat-agent";
-import { searchDuckDuckGo } from "./demos/chat/builtin-tools/web-search";
 
 // Route registrations
 import { registerChatRoutes } from "./server/routes/chat";
@@ -80,27 +79,6 @@ app.use("*", async (c, next) => {
 });
 
 // ============ Route Registration ============
-
-// Temporary diagnostic endpoint for DDG search testing
-app.get("/api/debug/search", async (c) => {
-  const query = c.req.query("q") || "today news";
-  const start = Date.now();
-  try {
-    const results = await searchDuckDuckGo(query);
-    return c.json({
-      query,
-      resultCount: results.length,
-      tookMs: Date.now() - start,
-      results: results.slice(0, 5)
-    });
-  } catch (err) {
-    return c.json({
-      query,
-      error: err instanceof Error ? err.message : String(err),
-      tookMs: Date.now() - start
-    }, 500);
-  }
-});
 
 registerAuthRoutes(app);
 registerChatSyncRoutes(app);
