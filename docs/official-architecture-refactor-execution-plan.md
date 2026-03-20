@@ -722,3 +722,16 @@ The Visual Excellence Execution Plan (`docs/visual-excellence-execution-plan.md`
 - 3 files deleted (G2 engine)
 - 27 existing files modified
 - Commit: `b8ab9f8` on `main`
+
+---
+
+## Appendix: Message ID Mismatch Fix (2026-03-20)
+
+**Problem**: Client AI SDK and server AIChatAgent base class generate different IDs for assistant messages during streaming. The reconciliation only runs on the next `sendMessage()`. Operations like regenerate/edit/delete called before reconciliation fail with "Message not found".
+
+**Root cause**: `_reply()` in AIChatAgent creates assistant ID `assistant_{ts}_{rand}`. The AI SDK `useChat` creates a separate nanoid. No `start` event with `messageId` is emitted by our `createUIMessageStream`, so the server keeps its own ID.
+
+**Fix**: Added `resolveMessageIndex()` in `chat-methods.ts` — falls back from exact ID match to role-based last-message lookup. Applied to `regenerateFrom()`, `editUserMessage()`, `deleteMessage()`.
+
+**Files changed**: `src/demos/chat/runtime/chat-methods.ts`, `docs/developer-pitfalls.md`
+

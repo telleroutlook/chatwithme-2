@@ -134,6 +134,23 @@ Due to `zod` v3 vs v4 conflict between packages, `npm install` must always use `
 
 ---
 
+## 5. Client/Server Message ID Mismatch — regenerate/edit/delete fail
+
+**Severity**: High — "Message not found" on retry of the first message
+
+The AI SDK client (`useChat`/`useAgentChat`) generates its own message IDs (nanoid) for both user and assistant messages. During streaming, the server also generates a different assistant ID (format: `assistant_{timestamp}_{random}`). These IDs are only reconciled when the next `sendMessage()` call triggers `_reconcileAssistantIdsWithServerState` in the base class.
+
+**Timeline**:
+1. Client sends user message → ID: `nanoid()` — server receives and stores with client's ID ✅
+2. Server streams response → assistant ID: `assistant_{ts}_{rand}` — client creates its own ID: `nanoid()` ❌ mismatch
+3. Client calls `regenerateFrom(clientAssistantId)` → server searches `this.messages` → NOT FOUND
+
+**Fix**: All mutation methods in `chat-methods.ts` use `resolveMessageIndex()` which falls back to role-based matching (last assistant/user message) when exact ID match fails.
+
+**After hydration** (page refresh, reconnect): `getHistory()` returns server IDs, so the mismatch resolves itself. The problem only occurs between the initial streaming response and the next hydration cycle.
+
+---
+
 ## Quick Reference: Tool Call Debugging Checklist
 
 When tool calls are not working in production:

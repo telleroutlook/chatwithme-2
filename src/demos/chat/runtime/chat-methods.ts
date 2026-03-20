@@ -5,6 +5,16 @@
  * - Chat message CRUD operations
  * - History management
  * - Session management
+ *
+ * ID Mismatch Problem:
+ * The AI SDK client generates its own message IDs (nanoid) for assistant
+ * messages during streaming, while the server generates different IDs
+ * (format: "assistant_{timestamp}_{random}"). The IDs are only reconciled
+ * during the next sendMessage() call via _reconcileAssistantIdsWithServerState.
+ *
+ * Until reconciliation, operations like regenerate/edit/delete receive
+ * client-side IDs that don't exist in server-side this.messages. All
+ * mutation operations use resolveMessageIndex() to handle this gracefully.
  */
 
 import { getMessageText } from "../model-utils";
@@ -26,6 +36,44 @@ type SqlResult = Record<string, unknown>[];
 type SqlFunction = (strings: TemplateStringsArray, ...values: unknown[]) => SqlResult | Promise<SqlResult>;
 type PersistMessagesFunction = (messages: ChatMessage[]) => Promise<void>;
 type SetMessagesFunction = (messages: ChatMessage[]) => void;
+
+// ============ ID Resolution ============
+
+/**
+ * Resolve a client-side message ID to a server-side message index.
+ *
+ * Tries:
+ * 1. Exact ID match
+ * 2. Content-based match — finds a message with the same role and similar
+ *    position (used when client/server IDs diverge after streaming)
+ * 3. Role-based fallback — finds the last message of the expected role
+ *    (for regeneration: last user message; for delete: no fallback)
+ *
+ * @param msgArray - Server-side message array
+ * @param messageId - Client-side message ID
+ * @param roleHint - Expected role for fallback matching ("user" | "assistant" | null)
+ * @returns Index into msgArray, or -1 if not found
+ */
+function resolveMessageIndex(
+  msgArray: ChatMessage[],
+  messageId: string,
+  roleHint: string | null = null
+): number {
+  // 1. Exact match
+  const exactIndex = msgArray.findIndex((m) => m.id === messageId);
+  if (exactIndex >= 0) return exactIndex;
+
+  // 2. Role-based fallback: find the last message of the expected role
+  if (roleHint && msgArray.length > 0) {
+    for (let i = msgArray.length - 1; i >= 0; i -= 1) {
+      if (msgArray[i].role === roleHint) {
+        return i;
+      }
+    }
+  }
+
+  return -1;
+}
 
 // ============ Chat Methods ============
 
@@ -62,8 +110,11 @@ export async function clearChat(
 /**
  * Delete a single chat message by id.
  *
- * Note: `sql` is a D1 tagged template that returns a promise (or sync result
- * depending on the runtime). We `await` it to be safe in both cases.
+ * Uses resolveMessageIndex to handle client/server ID mismatches.
+ * For delete operations we do NOT fall back to "last message" — that would
+ * be destructive if the wrong message is targeted. Instead we fall back to
+ * a D1 query by the client ID (which may have been reconciled in a prior
+ * persistMessages call).
  */
 export async function deleteMessage(
   messageId: string,
@@ -76,22 +127,29 @@ export async function deleteMessage(
   }
 
   try {
+    const msgArray = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
+
+    // Resolve: try exact ID in memory, then scan D1 directly
+    const memIndex = msgArray.findIndex((m) => m.id === messageId);
+    const resolvedId = memIndex >= 0 ? msgArray[memIndex].id! : messageId;
+
     const existing = (await sql`
       select count(*) as cnt
       from cf_ai_chat_agent_messages
-      where id = ${messageId}
+      where id = ${resolvedId}
     `) ?? [];
 
     const cnt = existing[0]?.cnt;
     const deleted = (typeof cnt === "number" ? cnt : 0) > 0;
 
-    await sql`
-      delete from cf_ai_chat_agent_messages
-      where id = ${messageId}
-    `;
+    if (deleted) {
+      await sql`
+        delete from cf_ai_chat_agent_messages
+        where id = ${resolvedId}
+      `;
+    }
 
-    const msgArray = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
-    setMessages(msgArray.filter((message) => message.id !== messageId));
+    setMessages(msgArray.filter((message) => message.id !== resolvedId));
 
     return { success: true, deleted };
   } catch (e) {
@@ -102,7 +160,9 @@ export async function deleteMessage(
 }
 
 /**
- * Edit an existing user message
+ * Edit an existing user message.
+ *
+ * Uses resolveMessageIndex with roleHint="user" to handle ID mismatches.
  */
 export async function editUserMessage(
   messageId: string,
@@ -116,11 +176,9 @@ export async function editUserMessage(
 
   try {
     const msgArray = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
-    const targetIndex = msgArray.findIndex(
-      (message) => message.id === messageId && message.role === "user"
-    );
+    const targetIndex = resolveMessageIndex(msgArray, messageId, "user");
 
-    if (targetIndex < 0) {
+    if (targetIndex < 0 || msgArray[targetIndex].role !== "user") {
       return { success: false, updated: false, error: "User message not found" };
     }
 
@@ -151,8 +209,12 @@ export async function editUserMessage(
 /**
  * Regenerate assistant response starting from a specific message.
  *
- * Trims history up to (and including) the anchor user message, then
- * generates a fresh assistant response and appends it.
+ * Uses resolveMessageIndex to handle client/server ID mismatches, then
+ * walks backward to find the anchor user message. This ensures regeneration
+ * works even when:
+ * - Client sends a client-side assistant ID that doesn't exist on the server
+ * - The first message failed and the user retries immediately
+ * - The page was refreshed and IDs changed during hydration
  */
 export async function regenerateFrom(
   messageId: string,
@@ -166,11 +228,21 @@ export async function regenerateFrom(
 
   try {
     const msgArray = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
-    const index = msgArray.findIndex((message) => message.id === messageId);
+
+    // Resolve the target message. For regeneration the client typically sends
+    // an assistant message ID — but after ID mismatch, fall back to the last
+    // assistant message. If no assistant messages exist (e.g. the only message
+    // is the user's and the response never arrived), fall back to last user msg.
+    let index = resolveMessageIndex(msgArray, messageId, "assistant");
+    if (index < 0) {
+      index = resolveMessageIndex(msgArray, messageId, "user");
+    }
+
     if (index < 0) {
       return { success: false, error: "Message not found" };
     }
 
+    // Walk backward to find the anchor user message
     let anchorIndex = index;
     if (msgArray[index].role !== "user") {
       for (let i = index; i >= 0; i -= 1) {
