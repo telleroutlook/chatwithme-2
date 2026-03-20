@@ -7,13 +7,18 @@ declare module "../../../knowledge-base/charts/adc.json" {
   export default value;
 }
 
-declare module "../../../knowledge-base/charts/g2.json" {
-  const value: import("./chart-kb").G2Knowledge;
+declare module "../../../knowledge-base/charts/mermaid.json" {
+  const value: import("./chart-kb").MermaidKnowledge;
   export default value;
 }
 
-declare module "../../../knowledge-base/charts/mermaid.json" {
-  const value: import("./chart-kb").MermaidKnowledge;
+declare module "../../../knowledge-base/charts/echarts.json" {
+  const value: import("./chart-kb").EChartsKnowledge;
+  export default value;
+}
+
+declare module "../../../knowledge-base/charts/vega-lite.json" {
+  const value: import("./chart-kb").VegaLiteKnowledge;
   export default value;
 }
 

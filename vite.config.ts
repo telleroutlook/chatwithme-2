@@ -26,11 +26,17 @@ export default defineConfig({
           if (id.includes("node_modules/mermaid/")) {
             return "vendor-mermaid";
           }
-          if (id.includes("node_modules/@antv/g2/")) {
-            return "vendor-g2";
-          }
           if (id.includes("node_modules/@ant-design/charts/")) {
             return "vendor-adc";
+          }
+          if (id.includes("node_modules/echarts/")) {
+            return "vendor-echarts";
+          }
+          if (id.includes("node_modules/markmap-")) {
+            return "vendor-markmap";
+          }
+          if (id.includes("node_modules/@excalidraw/")) {
+            return "vendor-excalidraw";
           }
 
           // Export utilities - lazy loaded for PDF/image export

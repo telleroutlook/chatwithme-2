@@ -2,6 +2,7 @@ export {
   Skeleton,
   MessageSkeleton,
   ChartSkeleton,
+  ChartTypeSkeleton,
   CodeSkeleton,
   MessageSkeletonList,
 } from "./MessageSkeleton";

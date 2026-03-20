@@ -35,7 +35,6 @@ import {
   getThinkingType,
   getToolMaxAttempts,
   getToolTimeoutMs,
-  getChartPrimary,
   getModelTemperature,
   getMaxToolSteps
 } from "./runtime-config";
@@ -555,8 +554,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       ? `context:mcp-init:${requestTraceId}`
       : "context:mcp-init";
     const { tools, toolList } = await this.buildAiTools(emitProgress, mcpProgressGroupKey);
-    const chartPrimary = getChartPrimary(this.env);
-    const systemPrompt = buildSystemPromptWithKeywords(toolList, chartPrimary, message);
+    const systemPrompt = buildSystemPromptWithKeywords(toolList, message);
     emitProgress?.({
       phase: "context",
       status: "success",

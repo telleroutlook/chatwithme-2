@@ -1,11 +1,16 @@
-import { memo, useMemo, useRef, useCallback, type ReactNode, type FC } from "react";
+import { memo, useMemo, useRef, useCallback, useState, lazy, Suspense, type ReactNode, type FC } from "react";
 import { ChartBar } from "@phosphor-icons/react";
 import type { ParsedAdcSpec, AdcChartType } from "../utils/adcSpecParser";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
 import { useChatSessionContext } from "../features/chat/context/ChatSessionContext";
 import { useThemeDetector } from "../hooks/useThemeDetector";
+import { useInViewport } from "../hooks/useInViewport";
 import { getChartThemeTokens } from "./chartThemeTokens";
 import { getChartVisualPreset } from "./chartVisualPreset";
+import { ChartToolbar } from "./ChartToolbar";
+
+// Lazy-load ChartEditor (only when user clicks Edit)
+const LazyChartEditor = lazy(() => import("./ChartEditor"));
 
 // ============ Static Imports for Tree-shaking ============
 
@@ -303,19 +308,29 @@ export function normalizeConfigForADC2(
     }
   }
 
-  // ============ Interactions ============
+  // ============ Interactions (ADC 2.x G2 interaction array) ============
   if (Array.isArray(config.interactions)) {
     result.interactions = config.interactions;
   }
 
-  // ============ Tooltip ============
+  // ============ Interaction (ADC 2.x shorthand object) ============
+  // Add elementHighlight + tooltip as defaults for all chart types.
+  // User-supplied interaction config takes priority.
+  const defaultInteraction: Record<string, unknown> = {
+    elementHighlight: true,
+    tooltip: true,
+  };
+
   if (config.interaction && typeof config.interaction === "object") {
     const interaction = config.interaction as Record<string, unknown>;
-    if (interaction.tooltip !== false) {
-      result.interaction = { ...interaction, tooltip: true };
-    }
-  } else if (config.tooltip !== false) {
-    result.interaction = { tooltip: true };
+    // Merge: user overrides take priority over defaults
+    result.interaction = { ...defaultInteraction, ...interaction };
+  } else if (config.interaction === false) {
+    // User explicitly disabled all interactions
+    result.interaction = false;
+  } else {
+    // No user interaction config — apply defaults
+    result.interaction = defaultInteraction;
   }
 
   // ============ Style ============
@@ -361,30 +376,38 @@ export function sanitizeAdcConfig(config: Record<string, unknown>): AdcConfigSan
 
 export function AntDesignChartsRenderer({
   spec,
-  animated = false,
 }: AntDesignChartsRendererProps): ReactNode {
   const isDark = useThemeDetector();
   const themeTokens = useMemo(() => getChartThemeTokens(isDark), [isDark]);
   const visualPreset = useMemo(() => getChartVisualPreset(isDark), [isDark]);
   const { currentSessionId } = useChatSessionContext();
-  const ChartComponent = CHART_COMPONENTS[spec.type];
   const trackedReadyRef = useRef(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const { ref: viewportRef, inViewport } = useInViewport({ threshold: 0.1 });
+
+  // Editor state: tracks edited spec overlay (null = use original)
+  const [editedSpec, setEditedSpec] = useState<ParsedAdcSpec | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
+
+  // Use edited spec if available, otherwise fall back to original
+  const activeSpec = editedSpec ?? spec;
+  const ChartComponent = CHART_COMPONENTS[activeSpec.type];
 
   const onReady = useCallback(() => {
     if (trackedReadyRef.current) return;
     trackedReadyRef.current = true;
     trackChatEvent("chart_render_success", {
       engine: "adc",
-      type: spec.type,
+      type: activeSpec.type,
       sessionId: currentSessionId,
     });
-  }, [spec.type, currentSessionId]);
+  }, [activeSpec.type, currentSessionId]);
 
   // Normalize config for ADC 2.x React
   const chartConfig = useMemo(() => {
-    const sanitized = sanitizeAdcConfig(spec.config);
-    return normalizeConfigForADC2(spec.type, sanitized.config, isDark);
-  }, [spec.type, spec.config, isDark]);
+    const sanitized = sanitizeAdcConfig(activeSpec.config);
+    return normalizeConfigForADC2(activeSpec.type, sanitized.config, isDark);
+  }, [activeSpec.type, activeSpec.config, isDark]);
 
   const adcCommonConfig = useMemo(
     () => ({
@@ -410,30 +433,65 @@ export function AntDesignChartsRenderer({
     [isDark, themeTokens, visualPreset]
   );
 
+  // Editor callbacks
+  const handleOpenEditor = useCallback(() => setShowEditor(true), []);
+  const handleCloseEditor = useCallback(() => setShowEditor(false), []);
+  const handleApplyEdit = useCallback(
+    (newSpec: Record<string, unknown>) => {
+      // Extract type from the edited spec, falling back to the current type
+      const newType = (typeof newSpec.type === "string" ? newSpec.type : activeSpec.type) as AdcChartType;
+      const { type: _type, ...config } = newSpec;
+      setEditedSpec({ type: newType, config });
+    },
+    [activeSpec.type]
+  );
+
+  // Build the flat spec object for the editor (type + config merged)
+  const editorSpec = useMemo<Record<string, unknown>>(
+    () => ({ type: activeSpec.type, ...activeSpec.config }),
+    [activeSpec]
+  );
+
   if (!ChartComponent) {
     return (
       <div className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
         <span className="text-xs">
-          <span className="app-text-danger">Unknown chart type: {spec.type}</span>
+          <span className="app-text-danger">Unknown chart type: {activeSpec.type}</span>
         </span>
       </div>
     );
   }
 
   return (
-    <div className="w-full p-4 rounded-xl ring ring-border bg-surface-elevated">
+    <div
+      ref={viewportRef}
+      className="w-full p-4 rounded-xl ring ring-border bg-surface-elevated group relative"
+    >
       <div className="flex items-center gap-2 mb-3">
         <ChartBar size={14} className="text-accent" />
         <span className="text-xs text-foreground-muted font-semibold">
           Ant Design Charts
         </span>
         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
-          {spec.type}
+          {activeSpec.type}
         </span>
       </div>
+      <ChartToolbar
+        containerRef={chartContainerRef}
+        engine="adc"
+        chartType={activeSpec.type}
+        spec={activeSpec}
+        onEdit={handleOpenEditor}
+      />
       <div
-        className={`adc-chart-container ${animated ? "animate-fade-in" : ""}`}
-        style={{ minHeight: 300, width: "100%" }}
+        ref={chartContainerRef}
+        className={`adc-chart-container ${inViewport ? "chart-animate-in" : ""}`}
+        style={{
+          minHeight: 300,
+          width: "100%",
+          opacity: inViewport ? undefined : 0,
+          transform: inViewport ? undefined : "translateY(12px)",
+        }}
         data-chart-theme-axis-label-fill={themeTokens.axisLabelFill}
         data-chart-theme-axis-line-stroke={themeTokens.axisLineStroke}
         data-chart-theme-grid-stroke={themeTokens.axisGridStroke}
@@ -441,9 +499,23 @@ export function AntDesignChartsRenderer({
         <ConfigProvider
           common={adcCommonConfig}
         >
-          <ChartComponent {...chartConfig} onReady={onReady} />
+          <ChartComponent
+            {...chartConfig}
+            animate={inViewport ? true : false}
+            onReady={onReady}
+          />
         </ConfigProvider>
       </div>
+      {showEditor && (
+        <Suspense fallback={null}>
+          <LazyChartEditor
+            spec={editorSpec}
+            engine="adc"
+            onApply={handleApplyEdit}
+            onClose={handleCloseEditor}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

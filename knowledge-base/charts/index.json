@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "fetchedAt": "2026-03-03T01:39:12.805Z",
+  "version": "1.1.0",
+  "fetchedAt": "2026-03-20T00:00:00.000Z",
   "source": "local-fallback",
   "contentHash": "8d757be34aa9fdc3",
   "degradeLevel": 0,
@@ -8,17 +8,17 @@
   "kbDegraded": false,
   "summary": {
     "adc": true,
-    "g2": true,
     "mermaid": true,
+    "echarts": true,
     "mermaidDiagramCount": 19,
     "adcChartCount": 12,
-    "g2ChartCount": 5
+    "echartsChartCount": 11
   },
   "sizeInfo": {
     "total": 0,
     "adc": 0,
-    "g2": 0,
-    "mermaid": 0
+    "mermaid": 0,
+    "echarts": 0
   },
-  "nextRefreshAt": "2026-03-03T00:00:00Z"
+  "nextRefreshAt": "2026-03-20T00:00:00Z"
 }

@@ -3,13 +3,11 @@ import {
   detectChartKeywords,
   filterMermaidKnowledge,
   filterAdcKnowledge,
-  filterG2Knowledge,
   sortMermaidDiagramTypes,
   sortAdcChartTypes,
-  sortG2ChartTypes,
   sortMermaidKnowledgeTypes,
 } from "./chart-knowledge";
-import type { MermaidKnowledge, AdcKnowledge, G2Knowledge, AdcChartRule, G2ChartRule } from "../../types/chart-kb";
+import type { MermaidKnowledge, AdcKnowledge, AdcChartRule } from "../../types/chart-kb";
 
 // ============================================================================
 // detectChartKeywords Tests
@@ -44,20 +42,17 @@ describe("detectChartKeywords", () => {
   it("should detect ADC line chart type", () => {
     const result = detectChartKeywords("create a line chart");
     expect(result.adc).toContain("line");
-    expect(result.g2).toContain("line");
   });
 
   it("should detect ADC bar chart type", () => {
     const result = detectChartKeywords("draw a bar chart for sales data");
     expect(result.adc).toContain("bar");
-    expect(result.g2).toContain("interval");
   });
 
   it("should return empty arrays for no keywords", () => {
     const result = detectChartKeywords("hello world, how are you?");
     expect(result.mermaid).toHaveLength(0);
     expect(result.adc).toHaveLength(0);
-    expect(result.g2).toHaveLength(0);
   });
 
   it("should handle multiple keywords", () => {
@@ -208,46 +203,6 @@ describe("filterAdcKnowledge", () => {
 });
 
 // ============================================================================
-// filterG2Knowledge Tests
-// ============================================================================
-
-describe("filterG2Knowledge", () => {
-  const mockKnowledge: G2Knowledge = {
-    outputContract: ["Rule 1"],
-    chartTypes: [
-      { type: "interval", requiredFields: ["data"], example: "{}", commonErrors: [] },
-      { type: "line", requiredFields: ["data"], example: "{}", commonErrors: [] },
-      { type: "area", requiredFields: ["data"], example: "{}", commonErrors: [] },
-      { type: "point", requiredFields: ["data"], example: "{}", commonErrors: [] },
-    ],
-  };
-
-  it("should return all types when no keywords", () => {
-    const result = filterG2Knowledge(mockKnowledge, []);
-    expect(result).not.toBeNull();
-    expect(result?.chartTypes.length).toBe(4);
-  });
-
-  it("should filter by single keyword", () => {
-    const result = filterG2Knowledge(mockKnowledge, ["line"]);
-    expect(result).not.toBeNull();
-    expect(result?.chartTypes).toHaveLength(1);
-    expect(result?.chartTypes[0].type).toBe("line");
-  });
-
-  it("should fallback to full set when no matches", () => {
-    const result = filterG2Knowledge(mockKnowledge, ["nonexistent"]);
-    expect(result).not.toBeNull();
-    expect(result?.chartTypes.length).toBe(4);
-  });
-
-  it("should return null for null input", () => {
-    const result = filterG2Knowledge(null, []);
-    expect(result).toBeNull();
-  });
-});
-
-// ============================================================================
 // sortMermaidDiagramTypes Tests
 // ============================================================================
 
@@ -309,25 +264,6 @@ describe("sortAdcChartTypes", () => {
     const original = [...charts];
     sortAdcChartTypes(charts);
     expect(charts).toEqual(original);
-  });
-});
-
-// ============================================================================
-// sortG2ChartTypes Tests
-// ============================================================================
-
-describe("sortG2ChartTypes", () => {
-  const charts: G2ChartRule[] = [
-    { type: "point", requiredFields: [], example: "", commonErrors: [] },
-    { type: "area", requiredFields: [], example: "", commonErrors: [] },
-    { type: "interval", requiredFields: [], example: "", commonErrors: [] },
-  ];
-
-  it("should sort alphabetically by type", () => {
-    const result = sortG2ChartTypes(charts);
-    expect(result[0].type).toBe("area");
-    expect(result[1].type).toBe("interval");
-    expect(result[2].type).toBe("point");
   });
 });
 

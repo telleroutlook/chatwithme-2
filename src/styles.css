@@ -298,6 +298,65 @@ pre {
   }
 }
 
+/* ---- Chart entrance animations ---- */
+
+@keyframes chart-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mermaid-node-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes mermaid-edge-draw {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.chart-animate-in {
+  animation: chart-fade-in 0.4s ease-out forwards;
+}
+
+.mermaid-container.animate-nodes .node,
+.mermaid-container.animate-nodes .default > rect,
+.mermaid-container.animate-nodes .default > polygon,
+.mermaid-container.animate-nodes .default > circle,
+.mermaid-container.animate-nodes .label {
+  animation: mermaid-node-enter 0.3s ease-out both;
+}
+
+.mermaid-container.animate-nodes .node:nth-child(2) { animation-delay: 0.05s; }
+.mermaid-container.animate-nodes .node:nth-child(3) { animation-delay: 0.10s; }
+.mermaid-container.animate-nodes .node:nth-child(4) { animation-delay: 0.15s; }
+.mermaid-container.animate-nodes .node:nth-child(5) { animation-delay: 0.20s; }
+.mermaid-container.animate-nodes .node:nth-child(6) { animation-delay: 0.25s; }
+.mermaid-container.animate-nodes .node:nth-child(n+7) { animation-delay: 0.30s; }
+
+.mermaid-container.animate-edges .edgePath path,
+.mermaid-container.animate-edges .flowchart-link,
+.mermaid-container.animate-edges path.path {
+  stroke-dasharray: 1000;
+  animation: mermaid-edge-draw 0.8s ease-out 0.2s both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -426,7 +485,6 @@ pre {
 }
 
 .mermaid-container,
-.g2-chart-container,
 .adc-chart-container {
   border-radius: 12px;
   background: var(--color-surface-elevated);
@@ -435,8 +493,6 @@ pre {
   transition: background-color 180ms ease;
 }
 
-.g2-chart-container canvas,
-.g2-chart-container svg,
 .adc-chart-container canvas,
 .adc-chart-container svg {
   margin-inline: auto;

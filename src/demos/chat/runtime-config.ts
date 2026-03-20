@@ -60,13 +60,3 @@ export function getMaxToolSteps(env: Env): number {
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 1 && parsed <= 10 ? parsed : 4;
 }
-
-export type ChartPrimaryType = "adc" | "g2";
-
-export function getChartPrimary(env: Env): ChartPrimaryType {
-  const raw = env.CHAT_CHART_PRIMARY?.toLowerCase();
-  if (raw === "adc" || raw === "g2") {
-    return raw;
-  }
-  return "adc"; // Default to ADC
-}

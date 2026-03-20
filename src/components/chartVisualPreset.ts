@@ -58,12 +58,44 @@ interface G2ThemePreset {
   exit: { duration: number };
 }
 
+export interface EChartsThemePreset {
+  /** Color palette for series — matches ADC's categorical palette for visual consistency */
+  color: string[];
+  /** Background color (transparent to inherit container) */
+  backgroundColor: string;
+  /** Text style defaults */
+  textStyle: {
+    fontFamily: string;
+    color: string;
+  };
+  /** Title style */
+  title: {
+    textStyle: { color: string; fontSize: number };
+    subtextStyle: { color: string; fontSize: number };
+  };
+  /** Tooltip style */
+  tooltip: {
+    backgroundColor: string;
+    borderColor: string;
+    textStyle: { color: string };
+  };
+  /** Legend style */
+  legend: {
+    textStyle: { color: string };
+  };
+  /** VisualMap text style */
+  visualMap: {
+    textStyle: { color: string };
+  };
+}
+
 export interface ChartVisualPreset {
   fontFamily: string;
   category10: string[];
   category20: string[];
   g2Theme: G2ThemePreset;
   mermaidThemeVariables: MermaidThemeVariables;
+  echartsTheme: EChartsThemePreset;
 }
 
 function buildCategory20(category10: string[]): string[] {
@@ -138,6 +170,29 @@ export function getChartVisualPreset(isDark: boolean): ChartVisualPreset {
       pieSectionTextColor: "#ffffff",
       pieLegendTextSize: "12px",
       pieLegendTextColor: isDark ? "#d1d5db" : "#374151",
+    },
+    echartsTheme: {
+      color: category10,
+      backgroundColor: "transparent",
+      textStyle: {
+        fontFamily: '"IBM Plex Sans", "Noto Sans SC", "Segoe UI", sans-serif',
+        color: tokens.axisLabelFill,
+      },
+      title: {
+        textStyle: { color: tokens.titleFill, fontSize: 16 },
+        subtextStyle: { color: tokens.axisLabelFill, fontSize: 12 },
+      },
+      tooltip: {
+        backgroundColor: tokens.tooltipBackground,
+        borderColor: tokens.axisGridStroke,
+        textStyle: { color: tokens.tooltipTextFill },
+      },
+      legend: {
+        textStyle: { color: tokens.legendItemFill },
+      },
+      visualMap: {
+        textStyle: { color: tokens.axisLabelFill },
+      },
     },
   };
 }
