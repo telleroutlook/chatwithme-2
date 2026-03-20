@@ -387,8 +387,17 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       return;
     }
 
+    // Skip if all active servers are already connected
+    const activeServers = MCP_SERVERS.filter((config) => config.active);
+    const allConnected = activeServers.every((config) => {
+      const entry = this.state.mcp.preconfiguredServers[config.name];
+      return entry?.connected && entry.serverId;
+    });
+    if (allConnected && activeServers.length > 0) {
+      return;
+    }
+
     const initPromise = (async () => {
-      const activeServers = MCP_SERVERS.filter((config) => config.active);
       await Promise.all(activeServers.map(async (config) => {
         emitProgress?.({
           phase: "context",
@@ -461,12 +470,11 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
           });
         }, 3000);
 
+        // Clear heartbeat immediately if the request is aborted
+        const abortCleanup = () => clearInterval(heartbeat);
+        options?.abortSignal?.addEventListener("abort", abortCleanup, { once: true });
+
         writer.write({ type: "text-start", id: textId });
-        writer.write({
-          type: "text-delta",
-          id: textId,
-          delta: "\u200b"
-        });
         try {
           const finalResponse = await this.generateAssistantResponse(
             latestUserText,
@@ -509,6 +517,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
           writer.write({ type: "text-end", id: textId });
         } finally {
           clearInterval(heartbeat);
+          options?.abortSignal?.removeEventListener("abort", abortCleanup);
         }
       }
     });
@@ -607,7 +616,21 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
       let fallbackAddendum: string;
       if (hasToolResults) {
-        fallbackAddendum = "\n\nTool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls.";
+        // Extract a summary of tool results to include in the fallback prompt
+        const toolSummaries: string[] = [];
+        for (const m of messages) {
+          if (m.role === "tool" && Array.isArray(m.content)) {
+            for (const part of m.content) {
+              if (typeof part === "object" && part !== null && "text" in part && typeof part.text === "string") {
+                toolSummaries.push(part.text.slice(0, 500));
+              }
+            }
+          }
+        }
+        const toolSummaryText = toolSummaries.length > 0
+          ? `\n\nHere is a summary of the tool results:\n${toolSummaries.slice(0, 3).join("\n---\n").slice(0, 2000)}`
+          : "";
+        fallbackAddendum = `\n\nTool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls.${toolSummaryText}`;
       } else if (contextPossiblyTooLong) {
         fallbackAddendum = "\n\nThe conversation history is very long. Focus only on the user's most recent question and produce a concise answer.";
       } else {

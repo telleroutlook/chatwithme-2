@@ -83,6 +83,16 @@ export interface DetectedKeywords {
 }
 
 /**
+ * Check if a keyword matches the user message with word-boundary awareness.
+ * Uses \b word boundaries for ASCII keywords to avoid false positives
+ * (e.g., "line" matching "deadline", "bar" matching "barrier").
+ */
+function keywordMatches(lower: string, keyword: string): boolean {
+  const re = new RegExp(`\\b${keyword}\\b`, "i");
+  return re.test(lower);
+}
+
+/**
  * Detect chart-related keywords from user message
  */
 export function detectChartKeywords(userMessage: string): DetectedKeywords {
@@ -90,19 +100,19 @@ export function detectChartKeywords(userMessage: string): DetectedKeywords {
   const result: DetectedKeywords = { mermaid: [], adc: [], g2: [] };
 
   for (const [keyword, types] of Object.entries(MERMAID_KEYWORD_MAP)) {
-    if (lower.includes(keyword)) {
+    if (keywordMatches(lower, keyword)) {
       result.mermaid.push(...types);
     }
   }
 
   for (const [keyword, types] of Object.entries(ADC_KEYWORD_MAP)) {
-    if (lower.includes(keyword)) {
+    if (keywordMatches(lower, keyword)) {
       result.adc.push(...types);
     }
   }
 
   for (const [keyword, types] of Object.entries(G2_KEYWORD_MAP)) {
-    if (lower.includes(keyword)) {
+    if (keywordMatches(lower, keyword)) {
       result.g2.push(...types);
     }
   }

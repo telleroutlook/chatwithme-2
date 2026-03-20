@@ -76,6 +76,12 @@ ${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No too
 
 You can call the tools directly when external information is required.
 
+### When to Use Tools
+- **Web search**: Use when the user asks about current events, recent news, real-time data, or anything that may have changed after your training cutoff. Also use when you are uncertain about a factual claim — search to verify before answering.
+- **Web reader**: Use when you need to read a specific URL the user provided or that appeared in search results.
+- Do NOT use tools for well-established facts, math, coding help, or creative writing where your knowledge is sufficient.
+- When tool results are returned, synthesize them into a direct answer — do not simply repeat raw tool output.
+
 ## Response Language
 - Respond in the same language as the user's latest message.
 - Keep technical terms, APIs, and code identifiers in English when needed for accuracy.
@@ -124,6 +130,12 @@ You are a helpful AI assistant with the following capabilities:
 ${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No tools available."}
 
 You can call the tools directly when external information is required.
+
+### When to Use Tools
+- **Web search**: Use when the user asks about current events, recent news, real-time data, or anything that may have changed after your training cutoff. Also use when you are uncertain about a factual claim — search to verify before answering.
+- **Web reader**: Use when you need to read a specific URL the user provided or that appeared in search results.
+- Do NOT use tools for well-established facts, math, coding help, or creative writing where your knowledge is sufficient.
+- When tool results are returned, synthesize them into a direct answer — do not simply repeat raw tool output.
 
 ## Response Language
 - Respond in the same language as the user's latest message.

@@ -18,7 +18,7 @@ export interface McpServerContext {
   state: ChatAgentState;
   runtimeEnv: Env;
   mcp: {
-    listTools: () => Array<{ name: string; description?: string; serverId: string }>;
+    listTools: () => Array<{ name: string; description?: string; serverId: string; inputSchema?: Record<string, unknown> }>;
   } | null;
   addMcpServer: (name: string, url: string, options?: {
     callbackHost?: string;

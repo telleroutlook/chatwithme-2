@@ -8,8 +8,7 @@
  * - Tool run record management
  */
 
-import { z } from "zod";
-import { tool, type ToolSet } from "ai";
+import type { ToolSet } from "ai";
 import { classifyRetryableError } from "../retry-policy";
 import { buildApprovalSignature, requiresApprovalPolicy } from "../approval-policy";
 import { normalizeToolArguments as normalizeArgs } from "../model-utils";
@@ -37,7 +36,8 @@ export interface ToolExecutionContext {
   setState: (state: ChatAgentState) => void;
   mcp: {
     callTool: (params: { name: string; serverId: string; arguments: Record<string, unknown> }) => Promise<unknown>;
-    listTools: () => Array<{ name: string; description?: string; serverId: string }>;
+    listTools: () => Array<{ name: string; description?: string; serverId: string; inputSchema?: Record<string, unknown> }>;
+    getAITools: () => ToolSet;
   } | null;
   retry: <T>(fn: (attempt: number) => Promise<T>, options: { maxAttempts: number; shouldRetry: (error: unknown) => boolean }) => Promise<T>;
   getToolTimeoutMs: () => number;
@@ -156,7 +156,11 @@ export async function callMcpToolWithRetry(
 // ============ Tool List Builder ============
 
 /**
- * Build AI tools from MCP server tools
+ * Build AI tools from MCP server tools.
+ *
+ * Uses `mcp.getAITools()` to get tools with real input schemas from the MCP
+ * server, so the model knows exact parameter names and types. Each tool's
+ * execute function is then wrapped with our approval/retry/state-tracking logic.
  */
 export async function buildAiTools(
   mcp: ToolExecutionContext["mcp"],
@@ -170,43 +174,48 @@ export async function buildAiTools(
     return { tools: {}, toolList: [] };
   }
 
+  // Get tools with real inputSchema from the agents framework
+  const aiTools = mcp.getAITools();
   const availableTools = mcp.listTools();
-  const shortNameCounts = new Map<string, number>();
 
-  for (const item of availableTools) {
-    const shortName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
-    shortNameCounts.set(shortName, (shortNameCounts.get(shortName) || 0) + 1);
-  }
+  // Build toolList for system prompt from listTools (has human-readable names)
+  const toolList: string[] = availableTools.map(
+    (item) => `${item.name}: ${item.description || "No description"}`
+  );
 
-  const tools: ToolSet = {};
-  const toolList: string[] = [];
-
+  // Build a lookup: namespacedKey -> { rawName, serverId } from listTools
+  const toolMeta = new Map<string, { rawName: string; serverId: string }>();
   for (const item of availableTools) {
     const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
     const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
-    const shortName = rawName;
-
-    const aliases = shortNameCounts.get(shortName) === 1 ? [shortName, item.name] : [item.name];
-
-    for (const alias of aliases) {
-      if (tools[alias]) continue;
-
-      const toolDef = tool({
-        description: item.description || `MCP tool ${rawName}`,
-        inputSchema: z.object({}).passthrough(),
-        execute: async (args: Record<string, unknown>) => {
-          return executeToolCallInternal(rawName, serverId, alias, args, {
-            ...context,
-            mcp
-          }, emitProgress);
-        }
-      });
-      tools[alias] = toolDef;
-    }
-    toolList.push(`${item.name}: ${item.description || "No description"}`);
+    // getAITools uses key format: tool_{serverId}_${name}
+    const aiToolKey = `tool_${serverId.replace(/-/g, "")}_${rawName}`;
+    toolMeta.set(aiToolKey, { rawName, serverId });
   }
 
-  return { tools, toolList };
+  // Wrap each AI tool's execute with our approval/retry/state-tracking logic
+  const wrappedTools: ToolSet = {};
+  for (const [key, aiTool] of Object.entries(aiTools)) {
+    const meta = toolMeta.get(key);
+    if (!meta) {
+      // Keep the tool as-is if we can't resolve metadata (shouldn't happen)
+      wrappedTools[key] = aiTool;
+      continue;
+    }
+
+    wrappedTools[key] = {
+      ...aiTool,
+      execute: async (args: Record<string, unknown>) => {
+        return executeToolCallInternal(
+          meta.rawName, meta.serverId, key, args,
+          { ...context, mcp },
+          emitProgress
+        );
+      }
+    };
+  }
+
+  return { tools: wrappedTools, toolList };
 }
 
 /**
