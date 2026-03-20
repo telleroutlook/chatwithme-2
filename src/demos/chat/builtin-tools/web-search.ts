@@ -55,7 +55,7 @@ export async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
   }
 
   const html = await resp.text();
-  return parseDdgHtml(html);
+  return deduplicateResults(parseDdgHtml(html));
 }
 
 /**
@@ -159,11 +159,23 @@ function stripHtml(html: string): string {
     .replace(/\s+/g, " ");
 }
 
+// ============ Deduplication ============
+
+/** Remove duplicate search results by URL */
+function deduplicateResults(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  return results.filter((r) => {
+    if (seen.has(r.url)) return false;
+    seen.add(r.url);
+    return true;
+  });
+}
+
 // ============ Format Results ============
 
 function formatResults(query: string, results: SearchResult[]): string {
   if (results.length === 0) {
-    return `No search results found for: "${query}"`;
+    return `No search results found for: "${query}". This may be due to rate limiting. Try rephrasing the query with different keywords, or use a more specific/broader search term.`;
   }
 
   const lines = results.map(

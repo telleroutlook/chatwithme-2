@@ -31,9 +31,11 @@ export function buildSystemPromptWithKeywords(
   // Detect keywords from user message
   const keywords = detectChartKeywords(userMessage);
 
-  // Check if the query is chart-related at all using word-boundary matching
+  // Check if the query is chart-related at all using word-boundary matching.
+  // Use multi-word phrases or context-sensitive patterns to reduce false positives
+  // (e.g., "bar" alone could mean a drinking bar, "plot" could mean a story plot).
   const isChartRelated =
-    /\b(chart|graph|diagram|visualiz|plot|flowchart|sequence|gantt|timeline|mindmap|pie|bar\s*chart|line\s*chart|area\s*chart|scatter|radar|gauge|heatmap|funnel|histogram|mermaid|adc|g2)\b|图表|流程|架构|图形|饼图|柱状|折线|散点|雷达|仪表|热力|漏斗|甘特|思维导图/i.test(userMessage);
+    /\b(chart|graph|diagram|visualiz|flowchart|sequence\s*diagram|gantt|timeline|mindmap|pie\s*chart|bar\s*chart|line\s*chart|area\s*chart|scatter\s*(?:plot|chart)|radar\s*chart|gauge\s*chart|heatmap|funnel|histogram|mermaid|adc\s*chart|g2\s*chart)\b|(?:画|生成|创建|展示|绘制).{0,4}(?:图|chart)|图表|流程图|架构图|饼图|柱状图|折线图|散点图|雷达图|仪表盘|热力图|漏斗图|甘特图|思维导图|数据可视化/i.test(userMessage);
 
   if (!isChartRelated) {
     return buildMinimalPrompt(toolList);
@@ -86,6 +88,13 @@ You can call the tools directly when external information is required.
 - **Web reader (MCP)**: Only use the MCP web reader tools if the built-in reader returns no results or fails.
 - Do NOT use tools for well-established facts, math, coding help, or creative writing where your knowledge is sufficient.
 - When tool results are returned, synthesize them into a direct answer — do not simply repeat raw tool output.
+
+### Multi-step Research Strategy
+When the user asks a complex factual question:
+1. **Search first**: Use builtin_web_search to find relevant sources.
+2. **Read the best result**: If the search snippets are insufficient, use builtin_web_reader on the most relevant URL to get full content.
+3. **Synthesize**: Combine information from multiple sources into a clear, cited answer.
+4. **Handle empty results**: If search returns no results, try rephrasing the query with different keywords or a broader/narrower scope. If that also fails, clearly state that you could not find up-to-date information and provide your best answer from existing knowledge.
 
 ## Response Language
 - Respond in the same language as the user's latest message.
@@ -147,6 +156,13 @@ You can call the tools directly when external information is required.
 - **Web reader (MCP)**: Only use the MCP web reader tools if the built-in reader returns no results or fails.
 - Do NOT use tools for well-established facts, math, coding help, or creative writing where your knowledge is sufficient.
 - When tool results are returned, synthesize them into a direct answer — do not simply repeat raw tool output.
+
+### Multi-step Research Strategy
+When the user asks a complex factual question:
+1. **Search first**: Use builtin_web_search to find relevant sources.
+2. **Read the best result**: If the search snippets are insufficient, use builtin_web_reader on the most relevant URL to get full content.
+3. **Synthesize**: Combine information from multiple sources into a clear, cited answer.
+4. **Handle empty results**: If search returns no results, try rephrasing the query with different keywords or a broader/narrower scope. If that also fails, clearly state that you could not find up-to-date information and provide your best answer from existing knowledge.
 
 ## Response Language
 - Respond in the same language as the user's latest message.

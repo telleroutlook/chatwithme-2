@@ -40,6 +40,7 @@ export interface ToolExecutionContext {
     callTool: (params: { name: string; serverId: string; arguments: Record<string, unknown> }) => Promise<unknown>;
     listTools: () => Array<{ name: string; description?: string; serverId: string; inputSchema?: Record<string, unknown> }>;
     getAITools: () => ToolSet;
+    ensureJsonSchema: () => Promise<void>;
   } | null;
   retry: <T>(fn: (attempt: number) => Promise<T>, options: { maxAttempts: number; shouldRetry: (error: unknown) => boolean }) => Promise<T>;
   getToolTimeoutMs: () => number;
@@ -280,6 +281,11 @@ export async function buildAiTools(
 
   // 2. Add MCP tools if available (web-search-prime serves as fallback)
   if (mcp) {
+    // Ensure jsonSchema is loaded before calling getAITools() — required when
+    // entering via @callable methods (e.g. chat()) which skip AIChatAgent's
+    // built-in onChatMessage path that normally initializes jsonSchema.
+    await mcp.ensureJsonSchema();
+
     const aiTools = mcp.getAITools();
     const availableTools = mcp.listTools();
 

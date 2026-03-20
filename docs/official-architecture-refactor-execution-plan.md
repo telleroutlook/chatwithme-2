@@ -592,3 +592,43 @@
 - Production deployment completed:
   - URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
   - Version ID: `813a6048-42f7-4721-8b06-1fd654f77735`
+
+### 2026-03-20 Code review, bug fixes, agent intelligence improvements
+
+#### Key Bug Fix: `jsonSchema not initialized` (critical, pre-existing)
+
+**Root Cause**: When the agent is invoked via `@callable` methods (e.g., `chat()` through `/api/chat` REST endpoint), the code path bypasses `AIChatAgent`'s built-in `onChatMessage()` handler. The `onChatMessage()` handler internally calls `this.mcp.ensureJsonSchema()` before accessing MCP tools. However, the `@callable chat()` → `generateAssistantResponse()` → `buildAiTools()` path never called `ensureJsonSchema()`, so when `mcp.getAITools()` was invoked, the lazy-loaded `jsonSchema` function from `ai` SDK was still `undefined`, causing the error.
+
+**Fix**: Added `await mcp.ensureJsonSchema()` in `tool-runtime.ts` `buildAiTools()` before calling `mcp.getAITools()`. Updated the `ToolExecutionContext.mcp` type to include `ensureJsonSchema: () => Promise<void>`.
+
+**Developer Note**: Any new code path that calls `this.mcp.getAITools()` or `this.mcp.listTools()` MUST first call `await this.mcp.ensureJsonSchema()`. The `@cloudflare/ai-chat` framework only auto-initializes `jsonSchema` in its own `onChatMessage()` flow (WebSocket path). REST/callable entry points must do it manually.
+
+#### Additional Bug Fix: `@hono/zod-validator` compatibility
+
+- `@hono/zod-validator@0.7.6` is incompatible with `zod@3.25.x` (bridge version between v3 and v4). The validator's Standard Schema integration expects APIs that zod 3.25 removed.
+- Downgraded to `@hono/zod-validator@0.4.3` which only requires `zod ^3.19.1` and does not depend on Standard Schema.
+
+#### Code Quality Fixes
+
+1. **Duplicate condition removed** (`model-utils.ts`): `name === "builtinwebsearch"` appeared twice in `resolveToolKind()`.
+2. **D1 batch optimization** (`chat-sync.ts`): `bindSessionsToUser()` changed from N sequential `INSERT` queries to a single `db.batch()` call.
+3. **Message search optimization** (`chat-agent.ts`): Replaced `[...this.messages].reverse().find()` (O(n) copy + reverse) with a simple backward for-loop.
+4. **Chart detection false positives reduced** (`system-prompt.ts`): Tightened `isChartRelated` regex — standalone words like `bar`, `plot`, `pie` no longer trigger chart mode; requires compound forms like `bar chart`, `pie chart`.
+5. **DDG search deduplication** (`web-search.ts`): Added URL-based deduplication for DuckDuckGo results.
+
+#### Agent Intelligence Improvements
+
+1. **Multi-step research strategy** added to system prompt (both minimal and full variants): teaches the model to search → read best URL → synthesize, and to rephrase queries when search returns empty.
+2. **Empty search guidance** (`web-search.ts`): "No results" message now includes guidance to rephrase the query instead of bare failure text.
+3. **Smarter fallback retry** (`chat-agent.ts`): When primary model returns empty text, the fallback addendum now includes the user's original question and uses `IMPORTANT:` prefix for stronger model compliance. Removed unreliable `contextEstimate` heuristic.
+
+#### Production Deployment & Testing
+
+- Version ID: `d17aaa66-6184-4826-97af-13a1da8dcfe4`
+- Tests: 295/295 unit tests pass, E2E smoke test pass
+- Production validation:
+  - Health endpoint: OK
+  - Chat API (basic math): OK — `1+1=2` response correct
+  - Chat API (date awareness): OK — responds with correct system date
+  - Chat history persistence: OK — messages persisted and retrievable
+  - E2E smoke test (`test:e2e`): PASS

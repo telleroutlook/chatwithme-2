@@ -46,19 +46,16 @@ async function bindSessionsToUser(
   userId: string,
   sessionIds: string[]
 ): Promise<void> {
+  if (sessionIds.length === 0) return;
   const now = new Date().toISOString();
 
-  // Use batch insert with ON CONFLICT handling
-  for (const sessionId of sessionIds) {
-    await db
-      .prepare(
-        `INSERT INTO user_session_bindings (user_id, session_id, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(user_id, session_id) DO UPDATE SET updated_at = excluded.updated_at`
-      )
-      .bind(userId, sessionId, now)
-      .run();
-  }
+  // Batch insert — single round-trip instead of N sequential queries
+  const stmt = db.prepare(
+    `INSERT INTO user_session_bindings (user_id, session_id, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(user_id, session_id) DO UPDATE SET updated_at = excluded.updated_at`
+  );
+  await db.batch(sessionIds.map((sessionId) => stmt.bind(userId, sessionId, now)));
 }
 
 /**

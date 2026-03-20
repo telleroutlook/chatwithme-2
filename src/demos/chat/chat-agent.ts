@@ -432,7 +432,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   // ============ Chat Methods ============
 
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
-    const latestUserMessage = [...this.messages].reverse().find((msg) => msg.role === "user");
+    const msgs = Array.isArray(this.messages) ? this.messages : [];
+    let latestUserMessage: (typeof msgs)[number] | undefined;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === "user") {
+        latestUserMessage = msgs[i];
+        break;
+      }
+    }
     const latestUserText = latestUserMessage ? getMessageText(latestUserMessage.parts) : "";
 
     if (!latestUserText.trim()) {
@@ -610,8 +617,6 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         (m.role === "assistant" && Array.isArray(m.content) &&
          m.content.some(c => typeof c === "object" && c !== null && "type" in c && c.type === "tool-call"))
       );
-      const contextEstimate = JSON.stringify(messages).length / 4;
-      const contextPossiblyTooLong = contextEstimate > 50000;
 
       let fallbackAddendum: string;
       if (hasToolResults) {
@@ -629,11 +634,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         const toolSummaryText = toolSummaries.length > 0
           ? `\n\nHere is a summary of the tool results:\n${toolSummaries.slice(0, 3).join("\n---\n").slice(0, 2000)}`
           : "";
-        fallbackAddendum = `\n\nTool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls.${toolSummaryText}`;
-      } else if (contextPossiblyTooLong) {
-        fallbackAddendum = "\n\nThe conversation history is very long. Focus only on the user's most recent question and produce a concise answer.";
+        fallbackAddendum = `\n\nIMPORTANT: Tool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls. The user asked: "${message.slice(0, 500)}"${toolSummaryText}`;
       } else {
-        fallbackAddendum = "\n\nYour previous attempt produced no output. Please respond directly to the user's question with a complete answer. If you are uncertain, say so rather than remaining silent.";
+        fallbackAddendum = `\n\nIMPORTANT: Your previous attempt produced no output. Please respond directly to the user's question with a complete answer. If you are uncertain, say so rather than remaining silent. The user asked: "${message.slice(0, 500)}"`;
       }
 
       emitProgress?.({
@@ -645,7 +648,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         level: "info",
         source: "chat",
         type: "generate_empty_retry",
-        message: `Primary model response was empty; fallback retry started (hasToolResults=${hasToolResults}, longContext=${contextPossiblyTooLong}).`
+        message: `Primary model response was empty; fallback retry started (hasToolResults=${hasToolResults}).`
       });
 
       // Use more aggressive message pruning for fallback

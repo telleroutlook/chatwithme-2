@@ -36,8 +36,7 @@ export function resolveToolKind(toolName: string, context?: ToolContext): ToolKi
     names.some(
       (name) =>
         name === "builtinwebsearch" ||
-        name.includes("builtin_web_search") ||
-        name === "builtinwebsearch"
+        name.includes("builtin_web_search")
     )
   ) {
     return "webSearch";
