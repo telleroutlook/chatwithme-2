@@ -9,6 +9,8 @@ export interface PdfExportOptions {
   fontSize?: number;
   margin?: number;
   filename?: string;
+  /** CSS filter to apply on the cloned element (e.g. dark→light inversion). */
+  filter?: string;
 }
 
 export interface PlainTextPdfOptions extends PdfExportOptions {
@@ -45,14 +47,17 @@ function applyExportSafeStyles(clonedDoc: Document): void {
   clonedDoc.head.appendChild(style);
 }
 
-function getHtml2CanvasOptions() {
+function getHtml2CanvasOptions(cssFilter?: string) {
   return {
     scale: 2,
     useCORS: true,
     logging: false,
     backgroundColor: "#fff",
-    onclone: (clonedDoc: Document) => {
+    onclone: (clonedDoc: Document, clonedEl: HTMLElement) => {
       applyExportSafeStyles(clonedDoc);
+      if (cssFilter) {
+        clonedEl.style.filter = cssFilter;
+      }
     }
   };
 }
@@ -70,6 +75,7 @@ export async function exportToPdf(
     fontSize = 12,
     margin = 10,
     filename = "export.pdf",
+    filter: cssFilter,
   } = options;
 
   // Dynamic imports
@@ -79,7 +85,7 @@ export async function exportToPdf(
   ]);
 
   // Render element to canvas
-  const canvas = await html2canvas(element, getHtml2CanvasOptions());
+  const canvas = await html2canvas(element, getHtml2CanvasOptions(cssFilter));
 
   // Calculate dimensions
   const imgWidth = canvas.width;

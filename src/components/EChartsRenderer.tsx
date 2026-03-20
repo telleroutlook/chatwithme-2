@@ -301,6 +301,7 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
       <ChartToolbar
         containerRef={containerRef}
         engine="echarts"
+        isDark={isDark}
         chartType={chartType}
         spec={activeSpec}
         onEdit={handleOpenEditor}

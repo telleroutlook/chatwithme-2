@@ -240,6 +240,7 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
       <ChartToolbar
         containerRef={containerRef}
         engine="vega-lite"
+        isDark={isDark}
         chartType={chartType}
         spec={spec}
       />

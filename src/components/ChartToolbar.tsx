@@ -24,6 +24,8 @@ export interface ChartToolbarProps {
   containerRef: RefObject<HTMLElement | null>;
   /** Which rendering engine produced the chart — controls SVG/JSON strategies. */
   engine: ChartEngine;
+  /** Whether the chart is currently rendered in dark mode. */
+  isDark?: boolean;
   /** Optional chart sub-type label used in filenames (e.g. "pie", "flowchart"). */
   chartType?: string;
   /** For JSON export: the raw spec/data object to serialize. */
@@ -37,7 +39,7 @@ export interface ChartToolbarProps {
 // ---------------------------------------------------------------------------
 
 /** Engines that render to <canvas> instead of <svg>. */
-const CANVAS_ENGINES: ReadonlySet<ChartEngine> = new Set(["adc", "echarts"]);
+const CANVAS_ENGINES: ReadonlySet<ChartEngine> = new Set(["adc"]);
 
 function makeFilename(engine: ChartEngine, chartType: string | undefined, ext: string): string {
   const type = chartType ?? engine;
@@ -47,18 +49,25 @@ function makeFilename(engine: ChartEngine, chartType: string | undefined, ext: s
 
 /**
  * Build a composited PNG data-URL from a canvas-based chart container.
- * Draws a white background + optional title header + the chart canvas pixels
- * onto an offscreen canvas, returning the data URL.
+ * Draws a white background + the chart canvas pixels onto an offscreen canvas.
+ *
+ * When `invertDark` is true (dark-mode export), applies CSS filter
+ * `invert(1) hue-rotate(180deg)` so the image looks natural on a white
+ * background — dark bg becomes white, light text becomes dark, and data
+ * colors stay approximately the same hue.
  */
-function compositeCanvasPng(container: HTMLElement, bgColor = "#ffffff"): string | null {
+function compositeCanvasPng(
+  container: HTMLElement,
+  invertDark = false,
+  bgColor = "#ffffff",
+): string | null {
   const chartCanvas = container.querySelector("canvas");
   if (!chartCanvas || chartCanvas.width === 0) return null;
 
   const padding = 24;
-  const headerHeight = 0; // title is outside containerRef, so not captured here
 
   const outWidth = chartCanvas.width + padding * 2;
-  const outHeight = chartCanvas.height + padding * 2 + headerHeight;
+  const outHeight = chartCanvas.height + padding * 2;
 
   const offscreen = document.createElement("canvas");
   offscreen.width = outWidth;
@@ -70,8 +79,16 @@ function compositeCanvasPng(container: HTMLElement, bgColor = "#ffffff"): string
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, outWidth, outHeight);
 
+  if (invertDark) {
+    // Invert brightness while preserving hue (dark→light conversion)
+    ctx.filter = "invert(1) hue-rotate(180deg)";
+  }
+
   // Draw chart canvas
-  ctx.drawImage(chartCanvas, padding, padding + headerHeight);
+  ctx.drawImage(chartCanvas, padding, padding);
+
+  // Reset filter for any subsequent draws
+  ctx.filter = "none";
 
   return offscreen.toDataURL("image/png");
 }
@@ -83,6 +100,7 @@ function compositeCanvasPng(container: HTMLElement, bgColor = "#ffffff"): string
 export function ChartToolbar({
   containerRef,
   engine,
+  isDark = false,
   chartType,
   spec,
   onEdit,
@@ -99,16 +117,19 @@ export function ChartToolbar({
     try {
       if (isCanvasEngine) {
         // Read pixels directly from the chart <canvas>
-        const dataUrl = compositeCanvasPng(el);
+        // In dark mode, invert colors so the export is readable on white background
+        const dataUrl = compositeCanvasPng(el, isDark);
         if (dataUrl) {
           downloadFile(dataUrl, makeFilename(engine, chartType, "png"));
         }
       } else {
-        // SVG-based engines (Mermaid, Vega-Lite): html-to-image works fine
+        // SVG-based engines (Mermaid, Vega-Lite, ECharts): html-to-image works fine
+        // In dark mode, apply invert filter on the cloned node for light-background export
         await exportToPng(el, {
           pixelRatio: 2,
           backgroundColor: "#ffffff",
           filename: makeFilename(engine, chartType, "png"),
+          ...(isDark ? { filter: "invert(1) hue-rotate(180deg)" } : {}),
         });
       }
     } catch (err) {
@@ -116,7 +137,7 @@ export function ChartToolbar({
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType, isCanvasEngine]);
+  }, [containerRef, engine, chartType, isCanvasEngine, isDark]);
 
   // ---- SVG ----
   const handleSvg = useCallback(() => {
@@ -134,7 +155,7 @@ export function ChartToolbar({
         downloadTextFile(markup, makeFilename(engine, chartType, "svg"), "image/svg+xml");
       } else if (isCanvasEngine) {
         // Canvas engines have no SVG — export as PNG from canvas directly
-        const dataUrl = compositeCanvasPng(el);
+        const dataUrl = compositeCanvasPng(el, isDark);
         if (dataUrl) {
           downloadFile(dataUrl, makeFilename(engine, chartType, "png"));
         }
@@ -144,7 +165,7 @@ export function ChartToolbar({
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType, isCanvasEngine]);
+  }, [containerRef, engine, chartType, isCanvasEngine, isDark]);
 
   // ---- PDF ----
   const handlePdf = useCallback(async () => {
@@ -154,7 +175,8 @@ export function ChartToolbar({
     try {
       if (isCanvasEngine) {
         // Build PDF directly from canvas pixels — avoids html2canvas color issues
-        const dataUrl = compositeCanvasPng(el);
+        // In dark mode, invert colors for readable export
+        const dataUrl = compositeCanvasPng(el, isDark);
         if (dataUrl) {
           const { default: jsPDF } = await import("jspdf");
 
@@ -188,8 +210,10 @@ export function ChartToolbar({
           pdf.save(makeFilename(engine, chartType, "pdf"));
         }
       } else {
+        // SVG-based engines: use html2canvas with invert filter in dark mode
         await exportToPdf(el, {
           filename: makeFilename(engine, chartType, "pdf"),
+          ...(isDark ? { filter: "invert(1) hue-rotate(180deg)" } : {}),
         });
       }
     } catch (err) {
@@ -197,7 +221,7 @@ export function ChartToolbar({
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType, isCanvasEngine]);
+  }, [containerRef, engine, chartType, isCanvasEngine, isDark]);
 
   // ---- JSON ----
   const handleJson = useCallback(() => {

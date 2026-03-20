@@ -351,7 +351,7 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
           Mermaid Diagram
         </span>
       </div>
-      <ChartToolbar containerRef={containerRef} engine="mermaid" chartType="diagram" />
+      <ChartToolbar containerRef={containerRef} engine="mermaid" isDark={isDark} chartType="diagram" />
 
       {/* Zoom controls */}
       <div className="absolute top-12 right-6 z-10 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

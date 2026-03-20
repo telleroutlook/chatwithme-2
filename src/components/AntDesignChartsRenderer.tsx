@@ -690,6 +690,7 @@ const AntDesignChartsRenderer = memo(function AntDesignChartsRenderer({
       <ChartToolbar
         containerRef={chartContainerRef}
         engine="adc"
+        isDark={isDark}
         chartType={activeSpec.type}
         spec={activeSpec}
         onEdit={handleOpenEditor}
