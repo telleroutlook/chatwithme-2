@@ -487,6 +487,29 @@ pre {
   margin-inline: auto;
 }
 
+/* ---- Mermaid text visibility (htmlLabels: false → SVG <text>) ---- */
+/* Force text fill to match the theme so labels are visible on both
+   light and dark backgrounds. The broad "svg text" rule ensures no
+   label is invisible; more-specific selectors below override for
+   text that must stay white on colored backgrounds. */
+.mermaid-container svg text {
+  fill: var(--color-foreground, #0f172a) !important;
+}
+
+/* Edge labels slightly muted for visual hierarchy */
+.mermaid-container svg .edgeLabel text,
+.mermaid-container svg .edgeTerminals text,
+.mermaid-container svg .note text {
+  fill: var(--color-foreground-muted, #475569) !important;
+}
+
+/* Text on colored backgrounds must stay white for contrast */
+.mermaid-container svg .taskText,
+.mermaid-container svg .taskTextOutsideRight,
+.mermaid-container svg .slice {
+  fill: #ffffff !important;
+}
+
 .mermaid-container,
 .adc-chart-container {
   border-radius: 12px;

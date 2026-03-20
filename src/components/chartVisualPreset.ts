@@ -7,7 +7,9 @@ interface MermaidThemeVariables {
   primaryBorderColor: string;
   lineColor: string;
   secondaryColor: string;
+  secondaryTextColor: string;
   tertiaryColor: string;
+  tertiaryTextColor: string;
   clusterBkg: string;
   clusterBorder: string;
   edgeLabelBackground: string;
@@ -147,7 +149,9 @@ export function getChartVisualPreset(isDark: boolean): ChartVisualPreset {
       primaryBorderColor: isDark ? "#60a5fa" : "#1d4ed8",
       lineColor: tokens.axisLineStroke,
       secondaryColor: isDark ? "#0f172a" : "#f8fafc",
+      secondaryTextColor: isDark ? "#e2e8f0" : "#0f172a",
       tertiaryColor: isDark ? "#111827" : "#eef2ff",
+      tertiaryTextColor: isDark ? "#e2e8f0" : "#0f172a",
       clusterBkg: isDark ? "#111827" : "#f8fafc",
       clusterBorder: isDark ? "#334155" : "#cbd5e1",
       edgeLabelBackground: isDark ? "#0f172a" : "#ffffff",

@@ -397,26 +397,24 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             }
 
             // -----------------------------------------------------------------
-            // Streaming chart skeleton: while the AI is still generating a
-            // chart code block, the JSON/markup is incomplete. Show a
-            // type-aware skeleton instead of an error or blank space.
-            // For Mermaid / mindmap we check if content is very short (still
-            // mid-stream). For JSON-based blocks we try JSON.parse — if it
-            // throws, the block is incomplete.
+            // Streaming chart guard: while the AI is still generating a
+            // chart code block, the content is incomplete. Rendering
+            // incomplete markup causes errors and flicker.
+            //
+            // Strategy:
+            //  - Mermaid / mindmap: show the raw code block so users can see
+            //    progress in real time. The chart renders once streaming ends.
+            //  - JSON-based blocks (adc, echarts, etc.): show a type-aware
+            //    skeleton until JSON.parse succeeds.
             // -----------------------------------------------------------------
             if (isStreaming && isChartLanguage(language)) {
               const isMermaidLang = language === "mermaid" || language === "mmd";
               const isMindmapLang = language === "mindmap";
 
               if (isMermaidLang || isMindmapLang) {
-                // Mermaid / mindmap: show skeleton if content is very short
-                // (less than ~20 chars is almost certainly still streaming)
-                const trimmed = codeString.trim();
-                if (trimmed.length < 20) {
-                  const detected = detectChartTypeFromPartial(language, codeString);
-                  return <ChartTypeSkeleton type={detected.subtype} />;
-                }
-                // Otherwise fall through to normal rendering
+                // Show raw code during streaming so user sees progress;
+                // chart will render once streaming completes.
+                return <SuspenseCodeBlock language={isMermaidLang ? "mermaid" : "markdown"} code={codeString} />;
               } else {
                 // JSON-based chart blocks (adc, echarts, stat, dashboard, excalidraw)
                 if (!isJsonComplete(codeString)) {
