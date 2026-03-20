@@ -31,16 +31,17 @@ const MAX_RESULTS = 8;
  * Cloudflare Workers where there is no headless browser.
  */
 export async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
-  const body = new URLSearchParams({ q: query });
+  const params = new URLSearchParams({ q: query });
+  const url = `${DDG_URL}?${params.toString()}`;
 
-  const resp = await fetch(DDG_URL, {
-    method: "POST",
+  const resp = await fetch(url, {
+    method: "GET",
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    },
-    body: body.toString()
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml",
+      "Accept-Language": "en-US,en;q=0.9"
+    }
   });
 
   if (!resp.ok) {
