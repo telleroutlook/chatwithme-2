@@ -9,6 +9,7 @@ import { useResponsive } from "../../hooks/useResponsive";
 import { useVirtualViewport } from "../../hooks/useVirtualViewport";
 import { cn } from "../ui/utils";
 import type { UiMessageKey } from "../../i18n/ui";
+import { formatFileForMessage, type ParsedFile } from "../../utils/fileParser";
 
 interface ProgressEntry {
   id: string;
@@ -46,7 +47,7 @@ interface ChatPaneProps {
   input: string;
   setInput: (value: string) => void;
   commandSuggestions: CommandSuggestionItem[];
-  onSend: () => void;
+  onSend: (textOverride?: string) => void;
   onStop: () => void;
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
@@ -85,6 +86,25 @@ export function ChatPane({
   const { mobile } = useResponsive();
   // Bubble/docs variant prop is accepted but we always use docs-style (clean document layout).
   const activeMessageVariant = "docs" as const;
+
+  // File attachment state (managed locally)
+  const [attachedFiles, setAttachedFiles] = useState<ParsedFile[]>([]);
+
+  // Wrap onSend to prepend file content
+  const handleSendWithFiles = useCallback(() => {
+    if (attachedFiles.length > 0) {
+      const fileParts = attachedFiles.map(formatFileForMessage);
+      const currentText = input.trim();
+      const combined = currentText
+        ? `${currentText}\n\n${fileParts.join("\n\n")}`
+        : fileParts.join("\n\n");
+      setAttachedFiles([]);
+      setInput("");
+      onSend(combined);
+    } else {
+      onSend();
+    }
+  }, [attachedFiles, input, setInput, onSend]);
 
   const isAndroid = useMemo(() => {
     if (typeof navigator === "undefined") return false;
@@ -350,7 +370,7 @@ export function ChatPane({
             <ChatInputArea
               value={input}
               onChange={setInput}
-              onSubmit={onSend}
+              onSubmit={handleSendWithFiles}
               onStop={onStop}
               commandSuggestions={commandSuggestions}
               isStreaming={isStreaming}
@@ -359,6 +379,8 @@ export function ChatPane({
               placeholder={
                 activeToolsCount > 0 ? t("chat_placeholder_tools") : t("chat_placeholder_default")
               }
+              attachedFiles={attachedFiles}
+              onFilesChange={setAttachedFiles}
             />
           </div>
         </div>

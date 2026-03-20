@@ -120,7 +120,7 @@ describe("ChatInput", () => {
     const input = screen.getByRole("textbox");
     fireEvent.focus(input);
 
-    expect(screen.getByText("5/4000")).toBeInTheDocument();
+    expect(screen.getByText("5/32000")).toBeInTheDocument();
   });
 
   it("should not show clear button when input is empty", () => {

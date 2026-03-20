@@ -33,7 +33,7 @@ interface UseChatActionsParams {
 
 export interface UseChatActionsResult {
   handleToggleServer: (name: string) => Promise<void>;
-  handleSend: () => void;
+  handleSend: (textOverride?: string) => void;
   handleStop: () => void;
   getPhaseLabels: (t: (key: UiMessageKey, params?: TranslateParams) => string) => Record<ProgressPhase, string>;
 }
@@ -121,8 +121,8 @@ export function useChatActions(
     [addEventLog, addToast, chatTransport, permissions.canEdit, t]
   );
 
-  const handleSend = useCallback(() => {
-    const text = input.trim();
+  const handleSend = useCallback((textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if (!text || isStreaming) return;
     if (!permissions.canEdit) {
       addToast(t("readonly_action_blocked"), "info");

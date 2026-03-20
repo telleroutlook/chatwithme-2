@@ -53,6 +53,22 @@
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --app-viewport-height: 100vh;
+
+  /* App-level aliases used by modals, dialogs, popovers, toasts */
+  --app-overlay: rgba(0, 0, 0, 0.5);
+  --app-surface-primary: var(--color-surface);
+  --app-surface-secondary: var(--color-surface-secondary);
+  --app-border-default: var(--color-border);
+  --app-border-strong: var(--color-border-strong);
+  --app-text-primary: var(--color-foreground);
+  --app-text-muted: var(--color-foreground-muted);
+  --app-shadow-soft: var(--shadow-soft);
+  --app-shadow-medium: var(--shadow-medium);
+  --app-color-success: var(--color-success);
+  --app-color-warning: var(--color-warning);
+  --app-color-danger: var(--color-danger);
+  --app-color-info: var(--color-info);
+  --app-accent: var(--color-accent);
 }
 
 @supports (height: 100dvh) {
@@ -102,6 +118,8 @@
   --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.2);
   --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  --app-overlay: rgba(0, 0, 0, 0.6);
 }
 
 /* ============================================
