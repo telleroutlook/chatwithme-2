@@ -170,19 +170,57 @@ function formatResults(query: string, results: SearchResult[]): string {
 
 export const BUILTIN_TOOL_KEY = "builtin_web_search";
 
+/**
+ * Resolve a search query from various possible argument shapes.
+ *
+ * GLM and other models may use different parameter names when calling the tool,
+ * even when the schema specifies `search_query`.  We accept common variants so
+ * the search still works.
+ */
+function resolveSearchQuery(args: Record<string, unknown>): string {
+  const candidates = [
+    "search_query", "searchQuery", "query", "q",
+    "keyword", "keywords", "search", "text", "input"
+  ];
+  for (const key of candidates) {
+    const value = args[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  // Last resort: if the model passed a single string value under any key, use it
+  const values = Object.values(args).filter(
+    (v): v is string => typeof v === "string" && v.trim().length > 0
+  );
+  if (values.length === 1) {
+    return values[0].trim();
+  }
+  return "";
+}
+
 export function createWebSearchTool(): ToolSet {
   return {
     [BUILTIN_TOOL_KEY]: tool({
       description:
-        "Search the web using DuckDuckGo. Returns titles, URLs, and snippets for up to 8 results. Use for current events, real-time data, fact-checking, or any query that may require up-to-date information.",
+        "Search the web using DuckDuckGo. Returns titles, URLs, and snippets for up to 8 results. Use for current events, real-time data, fact-checking, or any query that may require up-to-date information. You MUST provide the search_query parameter.",
       inputSchema: z.object({
         search_query: z
           .string()
-          .describe("The search query string")
+          .describe("The search query string. This parameter is required.")
       }),
-      execute: async ({ search_query }: { search_query: string }) => {
-        const results = await searchDuckDuckGo(search_query);
-        return formatResults(search_query, results);
+      execute: async (rawArgs: { search_query: string }) => {
+        // Normalize: the model may have passed args under unexpected keys
+        const query = resolveSearchQuery(rawArgs as unknown as Record<string, unknown>);
+        if (!query) {
+          return 'Error: No search query provided. Please call this tool with {"search_query": "your query here"}.';
+        }
+        try {
+          const results = await searchDuckDuckGo(query);
+          return formatResults(query, results);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          return `Search error: ${message}`;
+        }
       }
     })
   };

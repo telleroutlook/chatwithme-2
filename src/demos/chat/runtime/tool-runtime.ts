@@ -172,11 +172,106 @@ export async function buildAiTools(
   toolList: string[];
 }> {
   // 1. Always inject built-in tools (no MCP dependency)
-  const builtinTools = createWebSearchTool();
+  const builtinToolsRaw = createWebSearchTool();
   const toolList: string[] = [
     `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`
   ];
-  const tools: ToolSet = { ...builtinTools };
+
+  // Wrap built-in tool execute with state tracking and progress emission
+  const tools: ToolSet = {};
+  for (const [key, builtinTool] of Object.entries(builtinToolsRaw)) {
+    const originalExecute = builtinTool.execute;
+    if (!originalExecute) {
+      tools[key] = builtinTool;
+      continue;
+    }
+    tools[key] = {
+      ...builtinTool,
+      execute: async (args: Record<string, unknown>) => {
+        const runId = crypto.randomUUID();
+        const runStart = new Date().toISOString();
+        const baseRun: ToolRunRecord = {
+          id: runId,
+          toolName: key,
+          serverId: "builtin",
+          status: "running",
+          startedAt: runStart,
+          argsSnippet: JSON.stringify(args).slice(0, 320)
+        };
+
+        context.setState(
+          appendRuntimeEvent(upsertToolRunState(context.getState(), baseRun), {
+            level: "info",
+            source: "tool",
+            type: "tool_start",
+            message: `Tool ${key} started`,
+            data: { toolName: key, serverId: "builtin" }
+          })
+        );
+        emitProgress?.({
+          phase: "tool",
+          status: "start",
+          toolName: key,
+          message: `Executing built-in tool "${key}"`,
+          snippet: JSON.stringify(args).slice(0, 240)
+        });
+
+        try {
+          const result = await (originalExecute as (a: typeof args, opts: never) => Promise<unknown>)(args, undefined as never);
+          const resultSnippet = typeof result === "string" ? result : JSON.stringify(result, null, 2);
+          context.setState(
+            appendRuntimeEvent(upsertToolRunState(context.getState(), {
+              ...baseRun,
+              status: "success",
+              finishedAt: new Date().toISOString(),
+              resultSnippet: resultSnippet.slice(0, 480)
+            }), {
+              level: "success",
+              source: "tool",
+              type: "tool_success",
+              message: `Tool ${key} completed`,
+              data: { toolName: key }
+            })
+          );
+          emitProgress?.({
+            phase: "tool",
+            status: "success",
+            toolName: key,
+            message: `Tool "${key}" completed`,
+            snippet: resultSnippet.slice(0, 320)
+          });
+          return result;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          context.setState(
+            updateLastErrorState(
+              appendRuntimeEvent(upsertToolRunState(context.getState(), {
+                ...baseRun,
+                status: "error",
+                finishedAt: new Date().toISOString(),
+                error: message
+              }), {
+                level: "error",
+                source: "tool",
+                type: "tool_error",
+                message: `Tool ${key} failed`,
+                data: { toolName: key }
+              }),
+              message
+            )
+          );
+          emitProgress?.({
+            phase: "tool",
+            status: "error",
+            toolName: key,
+            message: `Tool "${key}" failed`,
+            snippet: message.slice(0, 240)
+          });
+          return { error: message };
+        }
+      }
+    };
+  }
 
   // 2. Add MCP tools if available (web-search-prime serves as fallback)
   if (mcp) {
