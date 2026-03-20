@@ -99,32 +99,6 @@ export interface VegaLiteKnowledge {
   chartTypes: VegaLiteChartRule[];
 }
 
-/** Knowledge base metadata */
-export interface KnowledgeBaseMeta {
-  /** Version string */
-  version: string;
-  /** Fetch timestamp (ISO 8601) */
-  fetchedAt: string;
-  /** Source identifier */
-  source: string;
-  /** Content hash for cache validation */
-  contentHash: string;
-  /** Summary of contents */
-  summary: {
-    adc: boolean;
-    mermaid: boolean;
-    mermaidDiagramCount: number;
-    adcChartCount: number;
-  };
-}
-
-/** Full chart knowledge base */
-export interface ChartKnowledgeBase {
-  meta: KnowledgeBaseMeta;
-  adc: AdcKnowledge;
-  mermaid: MermaidKnowledge;
-}
-
 /** Loaded chart knowledge (what the runtime uses) */
 export interface ChartKnowledge {
   /** ADC rules and examples */

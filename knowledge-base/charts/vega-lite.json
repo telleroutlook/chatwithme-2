@@ -9,150 +9,15 @@
     "Include realistic, descriptive data values -- not placeholder numbers",
     "Use encoding channels (x, y, color, size, etc.) with field, type, and optionally aggregate",
     "Valid type values: \"quantitative\", \"nominal\", \"ordinal\", \"temporal\"",
-    "Do not set the $schema field -- the renderer adds it automatically"
+    "Do not set the $schema field -- the renderer adds it automatically",
+    "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes"
   ],
   "typeWhitelist": [
-    "bar",
-    "line",
-    "point",
-    "area",
-    "arc",
     "boxplot",
-    "rect",
-    "text",
     "layer",
     "facet"
   ],
   "chartTypes": [
-    {
-      "type": "bar",
-      "name": "Bar / Column Chart / 柱状图",
-      "description": "Categorical comparisons, rankings, distributions. Swap x/y encoding for horizontal bars.",
-      "keywords": ["bar", "column", "histogram", "柱状", "条形", "排名"],
-      "spec_example": {
-        "mark": "bar",
-        "data": {
-          "values": [
-            {"category": "A", "value": 28},
-            {"category": "B", "value": 55},
-            {"category": "C", "value": 43},
-            {"category": "D", "value": 91},
-            {"category": "E", "value": 67}
-          ]
-        },
-        "encoding": {
-          "x": {"field": "category", "type": "nominal", "axis": {"labelAngle": 0}},
-          "y": {"field": "value", "type": "quantitative"},
-          "color": {"field": "category", "type": "nominal", "legend": null}
-        }
-      },
-      "notes": "Use \"nominal\" for categorical x-axis. Add color encoding for grouped/stacked bars. Use {\"stack\": \"normalize\"} for 100% stacked."
-    },
-    {
-      "type": "line",
-      "name": "Line Chart / 折线图",
-      "description": "Trends over time, continuous data evolution, time series comparisons.",
-      "keywords": ["line", "trend", "time series", "折线", "趋势", "时间序列"],
-      "spec_example": {
-        "mark": {"type": "line", "point": true},
-        "data": {
-          "values": [
-            {"month": "Jan", "sales": 150, "region": "East"},
-            {"month": "Feb", "sales": 230, "region": "East"},
-            {"month": "Mar", "sales": 180, "region": "East"},
-            {"month": "Apr", "sales": 290, "region": "East"},
-            {"month": "Jan", "sales": 100, "region": "West"},
-            {"month": "Feb", "sales": 180, "region": "West"},
-            {"month": "Mar", "sales": 240, "region": "West"},
-            {"month": "Apr", "sales": 200, "region": "West"}
-          ]
-        },
-        "encoding": {
-          "x": {"field": "month", "type": "ordinal"},
-          "y": {"field": "sales", "type": "quantitative"},
-          "color": {"field": "region", "type": "nominal"}
-        }
-      },
-      "notes": "Use mark.point:true to show data point markers. Use \"temporal\" type for date fields. color field creates multi-line chart."
-    },
-    {
-      "type": "point",
-      "name": "Scatter Plot / 散点图",
-      "description": "Correlations between two quantitative variables, cluster analysis, outlier detection.",
-      "keywords": ["scatter", "point", "correlation", "散点", "相关性", "聚类"],
-      "spec_example": {
-        "mark": "point",
-        "data": {
-          "values": [
-            {"height": 170, "weight": 65, "gender": "M"},
-            {"height": 165, "weight": 58, "gender": "F"},
-            {"height": 180, "weight": 80, "gender": "M"},
-            {"height": 155, "weight": 50, "gender": "F"},
-            {"height": 175, "weight": 72, "gender": "M"},
-            {"height": 160, "weight": 55, "gender": "F"},
-            {"height": 185, "weight": 88, "gender": "M"},
-            {"height": 168, "weight": 62, "gender": "F"}
-          ]
-        },
-        "encoding": {
-          "x": {"field": "height", "type": "quantitative", "scale": {"zero": false}},
-          "y": {"field": "weight", "type": "quantitative", "scale": {"zero": false}},
-          "color": {"field": "gender", "type": "nominal"},
-          "size": {"value": 80}
-        }
-      },
-      "notes": "Use scale.zero:false for better data spread. Add size encoding for bubble charts. tooltip encoding shows details on hover."
-    },
-    {
-      "type": "area",
-      "name": "Area Chart / 面积图",
-      "description": "Cumulative totals over time, volume trends, stacked area comparisons.",
-      "keywords": ["area", "stacked area", "面积", "堆叠面积", "累计"],
-      "spec_example": {
-        "mark": {"type": "area", "opacity": 0.5},
-        "data": {
-          "values": [
-            {"year": "2020", "revenue": 100, "source": "Product"},
-            {"year": "2021", "revenue": 150, "source": "Product"},
-            {"year": "2022", "revenue": 200, "source": "Product"},
-            {"year": "2023", "revenue": 280, "source": "Product"},
-            {"year": "2020", "revenue": 50, "source": "Service"},
-            {"year": "2021", "revenue": 80, "source": "Service"},
-            {"year": "2022", "revenue": 120, "source": "Service"},
-            {"year": "2023", "revenue": 180, "source": "Service"}
-          ]
-        },
-        "encoding": {
-          "x": {"field": "year", "type": "ordinal"},
-          "y": {"field": "revenue", "type": "quantitative", "stack": true},
-          "color": {"field": "source", "type": "nominal"}
-        }
-      },
-      "notes": "Set mark.opacity for transparency. Use stack:true for stacked areas. stack:\"normalize\" for 100% stacked area."
-    },
-    {
-      "type": "arc",
-      "name": "Pie / Donut Chart / 饼图",
-      "description": "Part-to-whole proportions, market share, composition breakdowns.",
-      "keywords": ["pie", "donut", "arc", "饼图", "甜甜圈", "占比", "比例"],
-      "spec_example": {
-        "mark": {"type": "arc", "innerRadius": 50},
-        "data": {
-          "values": [
-            {"category": "Electronics", "amount": 4500},
-            {"category": "Clothing", "amount": 3200},
-            {"category": "Food", "amount": 2800},
-            {"category": "Books", "amount": 1500},
-            {"category": "Other", "amount": 1000}
-          ]
-        },
-        "encoding": {
-          "theta": {"field": "amount", "type": "quantitative"},
-          "color": {"field": "category", "type": "nominal"}
-        }
-      },
-      "notes": "Use theta for angle, color for slices. Set mark.innerRadius > 0 for donut. Limit to 4-8 slices for readability."
-    },
     {
       "type": "boxplot",
       "name": "Box Plot / 箱线图",
@@ -182,68 +47,6 @@
         }
       },
       "notes": "Provide raw data points -- Vega-Lite computes quartiles automatically. Mark type \"boxplot\" is a composite mark."
-    },
-    {
-      "type": "rect",
-      "name": "Heatmap / 热力图",
-      "description": "Matrix visualization of values across two categorical or ordinal dimensions.",
-      "keywords": ["heatmap", "heat map", "matrix", "热力", "矩阵", "热图"],
-      "spec_example": {
-        "mark": "rect",
-        "data": {
-          "values": [
-            {"day": "Mon", "hour": "9am", "count": 15},
-            {"day": "Mon", "hour": "12pm", "count": 40},
-            {"day": "Mon", "hour": "3pm", "count": 30},
-            {"day": "Tue", "hour": "9am", "count": 20},
-            {"day": "Tue", "hour": "12pm", "count": 45},
-            {"day": "Tue", "hour": "3pm", "count": 25},
-            {"day": "Wed", "hour": "9am", "count": 10},
-            {"day": "Wed", "hour": "12pm", "count": 50},
-            {"day": "Wed", "hour": "3pm", "count": 35}
-          ]
-        },
-        "encoding": {
-          "x": {"field": "day", "type": "ordinal"},
-          "y": {"field": "hour", "type": "ordinal"},
-          "color": {"field": "count", "type": "quantitative", "scale": {"scheme": "blues"}}
-        }
-      },
-      "notes": "Use rect mark with color encoding on quantitative field. scale.scheme sets the color palette (e.g., \"blues\", \"viridis\", \"reds\")."
-    },
-    {
-      "type": "text",
-      "name": "Text Mark / 文本标记",
-      "description": "Add text labels, annotations, or data values directly onto a chart via layering.",
-      "keywords": ["text", "label", "annotation", "文本", "标注", "标签"],
-      "spec_example": {
-        "layer": [
-          {
-            "mark": "bar",
-            "encoding": {
-              "x": {"field": "item", "type": "nominal"},
-              "y": {"field": "score", "type": "quantitative"}
-            }
-          },
-          {
-            "mark": {"type": "text", "dy": -10},
-            "encoding": {
-              "x": {"field": "item", "type": "nominal"},
-              "y": {"field": "score", "type": "quantitative"},
-              "text": {"field": "score", "type": "quantitative"}
-            }
-          }
-        ],
-        "data": {
-          "values": [
-            {"item": "Alpha", "score": 85},
-            {"item": "Beta", "score": 72},
-            {"item": "Gamma", "score": 93},
-            {"item": "Delta", "score": 67}
-          ]
-        }
-      },
-      "notes": "Typically used in a layer with another mark (bar, point). Use dy/dx to offset text. text encoding maps the data field to display."
     },
     {
       "type": "layer",

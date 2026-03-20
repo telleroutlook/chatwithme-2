@@ -5,7 +5,8 @@
     "Use pure text only - create new lines by adding separate entries",
     "Avoid special characters that may break parsing",
     "Keep node labels concise (under 40 chars) and edge labels under 20 chars for readability",
-    "Use descriptive node IDs and meaningful labels rather than generic A, B, C where possible"
+    "Use descriptive node IDs and meaningful labels rather than generic A, B, C where possible",
+    "Do not use %%{init:}%% to override theme -- the renderer handles light/dark mode automatically"
   ],
   "diagramTypes": {
     "flowchart": {
@@ -15,14 +16,6 @@
         "Using graph instead of flowchart keyword",
         "Missing node shapes brackets",
         "Incorrect arrow syntax"
-      ]
-    },
-    "graph": {
-      "whenToUse": "Simple directed/undirected graphs, alternative to flowchart",
-      "minimalTemplate": "graph LR\n    A --> B --> C",
-      "commonErrors": [
-        "Confusing TD/TB (top-down) with LR/RL (left-right)",
-        "Using undefined node styles"
       ]
     },
     "sequenceDiagram": {
@@ -43,7 +36,7 @@
         "Incorrect inheritance syntax"
       ]
     },
-    "stateDiagram": {
+    "stateDiagram-v2": {
       "whenToUse": "State machines, workflow states, lifecycle diagrams",
       "minimalTemplate": "stateDiagram-v2\n    [*] --> Idle\n    Idle --> Processing: Start Task\n    Processing --> Review: Submit\n    Review --> Approved: Accept\n    Review --> Processing: Request Changes\n    Approved --> Complete: Finalize\n    Complete --> [*]",
       "commonErrors": [
@@ -61,15 +54,6 @@
         "Invalid attribute types"
       ]
     },
-    "journey": {
-      "whenToUse": "User journeys, customer experience maps, process timelines",
-      "minimalTemplate": "journey\n    title User Onboarding Journey\n    section Discovery\n        Visit homepage: 5: User\n        Read features: 4: User\n        View pricing: 3: User\n    section Registration\n        Sign up: 5: User\n        Verify email: 3: User, System\n        Complete profile: 4: User\n    section First Use\n        Create first project: 4: User\n        Invite team: 3: User",
-      "commonErrors": [
-        "Missing title",
-        "Wrong score format",
-        "Not grouping into sections"
-      ]
-    },
     "gantt": {
       "whenToUse": "Project timelines, task schedules, milestone tracking",
       "minimalTemplate": "gantt\n    title Project Development Plan\n    dateFormat YYYY-MM-DD\n    section Planning\n        Requirements: req, 2024-01-01, 14d\n        Design: des, after req, 10d\n    section Development\n        Frontend: fe, after des, 21d\n        Backend: be, after des, 21d\n        Integration: int, after fe, 7d\n    section Testing\n        QA Testing: qa, after int, 14d\n        UAT: uat, after qa, 7d\n    section Launch\n        Deployment: milestone, deploy, after uat, 0d",
@@ -77,24 +61,6 @@
         "Wrong dateFormat",
         "Invalid date syntax",
         "Missing section declarations"
-      ]
-    },
-    "pie": {
-      "whenToUse": "Simple pie charts, percentage distributions, categorical breakdowns",
-      "minimalTemplate": "pie title Traffic Source Distribution\n    \"Organic Search\": 42\n    \"Direct\": 28\n    \"Social Media\": 18\n    \"Referral\": 8\n    \"Email\": 4",
-      "commonErrors": [
-        "Missing title keyword",
-        "Not using quotes for labels",
-        "Using colon instead of semicolon"
-      ]
-    },
-    "mindmap": {
-      "whenToUse": "Brainstorming, hierarchical concepts, knowledge trees",
-      "minimalTemplate": "mindmap\n  root((Project Architecture))\n    Frontend\n      React Components\n      State Management\n      Routing\n    Backend\n      API Gateway\n      Business Logic\n      Database\n    DevOps\n      CI/CD Pipeline\n      Monitoring\n      Deployment",
-      "commonErrors": [
-        "Missing root declaration",
-        "Incorrect indentation",
-        "Using invalid shapes for root"
       ]
     },
     "timeline": {
@@ -124,15 +90,6 @@
         "Not defining quadrants"
       ]
     },
-    "requirementDiagram": {
-      "whenToUse": "Requirements engineering, SysML diagrams, system requirements",
-      "minimalTemplate": "requirementDiagram\n    requirement req1 {\n        id: 1\n        text: The system shall...\n    }\n    element entity1 {\n        type: system\n    }\n    entity1 satisfies req1",
-      "commonErrors": [
-        "Missing requirement blocks",
-        "Wrong relationship keywords",
-        "Invalid element types"
-      ]
-    },
     "kanban": {
       "whenToUse": "Task boards, work queues, agile workflows",
       "minimalTemplate": "kanban\n    Backlog\n        [Design homepage]\n        [Write API docs]\n    Todo\n        [Setup CI/CD]\n        [Create database schema]\n    In Progress\n        [Build auth module]\n    Review\n        [User dashboard]\n    Done\n        [Project setup]\n        [Environment config]",
@@ -140,42 +97,6 @@
         "Missing column headers",
         "Wrong task syntax",
         "Not using brackets for tasks"
-      ]
-    },
-    "sankey-beta": {
-      "whenToUse": "Flow diagrams, resource allocation, data pipeline visualization",
-      "minimalTemplate": "sankey-beta\n    source,target,value\n    Budget,Engineering,40\n    Budget,Marketing,25\n    Budget,Operations,20\n    Budget,Research,15\n    Engineering,Frontend,20\n    Engineering,Backend,20\n    Marketing,Digital,15\n    Marketing,Events,10",
-      "commonErrors": [
-        "Using old sankey syntax",
-        "Missing CSV header",
-        "Wrong column order"
-      ]
-    },
-    "xychart-beta": {
-      "whenToUse": "Simple bar/line charts within Mermaid context",
-      "minimalTemplate": "xychart-beta\n    title \"Monthly Revenue\"\n    x-axis [Jan, Feb, Mar, Apr, May, Jun]\n    y-axis \"Revenue ($K)\" 0 --> 200\n    bar [80, 120, 95, 150, 130, 170]\n    line [80, 120, 95, 150, 130, 170]",
-      "commonErrors": [
-        "Missing title or axis declarations",
-        "Wrong data format",
-        "Using non-beta syntax"
-      ]
-    },
-    "block-beta": {
-      "whenToUse": "Block diagrams, system architecture, component layouts",
-      "minimalTemplate": "block-beta\n    columns 3\n    Frontend:3\n    space\n    API[\"API Gateway\"]\n    space\n    db[(\"Database\")]\n    cache[(\"Cache\")]\n    queue[(\"Queue\")]",
-      "commonErrors": [
-        "Wrong column declaration",
-        "Invalid block syntax",
-        "Using unsupported connections"
-      ]
-    },
-    "architecture-beta": {
-      "whenToUse": "Cloud architecture, infrastructure diagrams, system topology",
-      "minimalTemplate": "architecture-beta\n    service api(database)[API Gateway]\n    service db(disk)[Database]\n    api:R --> L:db",
-      "commonErrors": [
-        "Missing service declarations",
-        "Wrong connection syntax",
-        "Invalid icons or positions"
       ]
     }
   }

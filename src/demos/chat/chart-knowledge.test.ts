@@ -1,314 +1,81 @@
 import { describe, it, expect } from "vitest";
-import {
-  detectChartKeywords,
-  filterMermaidKnowledge,
-  filterAdcKnowledge,
-  sortMermaidDiagramTypes,
-  sortAdcChartTypes,
-  sortMermaidKnowledgeTypes,
-} from "./chart-knowledge";
-import type { MermaidKnowledge, AdcKnowledge, AdcChartRule } from "../../types/chart-kb";
+import { getChartKnowledge, loadChartKnowledge } from "./chart-knowledge";
 
-// ============================================================================
-// detectChartKeywords Tests
-// ============================================================================
-
-describe("detectChartKeywords", () => {
-  it("should detect flowchart keywords", () => {
-    const result = detectChartKeywords("create a flowchart for user registration");
-    expect(result.mermaid).toContain("flowchart");
+describe("getChartKnowledge", () => {
+  it("returns a non-null ChartKnowledge object", () => {
+    const kb = getChartKnowledge();
+    expect(kb).toBeDefined();
+    expect(kb.adc).toBeDefined();
+    expect(kb.mermaid).toBeDefined();
+    expect(kb.echarts).toBeDefined();
+    expect(kb.vegaLite).toBeDefined();
   });
 
-  it("should detect sequence diagram keywords", () => {
-    const result = detectChartKeywords("show me the API sequence diagram");
-    expect(result.mermaid).toContain("sequenceDiagram");
+  it("ADC knowledge has chart types and output contract", () => {
+    const kb = getChartKnowledge();
+    expect(kb.adc!.outputContract.length).toBeGreaterThan(0);
+    expect(kb.adc!.chartTypes.length).toBeGreaterThan(0);
+    expect(kb.adc!.typeWhitelist.length).toBeGreaterThan(0);
   });
 
-  it("should detect pie chart keywords", () => {
-    const result = detectChartKeywords("draw a pie chart of market share");
-    expect(result.mermaid).toContain("pie");
+  it("ADC does not include gauge (moved to ECharts)", () => {
+    const kb = getChartKnowledge();
+    expect(kb.adc!.typeWhitelist).not.toContain("gauge");
+    const gaugeChart = kb.adc!.chartTypes.find(c => c.type === "gauge");
+    expect(gaugeChart).toBeUndefined();
   });
 
-  it("should detect erDiagram keywords", () => {
-    const result = detectChartKeywords("create an ER diagram for the database");
-    expect(result.mermaid).toContain("erDiagram");
+  it("ECharts knowledge has chart types and output contract", () => {
+    const kb = getChartKnowledge();
+    expect(kb.echarts!.outputContract.length).toBeGreaterThan(0);
+    expect(kb.echarts!.chartTypes.length).toBeGreaterThan(0);
+    expect(kb.echarts!.typeWhitelist).toContain("gauge");
   });
 
-  it("should detect gantt chart keywords", () => {
-    const result = detectChartKeywords("show the project schedule as a gantt chart");
-    expect(result.mermaid).toContain("gantt");
-  });
-
-  it("should detect ADC line chart type", () => {
-    const result = detectChartKeywords("create a line chart");
-    expect(result.adc).toContain("line");
-  });
-
-  it("should detect ADC bar chart type", () => {
-    const result = detectChartKeywords("draw a bar chart for sales data");
-    expect(result.adc).toContain("bar");
-  });
-
-  it("should return empty arrays for no keywords", () => {
-    const result = detectChartKeywords("hello world, how are you?");
-    expect(result.mermaid).toHaveLength(0);
-    expect(result.adc).toHaveLength(0);
-  });
-
-  it("should handle multiple keywords", () => {
-    const result = detectChartKeywords("compare bar and pie charts");
-    expect(result.adc).toContain("bar");
-    expect(result.adc).toContain("pie");
-    expect(result.mermaid).toContain("pie");
-  });
-
-  it("should be case-insensitive", () => {
-    const result = detectChartKeywords("Create a FLOWCHART with PIE data");
-    expect(result.mermaid).toContain("flowchart");
-    expect(result.mermaid).toContain("pie");
-  });
-
-  it("should deduplicate keywords", () => {
-    const result = detectChartKeywords("flowchart flowchart flowchart");
-    expect(result.mermaid.filter((k) => k === "flowchart")).toHaveLength(1);
-  });
-});
-
-// ============================================================================
-// filterMermaidKnowledge Tests
-// ============================================================================
-
-describe("filterMermaidKnowledge", () => {
-  const mockKnowledge: MermaidKnowledge = {
-    universalRules: ["Rule 1", "Rule 2"],
-    diagramTypes: {
-      flowchart: {
-        whenToUse: "Process flows",
-        minimalTemplate: "flowchart TD\n A --> B",
-        commonErrors: ["Error 1"],
-      },
-      sequenceDiagram: {
-        whenToUse: "API calls",
-        minimalTemplate: "sequenceDiagram\n A->>B: Hello",
-        commonErrors: ["Error 2"],
-      },
-      pie: {
-        whenToUse: "Percentages",
-        minimalTemplate: "pie title Test\n A: 50",
-        commonErrors: ["Error 3"],
-      },
-      erDiagram: {
-        whenToUse: "Database schema",
-        minimalTemplate: "erDiagram\n USER ||--o{ ORDER",
-        commonErrors: ["Error 4"],
-      },
-    },
-  };
-
-  it("should return core types when no keywords", () => {
-    const result = filterMermaidKnowledge(mockKnowledge, []);
-    expect(result).not.toBeNull();
-    expect(Object.keys(result?.diagramTypes || {})).toContain("flowchart");
-    expect(Object.keys(result?.diagramTypes || {})).toContain("sequenceDiagram");
-    expect(Object.keys(result?.diagramTypes || {})).toContain("pie");
-  });
-
-  it("should filter by single keyword", () => {
-    const result = filterMermaidKnowledge(mockKnowledge, ["sequenceDiagram"]);
-    expect(result).not.toBeNull();
-    expect(Object.keys(result?.diagramTypes || {})).toEqual(["sequenceDiagram"]);
-  });
-
-  it("should filter by multiple keywords", () => {
-    const result = filterMermaidKnowledge(mockKnowledge, ["sequenceDiagram", "pie"]);
-    expect(result).not.toBeNull();
-    const types = Object.keys(result?.diagramTypes || {});
+  it("Mermaid knowledge has diagram types and universal rules", () => {
+    const kb = getChartKnowledge();
+    expect(kb.mermaid!.universalRules!.length).toBeGreaterThan(0);
+    const types = Object.keys(kb.mermaid!.diagramTypes);
+    expect(types).toContain("flowchart");
     expect(types).toContain("sequenceDiagram");
-    expect(types).toContain("pie");
-    expect(types).toHaveLength(2);
   });
 
-  it("should fallback to core types when no matches", () => {
-    const result = filterMermaidKnowledge(mockKnowledge, ["nonexistent"]);
-    expect(result).not.toBeNull();
-    // Should fallback to core types
-    expect(Object.keys(result?.diagramTypes || {}).length).toBeGreaterThan(0);
+  it("Mermaid does not include removed types (graph, pie, mindmap, etc.)", () => {
+    const kb = getChartKnowledge();
+    const types = Object.keys(kb.mermaid!.diagramTypes);
+    expect(types).not.toContain("graph");
+    expect(types).not.toContain("pie");
+    expect(types).not.toContain("mindmap");
+    expect(types).not.toContain("xychart-beta");
+    expect(types).not.toContain("sankey-beta");
+    expect(types).not.toContain("block-beta");
+    expect(types).not.toContain("architecture-beta");
+    expect(types).not.toContain("requirementDiagram");
   });
 
-  it("should return null for null input", () => {
-    const result = filterMermaidKnowledge(null, []);
-    expect(result).toBeNull();
+  it("Vega-Lite knowledge only contains boxplot, layer, facet", () => {
+    const kb = getChartKnowledge();
+    expect(kb.vegaLite!.typeWhitelist).toEqual(["boxplot", "layer", "facet"]);
+    const types = kb.vegaLite!.chartTypes.map(c => c.type);
+    expect(types).toContain("boxplot");
+    expect(types).toContain("layer");
+    expect(types).toContain("facet");
+    expect(types).not.toContain("bar");
+    expect(types).not.toContain("line");
+    expect(types).not.toContain("point");
   });
 
-  it("should preserve universal rules", () => {
-    const result = filterMermaidKnowledge(mockKnowledge, ["flowchart"]);
-    expect(result?.universalRules).toEqual(["Rule 1", "Rule 2"]);
-  });
-});
-
-// ============================================================================
-// filterAdcKnowledge Tests
-// ============================================================================
-
-describe("filterAdcKnowledge", () => {
-  const mockKnowledge: AdcKnowledge = {
-    outputContract: ["Rule 1"],
-    typeWhitelist: ["line", "bar", "pie", "scatter", "radar"],
-    chartTypes: [
-      { type: "line", requiredFields: ["data"], example: "{}", commonErrors: [] },
-      { type: "bar", requiredFields: ["data"], example: "{}", commonErrors: [] },
-      { type: "pie", requiredFields: ["data"], example: "{}", commonErrors: [] },
-      { type: "scatter", requiredFields: ["data"], example: "{}", commonErrors: [] },
-      { type: "radar", requiredFields: ["data"], example: "{}", commonErrors: [] },
-    ],
-  };
-
-  it("should return first 4 chart types when no keywords", () => {
-    const result = filterAdcKnowledge(mockKnowledge, []);
-    expect(result).not.toBeNull();
-    expect(result?.chartTypes.length).toBeLessThanOrEqual(4);
-  });
-
-  it("should filter by single keyword", () => {
-    const result = filterAdcKnowledge(mockKnowledge, ["line"]);
-    expect(result).not.toBeNull();
-    expect(result?.chartTypes).toHaveLength(1);
-    expect(result?.chartTypes[0].type).toBe("line");
-  });
-
-  it("should filter by multiple keywords", () => {
-    const result = filterAdcKnowledge(mockKnowledge, ["line", "pie"]);
-    expect(result).not.toBeNull();
-    expect(result?.chartTypes).toHaveLength(2);
-    const types = result?.chartTypes.map((c) => c.type) || [];
-    expect(types).toContain("line");
-    expect(types).toContain("pie");
-  });
-
-  it("should fallback when no matches", () => {
-    const result = filterAdcKnowledge(mockKnowledge, ["nonexistent"]);
-    expect(result).not.toBeNull();
-    expect(result?.chartTypes.length).toBeGreaterThan(0);
-  });
-
-  it("should return null for null input", () => {
-    const result = filterAdcKnowledge(null, []);
-    expect(result).toBeNull();
-  });
-
-  it("should preserve output contract", () => {
-    const result = filterAdcKnowledge(mockKnowledge, ["line"]);
-    expect(result?.outputContract).toEqual(["Rule 1"]);
+  it("returns same reference on repeated calls (cached)", () => {
+    const kb1 = getChartKnowledge();
+    const kb2 = getChartKnowledge();
+    expect(kb1).toBe(kb2);
   });
 });
 
-// ============================================================================
-// sortMermaidDiagramTypes Tests
-// ============================================================================
-
-describe("sortMermaidDiagramTypes", () => {
-  it("should sort by priority order", () => {
-    const input = ["pie", "flowchart", "sequenceDiagram"];
-    const result = sortMermaidDiagramTypes(input);
-    expect(result[0]).toBe("flowchart");
-    expect(result[1]).toBe("sequenceDiagram");
-    expect(result[2]).toBe("pie");
-  });
-
-  it("should put flowchart first", () => {
-    const input = ["erDiagram", "flowchart", "timeline"];
-    const result = sortMermaidDiagramTypes(input);
-    expect(result[0]).toBe("flowchart");
-  });
-
-  it("should sort unknown types alphabetically", () => {
-    const input = ["zebra", "alpha", "flowchart"];
-    const result = sortMermaidDiagramTypes(input);
-    expect(result[0]).toBe("flowchart"); // Priority first
-    expect(result[1]).toBe("alpha"); // Then alphabetically
-    expect(result[2]).toBe("zebra");
-  });
-
-  it("should not modify original array", () => {
-    const input = ["pie", "flowchart"];
-    const originalOrder = [...input];
-    sortMermaidDiagramTypes(input);
-    expect(input).toEqual(originalOrder);
-  });
-
-  it("should handle empty array", () => {
-    const result = sortMermaidDiagramTypes([]);
-    expect(result).toEqual([]);
-  });
-});
-
-// ============================================================================
-// sortAdcChartTypes Tests
-// ============================================================================
-
-describe("sortAdcChartTypes", () => {
-  const charts: AdcChartRule[] = [
-    { type: "radar", requiredFields: [], example: "", commonErrors: [] },
-    { type: "bar", requiredFields: [], example: "", commonErrors: [] },
-    { type: "line", requiredFields: [], example: "", commonErrors: [] },
-  ];
-
-  it("should sort alphabetically by type", () => {
-    const result = sortAdcChartTypes(charts);
-    expect(result[0].type).toBe("bar");
-    expect(result[1].type).toBe("line");
-    expect(result[2].type).toBe("radar");
-  });
-
-  it("should not modify original array", () => {
-    const original = [...charts];
-    sortAdcChartTypes(charts);
-    expect(charts).toEqual(original);
-  });
-});
-
-// ============================================================================
-// sortMermaidKnowledgeTypes Tests
-// ============================================================================
-
-describe("sortMermaidKnowledgeTypes", () => {
-  const mockKnowledge: MermaidKnowledge = {
-    universalRules: ["Rule 1"],
-    diagramTypes: {
-      pie: {
-        whenToUse: "Percentages",
-        minimalTemplate: "pie",
-        commonErrors: [],
-      },
-      flowchart: {
-        whenToUse: "Flows",
-        minimalTemplate: "flowchart",
-        commonErrors: [],
-      },
-      sequenceDiagram: {
-        whenToUse: "Sequences",
-        minimalTemplate: "sequenceDiagram",
-        commonErrors: [],
-      },
-    },
-  };
-
-  it("should sort diagram types by priority", () => {
-    const result = sortMermaidKnowledgeTypes(mockKnowledge);
-    expect(result).not.toBeNull();
-    const keys = Object.keys(result?.diagramTypes || {});
-    expect(keys[0]).toBe("flowchart");
-    expect(keys[1]).toBe("sequenceDiagram");
-    expect(keys[2]).toBe("pie");
-  });
-
-  it("should return null for null input", () => {
-    const result = sortMermaidKnowledgeTypes(null);
-    expect(result).toBeNull();
-  });
-
-  it("should preserve universal rules", () => {
-    const result = sortMermaidKnowledgeTypes(mockKnowledge);
-    expect(result?.universalRules).toEqual(["Rule 1"]);
+describe("loadChartKnowledge", () => {
+  it("returns same data as getChartKnowledge (async compat)", async () => {
+    const sync = getChartKnowledge();
+    const async_ = await loadChartKnowledge();
+    expect(async_).toBe(sync);
   });
 });

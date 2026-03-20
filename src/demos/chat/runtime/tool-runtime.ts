@@ -16,6 +16,7 @@ import { validateToolArguments } from "./model-execution";
 import { createWebSearchTool, BUILTIN_TOOL_KEY } from "../builtin-tools/web-search";
 import { createWebReaderTool, BUILTIN_WEB_READER_KEY } from "../builtin-tools/web-reader";
 import { createDataAnalyzerTool, BUILTIN_DATA_ANALYZER_KEY } from "../builtin-tools/data-analyzer";
+import { createChartTemplateTool, BUILTIN_CHART_TEMPLATE_KEY } from "../builtin-tools/chart-template";
 import {
   type ChatAgentState,
   type ToolRunRecord,
@@ -167,7 +168,8 @@ function getBuiltinToolsRaw(): ToolSet {
     cachedBuiltinToolsRaw = {
       ...createWebSearchTool(),
       ...createWebReaderTool(),
-      ...createDataAnalyzerTool()
+      ...createDataAnalyzerTool(),
+      ...createChartTemplateTool()
     };
   }
   return cachedBuiltinToolsRaw;
@@ -176,7 +178,8 @@ function getBuiltinToolsRaw(): ToolSet {
 const BUILTIN_TOOL_LIST: string[] = [
   `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`,
   `${BUILTIN_WEB_READER_KEY}: Read and extract the main content from a web page URL. Returns the page title and clean markdown content.`,
-  `${BUILTIN_DATA_ANALYZER_KEY}: Analyze CSV or JSON tabular data — detect column types, compute statistics, and recommend chart types with pre-built specs. Use when user provides raw data or a table.`
+  `${BUILTIN_DATA_ANALYZER_KEY}: Analyze CSV or JSON tabular data — detect column types, compute statistics, and recommend chart types with pre-built specs. Use when user provides raw data or a table.`,
+  `${BUILTIN_CHART_TEMPLATE_KEY}: Get the exact format spec and example for a specific chart engine and type. Call this BEFORE generating any adc/echarts/vega-lite/mermaid code block.`
 ];
 
 // ============ Tool List Builder ============

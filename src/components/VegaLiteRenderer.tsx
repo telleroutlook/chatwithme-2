@@ -20,6 +20,7 @@ import { useChatSessionContext } from "../features/chat/context/ChatSessionConte
 import { useThemeDetector } from "../hooks/useThemeDetector";
 import { useInViewport } from "../hooks/useInViewport";
 import { ChartToolbar } from "./ChartToolbar";
+import { getChartThemeTokens } from "./chartThemeTokens";
 import type { VegaLiteSpec } from "../utils/vegaLiteParser";
 
 // ---------------------------------------------------------------------------
@@ -46,6 +47,38 @@ function detectChartType(spec: VegaLiteSpec): string {
   if (spec.vconcat) return "vconcat";
   if (spec.concat) return "concat";
   return "chart";
+}
+
+// ---------------------------------------------------------------------------
+// Build Vega-Lite config override for theme-aware styling
+// ---------------------------------------------------------------------------
+
+function buildVegaLiteThemeConfig(isDark: boolean): Record<string, unknown> {
+  const t = getChartThemeTokens(isDark);
+  return {
+    background: "transparent",
+    axis: {
+      labelColor: t.axisLabelFill,
+      titleColor: t.axisTitleFill,
+      gridColor: t.axisGridStroke,
+      domainColor: t.axisLineStroke,
+      tickColor: t.axisLineStroke,
+    },
+    legend: {
+      labelColor: t.legendItemFill,
+      titleColor: t.axisTitleFill,
+    },
+    title: {
+      color: t.titleFill,
+      subtitleColor: t.axisLabelFill,
+    },
+    range: {
+      category: t.paletteCategorical,
+    },
+    view: {
+      stroke: "transparent",
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +136,7 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
 
         const result = await vegaEmbed(containerRef.current, spec as Record<string, unknown>, {
           theme: isDark ? "dark" : undefined,
+          config: buildVegaLiteThemeConfig(isDark),
           actions: { export: true, source: false, compiled: false, editor: false },
           renderer: "svg",
         });

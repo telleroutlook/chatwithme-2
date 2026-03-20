@@ -9,6 +9,7 @@
     "Supported series types: map, sankey, tree, treemap, sunburst, candlestick, gauge, themeRiver, wordCloud, bar3D, scatter3D",
     "Include realistic, descriptive data values — not placeholder numbers",
     "Do not set color arrays — the renderer applies a curated palette automatically",
+    "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
     "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer"
   ],
   "typeWhitelist": [

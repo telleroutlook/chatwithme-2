@@ -5,10 +5,11 @@
     "All keys must use double quotes; all string values must use double quotes",
     "Never output callback expressions such as (d) => ... or function (...)",
     "Do not set label.position; renderer applies safe defaults by chart type",
-    "Supported chart types: line, column, bar, area, pie, rose, scatter, radar, gauge, heatmap, funnel, histogram, dualAxes",
+    "Supported chart types: line, column, bar, area, pie, rose, scatter, radar, heatmap, funnel, histogram, dualAxes",
     "Always include at least 4-6 realistic data points for visual clarity",
     "Use descriptive field names (e.g., 'month', 'revenue') rather than generic ('x', 'y')",
-    "For multi-series charts, include a seriesField or colorField to distinguish categories"
+    "For multi-series charts, include a seriesField or colorField to distinguish categories",
+    "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes"
   ],
   "typeWhitelist": [
     "line",
@@ -16,9 +17,9 @@
     "bar",
     "area",
     "pie",
+    "rose",
     "scatter",
     "radar",
-    "gauge",
     "heatmap",
     "funnel",
     "histogram",
@@ -137,18 +138,6 @@
         "Not normalizing values to similar scale"
       ],
       "tips": "Include 5-8 dimensions. Use colorField for multi-product comparison. Add area.style.fillOpacity for filled radar."
-    },
-    {
-      "type": "gauge",
-      "requiredFields": [
-        "data"
-      ],
-      "example": "{\"type\":\"gauge\",\"data\":{\"target\":75,\"total\":100,\"name\":\"Progress\"},\"style\":{\"textContent\":\"75%\"}}",
-      "commonErrors": [
-        "Missing percent or value field",
-        "Using callbacks for custom rendering"
-      ],
-      "tips": "Use data.target and data.total for gauge value. Use style.textContent for center text."
     },
     {
       "type": "heatmap",

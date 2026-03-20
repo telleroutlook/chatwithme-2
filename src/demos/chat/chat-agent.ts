@@ -38,7 +38,7 @@ import {
   getModelTemperature,
   getMaxToolSteps
 } from "./runtime-config";
-import { buildSystemPromptWithKeywords } from "./system-prompt";
+import { buildSystemPrompt } from "./system-prompt";
 import {
   // Types
   type McpServerConnectionState,
@@ -558,7 +558,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       ? `context:mcp-init:${requestTraceId}`
       : "context:mcp-init";
     const { tools, toolList } = await this.buildAiTools(emitProgress, mcpProgressGroupKey);
-    const systemPrompt = buildSystemPromptWithKeywords(toolList, message);
+    const systemPrompt = buildSystemPrompt(toolList);
     emitProgress?.({
       phase: "context",
       status: "success",
