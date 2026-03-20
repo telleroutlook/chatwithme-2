@@ -9,6 +9,21 @@
  */
 
 /**
+ * Strip tool-related sections from the system prompt.
+ *
+ * Used when retrying without tools so the model doesn't attempt to output
+ * raw JSON tool calls as text (which happens when it sees tool descriptions
+ * in the prompt but has no tool_call mechanism available).
+ */
+export function stripToolSections(prompt: string): string {
+  // Remove "## 1. Web Tools" through the next "##" heading or "## 2."
+  return prompt
+    .replace(/## 1\. Web Tools[\s\S]*?(?=## 2\.|$)/, "## 1. Information\nAnswer the user's question directly using your knowledge.\n\n")
+    .replace(/Call `builtin_chart_template[^.]*\./g, "")
+    .replace(/- builtin_\w+:[^\n]*/g, "");
+}
+
+/**
  * Build the system prompt. Always includes the engine catalog and chart rules.
  * The AI uses the catalog to pick the best engine, then calls builtin_chart_template
  * to get the exact format spec before generating chart code.

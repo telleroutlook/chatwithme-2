@@ -38,7 +38,7 @@ import {
   getModelTemperature,
   getMaxToolSteps
 } from "./runtime-config";
-import { buildSystemPrompt } from "./system-prompt";
+import { buildSystemPrompt, stripToolSections } from "./system-prompt";
 import {
   // Types
   type McpServerConnectionState,
@@ -622,6 +622,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   ): Promise<string> {
     const ctx = await this.prepareGenerationContext(message, true, emitProgress, requestTraceId);
 
+    // Track how much text was already streamed to the UI
+    let streamedLength = 0;
+
     // Stream text deltas directly to the UI writer
     let finalResponse = await streamModelTextToWriter(
       {
@@ -637,11 +640,21 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         thinkingType: getThinkingType(this.env),
         streamEnabled: true
       },
-      (delta) => writer.write({ type: "text-delta", id: textId, delta })
+      (delta) => {
+        streamedLength += delta.length;
+        writer.write({ type: "text-delta", id: textId, delta });
+      }
     );
 
-    // If streaming produced empty text, fall back to non-streaming retry
+    // If streaming produced empty text, fall back to non-streaming retry.
+    // Note: streamedLength may be > 0 even when finalResponse is empty — this
+    // happens when the model outputs pre-tool-call text but then exhausts all
+    // maxToolSteps without a final "stop" response.
     if (finalResponse.trim().length === 0) {
+      // If we already streamed some text, add a separator before the retry
+      if (streamedLength > 0) {
+        writer.write({ type: "text-delta", id: textId, delta: "\n\n" });
+      }
       finalResponse = await this.retryEmptyResponse(
         message, ctx, abortSignal, emitProgress
       );
@@ -742,9 +755,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       const toolSummaryText = toolSummaries.length > 0
         ? `\n\nHere is a summary of the tool results:\n${toolSummaries.slice(0, 3).join("\n---\n").slice(0, 2000)}`
         : "";
-      fallbackAddendum = `\n\nIMPORTANT: Tool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls. The user asked: "${message.slice(0, 500)}"${toolSummaryText}`;
+      fallbackAddendum = `\n\nIMPORTANT: Tool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls or output JSON describing tool calls. Answer directly in natural language. The user asked: "${message.slice(0, 500)}"${toolSummaryText}`;
     } else {
-      fallbackAddendum = `\n\nIMPORTANT: Your previous attempt produced no output. Please respond directly to the user's question with a complete answer. If you are uncertain, say so rather than remaining silent. The user asked: "${message.slice(0, 500)}"`;
+      fallbackAddendum = `\n\nIMPORTANT: Your previous attempt produced no output. Please respond directly to the user's question with a complete answer in natural language. Do not output JSON or code blocks describing tool calls. If you are uncertain, say so rather than remaining silent. The user asked: "${message.slice(0, 500)}"`;
     }
 
     emitProgress?.({
@@ -765,9 +778,13 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       reasoning: "before-last-message"
     });
 
+    // Strip tool-related sections from the system prompt so the model
+    // doesn't try to output raw JSON tool calls as text.
+    const strippedPrompt = stripToolSections(ctx.systemPrompt);
+
     let finalResponse = await this.requestModelTextInternal({
       model: ctx.modelInstance,
-      system: `${ctx.systemPrompt}${fallbackAddendum}`,
+      system: `${strippedPrompt}${fallbackAddendum}`,
       messages: fallbackMessages,
       tools: {},
       temperature: Math.max(0.2, ctx.temperature - 0.2),
