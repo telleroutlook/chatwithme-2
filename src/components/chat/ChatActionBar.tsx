@@ -1,4 +1,3 @@
-import { Text, Badge } from "@cloudflare/kumo";
 import {
   LightningIcon,
   WrenchIcon,
@@ -55,11 +54,11 @@ export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActi
       <div className="mb-1.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-[11px] text-[var(--app-text-muted)]">
           <LightningIcon size={12} />
-          <Text size="xs">{title}</Text>
+          <span className="text-xs text-foreground">{title}</span>
         </div>
-        <Text size="xs" variant="secondary">
+        <span className="text-xs text-foreground-muted">
           {totalItems} items
-        </Text>
+        </span>
       </div>
 
       {/* Groups */}
@@ -74,9 +73,9 @@ export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActi
               <div className="flex items-center gap-1.5 px-2 pb-1 text-[11px] uppercase tracking-wide text-[var(--app-text-muted)]">
                 {sectionIcon}
                 <span>{sectionLabel}</span>
-                <Badge variant="secondary" className="ml-auto text-[10px]">
+                <span className="ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-surface-secondary text-foreground-muted">
                   {group.items.length}
-                </Badge>
+                </span>
               </div>
 
               {/* Items */}
@@ -102,7 +101,7 @@ export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActi
                       {/* Trigger + Value */}
                       <div className="flex-shrink-0 font-mono text-xs">
                         <span className="text-[var(--app-accent)]">{item.trigger}</span>
-                        <span className="text-kumo-default">{item.value}</span>
+                        <span className="text-foreground">{item.value}</span>
                       </div>
 
                       {/* Label + Description + Badge */}
@@ -112,9 +111,9 @@ export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActi
                             {item.label}
                           </span>
                           {item.badge && (
-                            <Badge variant="secondary" className="text-[10px]">
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-surface-secondary text-foreground-muted">
                               {item.badge}
-                            </Badge>
+                            </span>
                           )}
                         </div>
                         {item.description && (
@@ -143,30 +142,30 @@ export function ChatActionBar({ groups, activeIndex, onSelect, title }: ChatActi
       {isTouchDevice ? (
         <div className="mt-2 flex items-center justify-center gap-2 border-t border-[var(--app-border-default)] pt-1.5">
           <HandTapIcon size={12} className="text-[var(--app-text-muted)]" />
-          <Text size="xs" variant="secondary">
+          <span className="text-xs text-foreground-muted">
             Tap to select
-          </Text>
+          </span>
         </div>
       ) : (
         <div className="mt-2 flex items-center justify-center gap-2 border-t border-[var(--app-border-default)] pt-1.5">
-          <Text size="xs" variant="secondary">
+          <span className="text-xs text-foreground-muted">
             <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
               ↑↓
             </kbd>{" "}
             navigate
-          </Text>
-          <Text size="xs" variant="secondary">
+          </span>
+          <span className="text-xs text-foreground-muted">
             <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
               Tab
             </kbd>{" "}
             select
-          </Text>
-          <Text size="xs" variant="secondary">
+          </span>
+          <span className="text-xs text-foreground-muted">
             <kbd className="rounded bg-[var(--app-surface-secondary)] px-1.5 py-0.5 font-mono text-[10px]">
               Esc
             </kbd>{" "}
             close
-          </Text>
+          </span>
         </div>
       )}
     </div>

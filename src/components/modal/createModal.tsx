@@ -1,5 +1,4 @@
 import { globalModalStore, generateModalId, type ModalConfig, type ModalInstance } from "./types";
-import { Button } from "@cloudflare/kumo";
 
 // ============ Imperative Modal API ============
 
@@ -146,12 +145,24 @@ export function confirm(config: ConfirmConfig): Promise<boolean> {
       width: 400,
       footer: (
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={handleCancel}>
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors border border-border bg-surface-elevated hover:bg-muted text-foreground h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
+          >
             {config.cancelText || "Cancel"}
-          </Button>
-          <Button variant={config.danger ? "destructive" : "primary"} onClick={handleOk}>
+          </button>
+          <button
+            type="button"
+            onClick={handleOk}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors h-8 px-3 disabled:pointer-events-none disabled:opacity-50 ${
+              config.danger
+                ? "bg-[var(--app-color-danger)] text-white hover:bg-[var(--app-color-danger)]/90 shadow-sm"
+                : "bg-accent text-white hover:bg-accent/90 shadow-sm"
+            }`}
+          >
             {config.okText || "OK"}
-          </Button>
+          </button>
         </div>
       ),
       closable: true,
@@ -195,9 +206,13 @@ export function alert(config: AlertConfig): Promise<void> {
       content: config.content,
       width: 400,
       footer: (
-        <Button variant="primary" onClick={handleOk}>
+        <button
+          type="button"
+          onClick={handleOk}
+          className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors bg-accent text-white hover:bg-accent/90 shadow-sm h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
+        >
           {config.okText || "OK"}
-        </Button>
+        </button>
       ),
       closable: true,
       maskClosable: false

@@ -36,16 +36,16 @@ const LazyCodeBlock = lazy(() =>
 // Simple loading skeleton for code blocks
 function CodeBlockSkeleton() {
   return (
-    <div className="my-3 w-full rounded-xl ring ring-kumo-line overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/50 border-b border-kumo-line">
-        <div className="h-3 w-16 bg-kumo-control rounded animate-pulse" />
-        <div className="h-5 w-14 bg-kumo-control rounded animate-pulse" />
+    <div className="my-3 w-full rounded-xl ring ring-border overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
+        <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+        <div className="h-5 w-14 bg-muted rounded animate-pulse" />
       </div>
-      <div className="p-4 space-y-2 bg-[var(--surface-2)]">
+      <div className="p-4 space-y-2 bg-surface-secondary">
         {[...Array(3)].map((_, i) => (
           <div
             key={i}
-            className="h-4 bg-kumo-control/50 rounded animate-pulse"
+            className="h-4 bg-muted/50 rounded animate-pulse"
             style={{ width: `${60 + Math.random() * 30}%` }}
           />
         ))}
@@ -87,8 +87,8 @@ function InvalidChartSpec({ message, code }: { message: string; code: string }) 
     <div className="my-2 rounded-lg border app-border-danger-soft app-bg-danger-soft p-3 text-xs">
       <span className="app-text-danger">{message}</span>
       <details className="mt-2">
-        <summary className="cursor-pointer text-kumo-subtle">View original spec</summary>
-        <pre className="mt-2 max-h-52 overflow-auto rounded bg-kumo-control p-2 font-mono text-[11px] text-kumo-default">
+        <summary className="cursor-pointer text-foreground-muted">View original spec</summary>
+        <pre className="mt-2 max-h-52 overflow-auto rounded bg-muted p-2 font-mono text-[11px] text-foreground">
           {code}
         </pre>
       </details>
@@ -102,14 +102,14 @@ const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
   const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
 
   return (
-    <div className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
-      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line flex items-center justify-between gap-2">
+    <div className="my-3 w-full not-prose rounded-xl ring ring-border overflow-hidden bg-surface-elevated">
+      <div className="px-3 py-2 text-xs text-foreground-muted bg-muted/50 border-b border-border flex items-center justify-between gap-2">
         <span>Markdown Preview</span>
-        <div className="inline-flex items-center rounded-md border border-kumo-line p-0.5">
+        <div className="inline-flex items-center rounded-md border border-border p-0.5">
           <button
             type="button"
             className={`rounded px-2 py-1 text-[11px] ${
-              activeTab === "code" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+              activeTab === "code" ? "bg-muted text-foreground" : "text-foreground-muted"
             }`}
             onClick={() => setActiveTab("code")}
           >
@@ -118,7 +118,7 @@ const MarkdownPreviewRenderer = memo(function MarkdownPreviewRenderer({
           <button
             type="button"
             className={`rounded px-2 py-1 text-[11px] ${
-              activeTab === "preview" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+              activeTab === "preview" ? "bg-muted text-foreground" : "text-foreground-muted"
             }`}
             onClick={() => setActiveTab("preview")}
           >
@@ -231,7 +231,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             if (isInline) {
               return (
                 <code
-                  className="px-1.5 py-0.5 rounded bg-kumo-control text-kumo-default font-mono text-sm"
+                  className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-sm"
                   {...props}
                 >
                   {children}
@@ -372,26 +372,26 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
           },
           p({ children }) {
             return (
-              <p className="mb-3 last:mb-0 leading-relaxed text-sm text-kumo-default">{children}</p>
+              <p className="mb-3 last:mb-0 leading-relaxed text-sm text-foreground">{children}</p>
             );
           },
           h1({ children }) {
             return (
-              <h1 className="mb-4 mt-6 first:mt-0 text-xl font-semibold text-kumo-default">
+              <h1 className="mb-4 mt-6 first:mt-0 text-xl font-semibold text-foreground">
                 {children}
               </h1>
             );
           },
           h2({ children }) {
             return (
-              <h2 className="mb-3 mt-5 first:mt-0 text-lg font-semibold text-kumo-default">
+              <h2 className="mb-3 mt-5 first:mt-0 text-lg font-semibold text-foreground">
                 {children}
               </h2>
             );
           },
           h3({ children }) {
             return (
-              <h3 className="mb-2 mt-4 first:mt-0 text-base font-semibold text-kumo-default">
+              <h3 className="mb-2 mt-4 first:mt-0 text-base font-semibold text-foreground">
                 {children}
               </h3>
             );
@@ -403,7 +403,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             return <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>;
           },
           li({ children }) {
-            return <li className="text-sm text-kumo-default">{children}</li>;
+            return <li className="text-sm text-foreground">{children}</li>;
           },
           a({ href, children }) {
             return (
@@ -411,7 +411,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-kumo-accent hover:underline"
+                className="text-accent hover:underline"
               >
                 {children}
               </a>
@@ -425,34 +425,34 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             }
 
             return (
-              <blockquote className="border-l-4 border-kumo-accent/50 pl-4 py-1 my-3 bg-kumo-control/30 rounded-r">
+              <blockquote className="border-l-4 border-accent/50 pl-4 py-1 my-3 bg-muted/30 rounded-r">
                 {children}
               </blockquote>
             );
           },
           hr() {
-            return <hr className="my-4 border-kumo-line" />;
+            return <hr className="my-4 border-border" />;
           },
           table({ children }) {
             return (
               <div className="overflow-x-auto my-3">
-                <table className="min-w-full border border-kumo-line rounded">{children}</table>
+                <table className="min-w-full border border-border rounded">{children}</table>
               </div>
             );
           },
           thead({ children }) {
-            return <thead className="bg-kumo-control/50">{children}</thead>;
+            return <thead className="bg-muted/50">{children}</thead>;
           },
           th({ children }) {
             return (
-              <th className="px-4 py-2 text-left text-sm font-semibold border-b border-kumo-line">
+              <th className="px-4 py-2 text-left text-sm font-semibold border-b border-border">
                 {children}
               </th>
             );
           },
           td({ children }) {
             return (
-              <td className="px-4 py-2 text-sm border-b border-kumo-line last:border-b-0">
+              <td className="px-4 py-2 text-sm border-b border-border last:border-b-0">
                 {children}
               </td>
             );
@@ -471,7 +471,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
         {processedContent}
       </ReactMarkdown>
       {isStreaming && streamCursor && (
-        <span className="inline-block w-0.5 h-[1em] bg-kumo-brand ml-0.5 animate-blink-cursor" />
+        <span className="inline-block w-0.5 h-[1em] bg-accent ml-0.5 animate-blink-cursor" />
       )}
       <CitationCards items={citations} />
     </div>

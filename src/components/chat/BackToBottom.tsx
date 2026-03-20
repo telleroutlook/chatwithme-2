@@ -1,4 +1,4 @@
-import { Button } from "@cloudflare/kumo";
+import { cn } from "../ui/utils";
 import { ArrowLineDownIcon } from "@phosphor-icons/react";
 
 interface BackToBottomProps {
@@ -22,16 +22,19 @@ export function BackToBottom({
         visible ? "opacity-100" : "opacity-0"
       }`}
     >
-      <Button
-        className="pointer-events-auto app-panel"
-        variant="secondary"
-        icon={<ArrowLineDownIcon size={16} />}
+      <button
+        type="button"
         onClick={onClick}
+        className={cn(
+          "pointer-events-auto app-panel inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
+          "border border-border bg-surface-elevated hover:bg-muted text-foreground h-8 px-3"
+        )}
       >
+        <span className="shrink-0"><ArrowLineDownIcon size={16} /></span>
         {label}
         {unreadCount > 0 ? ` (${unreadCount})` : ""}
         {modeLabel ? ` · ${modeLabel}` : ""}
-      </Button>
+      </button>
     </div>
   );
 }

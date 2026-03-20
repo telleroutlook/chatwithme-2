@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, memo, useMemo } from "react";
-import { Surface, Button } from "@cloudflare/kumo";
+import { cn } from "./ui/utils";
 import { CopyIcon, CheckIcon, CodeIcon } from "@phosphor-icons/react";
 import { useShikiHighlight } from "../hooks/useShikiHighlight";
 
@@ -59,7 +59,7 @@ function CodeSkeleton({ lines = 5 }: { lines?: number }) {
       {Array.from({ length: lines }).map((_, i) => (
         <div
           key={i}
-          className="h-4 bg-kumo-control/50 rounded animate-pulse"
+          className="h-4 bg-muted/50 rounded animate-pulse"
           style={{ width: `${Math.random() * 40 + 60}%` }}
         />
       ))}
@@ -105,33 +105,37 @@ export const CodeBlock = memo(function CodeBlock({
   const displayLanguage = language || "text";
 
   return (
-    <Surface className="my-3 w-full rounded-xl ring ring-kumo-line overflow-hidden">
+    <div className="my-3 w-full rounded-xl border border-border bg-surface-elevated ring ring-border overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-kumo-control/50 border-b border-kumo-line">
+      <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
         <div className="flex items-center gap-2">
-          <CodeIcon size={14} className="text-kumo-subtle" />
-          <span className="text-xs text-kumo-subtle font-mono">{displayLanguage}</span>
+          <CodeIcon size={14} className="text-foreground-muted" />
+          <span className="text-xs text-foreground-muted font-mono">{displayLanguage}</span>
         </div>
         {showCopy && (
-          <Button
-            variant="secondary"
-            size="xs"
+          <button
+            type="button"
             onClick={handleCopy}
-            icon={copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+            className={cn(
+              "inline-flex items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors",
+              "border border-border bg-surface-elevated hover:bg-muted text-foreground h-6 px-2",
+              "disabled:pointer-events-none disabled:opacity-50"
+            )}
           >
+            <span className="shrink-0">{copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}</span>
             {copied ? "Copied" : "Copy"}
-          </Button>
+          </button>
         )}
       </div>
 
       {/* Code content */}
-      <div className="overflow-x-auto bg-[var(--surface-2)]">
+      <div className="overflow-x-auto bg-surface-secondary">
         {/* Loading state */}
         {isLoading && <CodeSkeleton lines={Math.min(code.split("\n").length, 10)} />}
 
         {/* Error state - fallback to plain text */}
         {error && (
-          <pre className="!mt-0 !mb-0 p-4 text-sm text-kumo-default">
+          <pre className="!mt-0 !mb-0 p-4 text-sm text-foreground">
             <code>{code}</code>
           </pre>
         )}
@@ -146,7 +150,7 @@ export const CodeBlock = memo(function CodeBlock({
 
         {/* Fallback for empty state */}
         {!html && !isLoading && !error && (
-          <pre className="!mt-0 !mb-0 p-4 text-sm text-kumo-default">
+          <pre className="!mt-0 !mb-0 p-4 text-sm text-foreground">
             <code>{code}</code>
           </pre>
         )}
@@ -154,10 +158,10 @@ export const CodeBlock = memo(function CodeBlock({
 
       {/* Line numbers sidebar (optional) */}
       {showLineNumbers && lineNumbers && (
-        <div className="absolute left-0 top-0 bottom-0 w-12 bg-kumo-control/30 border-r border-kumo-line overflow-hidden pointer-events-none">
-          <pre className="p-4 text-xs text-kumo-subtle text-right">{lineNumbers}</pre>
+        <div className="absolute left-0 top-0 bottom-0 w-12 bg-muted/30 border-r border-border overflow-hidden pointer-events-none">
+          <pre className="p-4 text-xs text-foreground-muted text-right">{lineNumbers}</pre>
         </div>
       )}
-    </Surface>
+    </div>
   );
 });

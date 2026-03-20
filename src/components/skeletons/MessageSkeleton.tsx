@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { Surface } from "@cloudflare/kumo";
 
 interface SkeletonProps {
   className?: string;
@@ -15,7 +14,7 @@ export const Skeleton = memo(function Skeleton({
 }: SkeletonProps) {
   return (
     <div
-      className={`bg-kumo-line/50 rounded ${animate ? "animate-pulse" : ""} ${className}`}
+      className={`bg-border/50 rounded ${animate ? "animate-pulse" : ""} ${className}`}
       aria-hidden="true"
     />
   );
@@ -42,9 +41,9 @@ export const MessageSkeleton = memo(function MessageSkeleton({
       aria-label="Loading message"
     >
       {/* Message bubble */}
-      <Surface
-        className={`rounded-2xl px-4 py-2.5 ring ring-kumo-line ${
-          isUser ? "bg-kumo-accent/20" : "bg-kumo-surface/95"
+      <div
+        className={`rounded-2xl px-4 py-2.5 ring ring-border ${
+          isUser ? "bg-accent/20" : "bg-surface-elevated/95"
         } ${isUser ? "w-fit max-w-[70%]" : "w-full max-w-[85%]"}`}
       >
         {isUser ? (
@@ -58,7 +57,7 @@ export const MessageSkeleton = memo(function MessageSkeleton({
             <Skeleton className="h-4 w-3/5" animate={animate} />
           </div>
         )}
-      </Surface>
+      </div>
 
       {/* Actions placeholder */}
       <div className="flex gap-2">
@@ -85,7 +84,7 @@ export const ChartSkeleton = memo(function ChartSkeleton({
   animate = true,
 }: ChartSkeletonProps) {
   return (
-    <Surface className="w-full rounded-xl p-4 ring ring-kumo-line bg-[var(--surface-elevated)]">
+    <div className="w-full rounded-xl p-4 ring ring-border bg-surface-elevated">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <Skeleton className="h-4 w-4 rounded" animate={animate} />
@@ -117,7 +116,7 @@ export const ChartSkeleton = memo(function ChartSkeleton({
           </div>
         )}
       </div>
-    </Surface>
+    </div>
   );
 });
 
@@ -137,9 +136,9 @@ export const CodeSkeleton = memo(function CodeSkeleton({
   const lineWidths = ["w-3/5", "w-4/5", "w-2/3", "w-3/4", "w-1/2", "w-4/6", "w-3/5"];
 
   return (
-    <div className="rounded-lg bg-kumo-surface/95 ring ring-kumo-line overflow-hidden">
+    <div className="rounded-lg bg-surface-elevated/95 ring ring-border overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-kumo-line">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <Skeleton className="h-4 w-16" animate={animate} />
         <div className="flex gap-1">
           <Skeleton className="h-4 w-4 rounded" animate={animate} />

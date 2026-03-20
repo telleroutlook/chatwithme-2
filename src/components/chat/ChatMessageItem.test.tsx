@@ -84,7 +84,9 @@ describe("ChatMessageItem", () => {
     );
 
     expect(screen.getByText("User:hello")).toBeInTheDocument();
-    expect(container.querySelector(".app-user-bubble")).not.toBeNull();
+    // User message should render with a background (bg-surface-secondary)
+    const userBubble = container.querySelector(".bg-surface-secondary");
+    expect(userBubble).not.toBeNull();
   });
 
   it("renders user message with role prefix", () => {

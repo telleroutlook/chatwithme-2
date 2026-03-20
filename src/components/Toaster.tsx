@@ -25,8 +25,8 @@ export function Toaster() {
       "--toast-border": "var(--color-toast-error-border, #ef4444)"
     } as CSSProperties,
     info: {
-      "--toast-bg": "var(--color-toast-info-bg, var(--color-kumo-inverse, #111827))",
-      "--toast-fg": "var(--color-toast-info-fg, var(--color-kumo-base, #f9fafb))",
+      "--toast-bg": "var(--color-toast-info-bg, #111827)",
+      "--toast-fg": "var(--color-toast-info-fg, #f9fafb)",
       "--toast-border": "var(--color-toast-info-border, #4b5563)"
     } as CSSProperties
   };
@@ -38,7 +38,7 @@ export function Toaster() {
       aria-label={t("toaster_region_label")}
     >
       {hiddenCount > 0 && (
-        <div className="text-xs text-kumo-subtle px-2 py-1 text-right">
+        <div className="text-xs text-foreground-muted px-2 py-1 text-right">
           {t("toaster_hidden_count", { count: String(hiddenCount) })}
         </div>
       )}

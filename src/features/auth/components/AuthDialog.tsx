@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { Button, Text } from "@cloudflare/kumo";
 import { Dialog } from "../../../components/ui/dialog";
+import { cn } from "../../../components/ui/utils";
 import { useAuth } from "../../chat/context/AuthContext";
 import { useToast } from "../../../hooks/useToast";
 import type { UiMessageKey } from "../../../i18n/ui";
@@ -92,17 +92,24 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
       title={title}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center rounded-lg border border-border bg-muted px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+          >
             {t("message_actions_cancel")}
-          </Button>
-          <Button
+          </button>
+          <button
             type="submit"
             form={formId}
-            variant="primary"
             disabled={!canSubmit || isLoading}
+            className={cn(
+              "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              (!canSubmit || isLoading) && "cursor-not-allowed opacity-50"
+            )}
           >
             {submitLabel}
-          </Button>
+          </button>
         </div>
       }
     >
@@ -115,43 +122,43 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
         }}
       >
         <label className="block space-y-1">
-          <Text size="sm" variant="secondary">
+          <span className="text-sm text-foreground-muted">
             {t("auth_username")}
-          </Text>
+          </span>
           <input
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             autoComplete="username"
-            className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default outline-none focus:border-kumo-accent"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             placeholder={t("auth_username_placeholder")}
           />
         </label>
 
         <label className="block space-y-1">
-          <Text size="sm" variant="secondary">
+          <span className="text-sm text-foreground-muted">
             {t("auth_password")}
-          </Text>
+          </span>
           <input
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             type="password"
-            className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default outline-none focus:border-kumo-accent"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             placeholder={t("auth_password_placeholder")}
           />
         </label>
 
         {mode === "register" ? (
           <label className="block space-y-1">
-            <Text size="sm" variant="secondary">
+            <span className="text-sm text-foreground-muted">
               {t("auth_password_confirm")}
-            </Text>
+            </span>
             <input
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               autoComplete="new-password"
               type="password"
-              className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default outline-none focus:border-kumo-accent"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
               placeholder={t("auth_password_confirm_placeholder")}
             />
           </label>
@@ -163,11 +170,11 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
           </p>
         ) : null}
 
-        <div className="pt-1 text-sm text-kumo-subtle">
+        <div className="pt-1 text-sm text-foreground-muted">
           {mode === "login" ? t("auth_need_account") : t("auth_have_account")} {" "}
           <button
             type="button"
-            className="font-medium text-kumo-accent hover:underline"
+            className="font-medium text-accent hover:underline"
             onClick={() => {
               clearError();
               setLocalError(null);

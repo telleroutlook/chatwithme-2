@@ -1,5 +1,4 @@
 import { memo, useMemo, useState } from "react";
-import { Surface, Button } from "@cloudflare/kumo";
 import { CopyIcon, CheckIcon, CaretRightIcon, CaretDownIcon } from "@phosphor-icons/react";
 
 interface JsonTreeViewProps {
@@ -38,17 +37,17 @@ const JsonNode = memo(function JsonNode({ data, depth, maxDepth, expanded, onTog
 
   if (Array.isArray(data)) {
     if (data.length === 0) {
-      return <span className="text-kumo-subtle">[]</span>;
+      return <span className="text-foreground-muted">[]</span>;
     }
 
     if (depth >= maxDepth || !expanded) {
       return (
-        <span className="text-kumo-subtle">
+        <span className="text-foreground-muted">
           [
           <button
             type="button"
             onClick={onToggle}
-            className="text-kumo-brand hover:underline cursor-pointer"
+            className="text-accent hover:underline cursor-pointer"
           >
             {data.length} items
           </button>
@@ -60,13 +59,13 @@ const JsonNode = memo(function JsonNode({ data, depth, maxDepth, expanded, onTog
     return (
       <span>
         <button type="button" onClick={onToggle} className="inline-flex items-center">
-          <CaretDownIcon size={12} className="text-kumo-subtle mr-1" />
-          <span className="text-kumo-subtle">[</span>
+          <CaretDownIcon size={12} className="text-foreground-muted mr-1" />
+          <span className="text-foreground-muted">[</span>
         </button>
         <div style={{ marginLeft: indent + 16 }}>
           {data.map((item, index) => (
             <div key={index} className="flex">
-              <span className="text-kumo-subtle mr-2">{index}:</span>
+              <span className="text-foreground-muted mr-2">{index}:</span>
               <JsonNode
                 data={item}
                 depth={depth + 1}
@@ -74,11 +73,11 @@ const JsonNode = memo(function JsonNode({ data, depth, maxDepth, expanded, onTog
                 expanded={false}
                 onToggle={() => {}}
               />
-              {index < data.length - 1 && <span className="text-kumo-subtle">,</span>}
+              {index < data.length - 1 && <span className="text-foreground-muted">,</span>}
             </div>
           ))}
         </div>
-        <span className="text-kumo-subtle" style={{ marginLeft: indent }}>
+        <span className="text-foreground-muted" style={{ marginLeft: indent }}>
           ]
         </span>
       </span>
@@ -88,17 +87,17 @@ const JsonNode = memo(function JsonNode({ data, depth, maxDepth, expanded, onTog
   if (typeof data === "object") {
     const entries = Object.entries(data);
     if (entries.length === 0) {
-      return <span className="text-kumo-subtle">{}</span>;
+      return <span className="text-foreground-muted">{}</span>;
     }
 
     if (depth >= maxDepth || !expanded) {
       return (
-        <span className="text-kumo-subtle">
+        <span className="text-foreground-muted">
           {"{"}
           <button
             type="button"
             onClick={onToggle}
-            className="text-kumo-brand hover:underline cursor-pointer"
+            className="text-accent hover:underline cursor-pointer"
           >
             {entries.length} keys
           </button>
@@ -110,8 +109,8 @@ const JsonNode = memo(function JsonNode({ data, depth, maxDepth, expanded, onTog
     return (
       <span>
         <button type="button" onClick={onToggle} className="inline-flex items-center">
-          <CaretDownIcon size={12} className="text-kumo-subtle mr-1" />
-          <span className="text-kumo-subtle">{"{"}</span>
+          <CaretDownIcon size={12} className="text-foreground-muted mr-1" />
+          <span className="text-foreground-muted">{"{"}</span>
         </button>
         <div style={{ marginLeft: indent + 16 }}>
           {entries.map(([key, value], index) => (
@@ -124,11 +123,11 @@ const JsonNode = memo(function JsonNode({ data, depth, maxDepth, expanded, onTog
                 expanded={false}
                 onToggle={() => {}}
               />
-              {index < entries.length - 1 && <span className="text-kumo-subtle">,</span>}
+              {index < entries.length - 1 && <span className="text-foreground-muted">,</span>}
             </div>
           ))}
         </div>
-        <span className="text-kumo-subtle" style={{ marginLeft: indent }}>{"}"}</span>
+        <span className="text-foreground-muted" style={{ marginLeft: indent }}>{"}"}</span>
       </span>
     );
   }
@@ -185,9 +184,9 @@ export const JsonTreeView = memo(function JsonTreeView({
   };
 
   return (
-    <Surface className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
+    <div className="my-3 w-full not-prose rounded-xl ring ring-border overflow-hidden bg-surface-elevated">
       {/* Header */}
-      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line flex items-center justify-between gap-2">
+      <div className="px-3 py-2 text-xs text-foreground-muted bg-muted/50 border-b border-border flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="font-mono">{label}</span>
           {parsedData !== null && (
@@ -201,23 +200,23 @@ export const JsonTreeView = memo(function JsonTreeView({
             </span>
           )}
         </div>
-        <Button
-          variant="secondary"
-          size="xs"
+        <button
+          type="button"
           onClick={handleCopy}
-          icon={copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-foreground-muted border border-border bg-muted/50 hover:bg-muted transition-colors"
         >
+          {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
           {copied ? "Copied" : "Copy"}
-        </Button>
+        </button>
       </div>
 
       {/* Content */}
-      <div className="max-h-[600px] overflow-auto p-4 font-mono text-sm bg-[var(--surface-1)]">
+      <div className="max-h-[600px] overflow-auto p-4 font-mono text-sm bg-surface">
         {parseError ? (
           <div className="text-red-500">
             <div className="font-bold">Parse Error:</div>
             <div>{parseError}</div>
-            <pre className="mt-2 text-xs text-kumo-subtle whitespace-pre-wrap">{code}</pre>
+            <pre className="mt-2 text-xs text-foreground-muted whitespace-pre-wrap">{code}</pre>
           </div>
         ) : (
           <JsonNode
@@ -229,7 +228,7 @@ export const JsonTreeView = memo(function JsonTreeView({
           />
         )}
       </div>
-    </Surface>
+    </div>
   );
 });
 

@@ -6,7 +6,6 @@ import {
   ArrowSquareOutIcon,
   StarIcon,
 } from "@phosphor-icons/react";
-import { Text, Badge } from "@cloudflare/kumo";
 import { extractMessageSources, type MessageSourceGroup } from "../types/message-sources";
 
 interface MessageSourcesProps {
@@ -37,10 +36,10 @@ function ScoreBadge({ score }: { score?: number }) {
         : "text-gray-600 bg-gray-50 dark:bg-gray-900/20";
 
   return (
-    <Badge className={`text-[10px] ${colorClass}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>
       <StarIcon size={10} className="mr-0.5" weight="fill" />
       {percentage}%
-    </Badge>
+    </span>
   );
 }
 
@@ -58,9 +57,9 @@ function ChunkPreview({
   const displayText = truncated ? `${preview.slice(0, maxPreviewLength)}...` : preview;
 
   return (
-    <Text size="xs" variant="secondary">
+    <span className="text-xs text-foreground-muted">
       <span className="leading-relaxed">{displayText}</span>
-    </Text>
+    </span>
   );
 }
 
@@ -107,10 +106,10 @@ export function MessageSources({
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--app-border-default)] bg-[var(--app-surface-secondary)]">
         <div className="flex items-center gap-2">
           <FilesIcon size={14} className="text-[var(--app-text-muted)]" />
-          <Text size="xs" bold>
+          <span className="text-xs font-bold text-foreground">
             {title}
-          </Text>
-          <Badge variant="secondary">{totalChunks}</Badge>
+          </span>
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-surface-secondary text-foreground-muted">{totalChunks}</span>
           {showScores && avgScore > 0 && (
             <ScoreBadge score={avgScore} />
           )}
@@ -118,7 +117,7 @@ export function MessageSources({
         <button
           type="button"
           onClick={toggleAll}
-          className="text-[11px] text-kumo-accent hover:underline"
+          className="text-[11px] text-accent-foreground hover:underline"
         >
           {expandedAll ? "Collapse all" : "Expand all"}
         </button>
@@ -151,9 +150,9 @@ export function MessageSources({
                 </span>
                 <span className="truncate text-xs font-medium flex-1">{group.title}</span>
                 {showScores && groupScore > 0 && <ScoreBadge score={groupScore} />}
-                <Badge variant="secondary" className="text-[10px]">
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-surface-secondary text-foreground-muted">
                   {group.chunks.length}
-                </Badge>
+                </span>
               </button>
 
               {/* Chunks */}
@@ -161,9 +160,9 @@ export function MessageSources({
                 <div className="border-t border-[var(--app-border-default)] divide-y divide-[var(--app-border-default)]/50">
                   {group.chunks.length === 0 ? (
                     <div className="px-2.5 py-2">
-                      <Text size="xs" variant="secondary">
+                      <span className="text-xs text-foreground-muted">
                         {emptyLabel}
-                      </Text>
+                      </span>
                     </div>
                   ) : (
                     group.chunks.map((chunk) => (
@@ -195,7 +194,7 @@ export function MessageSources({
                     href={group.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-kumo-accent hover:underline"
+                    className="inline-flex items-center gap-1 text-[11px] text-accent-foreground hover:underline"
                   >
                     <ArrowSquareOutIcon size={12} />
                     View source

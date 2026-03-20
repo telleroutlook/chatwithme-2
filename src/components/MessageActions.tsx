@@ -1,5 +1,5 @@
 import { useState, useCallback, memo, useRef, useEffect } from "react";
-import { Button } from "@cloudflare/kumo";
+import { cn } from "./ui/utils";
 import {
   CopyIcon,
   CheckIcon,
@@ -132,15 +132,21 @@ export const MessageActions = memo(function MessageActions({
     downloadTextFile(jsonContent, `${filename}.json`, "application/json");
   }, [content, disabled, messageId]);
 
-  const buttonSize = compact ? "xs" : "sm";
   const iconSize = compact ? 12 : 14;
 
   // On mobile/touch devices, ensure buttons are always visible (not hover-dependent)
   // and have adequate touch targets (min 44x44)
   const isTouchDevice = mobile || touch;
 
+  const btnBase = cn(
+    "inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors",
+    "border border-border bg-surface-elevated hover:bg-muted text-foreground",
+    compact ? "h-7 px-2" : "h-8 px-3",
+    "disabled:pointer-events-none disabled:opacity-50"
+  );
+
   return (
-    <div className={`mt-0.5 inline-flex items-center gap-1 rounded-lg bg-kumo-base/60 px-1 py-1 backdrop-blur-sm transition-opacity duration-200 ${
+    <div className={`mt-0.5 inline-flex items-center gap-1 rounded-lg bg-surface/60 px-1 py-1 backdrop-blur-sm transition-opacity duration-200 ${
       isTouchDevice
         ? "opacity-95"
         : "opacity-95 md:opacity-70 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
@@ -150,79 +156,76 @@ export const MessageActions = memo(function MessageActions({
       </span>
       {/* Copy button */}
       {showCopy && (
-        <Button
-          variant="secondary"
-          size={buttonSize}
+        <button
+          type="button"
           onClick={handleCopy}
           disabled={disabled}
-          icon={copied ? <CheckIcon size={iconSize} /> : <CopyIcon size={iconSize} />}
           aria-label={copied ? t("message_actions_copied") : t("message_actions_copy_message")}
-          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
+          className={cn(btnBase, isTouchDevice && "min-h-[44px] min-w-[44px] active:scale-95")}
         >
+          <span className="shrink-0">{copied ? <CheckIcon size={iconSize} /> : <CopyIcon size={iconSize} />}</span>
           {!compact && (copied ? t("message_actions_copied") : t("message_actions_copy"))}
-        </Button>
+        </button>
       )}
 
       {/* Regenerate button */}
       {showRegenerate && onRegenerate && (
-        <Button
-          variant="secondary"
-          size={buttonSize}
+        <button
+          type="button"
           onClick={handleRegenerate}
           disabled={disabled || disableMutations}
-          icon={<ArrowClockwiseIcon size={iconSize} />}
           aria-label={t("message_actions_regenerate_response")}
-          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
+          className={cn(btnBase, isTouchDevice && "min-h-[44px] min-w-[44px] active:scale-95")}
         >
+          <span className="shrink-0"><ArrowClockwiseIcon size={iconSize} /></span>
           {!compact && t("message_actions_regenerate")}
-        </Button>
+        </button>
       )}
 
       {/* Edit button */}
       {showEdit && onEdit && (
-        <Button
-          variant="secondary"
-          size={buttonSize}
+        <button
+          type="button"
           onClick={handleEdit}
           disabled={disabled || disableMutations}
-          icon={<PencilSimpleIcon size={iconSize} />}
           aria-label={t("message_actions_edit_message")}
-          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
+          className={cn(btnBase, isTouchDevice && "min-h-[44px] min-w-[44px] active:scale-95")}
         >
+          <span className="shrink-0"><PencilSimpleIcon size={iconSize} /></span>
           {!compact && t("message_actions_edit")}
-        </Button>
+        </button>
       )}
 
       {/* Delete button */}
       {showDelete && (
-        <Button
-          variant="secondary"
-          size={buttonSize}
+        <button
+          type="button"
           onClick={handleDelete}
           disabled={disabled || disableMutations || !onDelete}
-          icon={<TrashIcon size={iconSize} />}
           aria-label={t("message_actions_delete_message")}
-          className={`hover:!bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:!text-[var(--app-color-danger)] focus-visible:!ring-[color-mix(in_oklab,var(--app-color-danger)_45%,transparent)] ${
-            isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""
-          }`}
+          className={cn(
+            btnBase,
+            "hover:!bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:!text-[var(--app-color-danger)] focus-visible:!ring-[color-mix(in_oklab,var(--app-color-danger)_45%,transparent)]",
+            isTouchDevice && "min-h-[44px] min-w-[44px] active:scale-95"
+          )}
         >
+          <span className="shrink-0"><TrashIcon size={iconSize} /></span>
           {!compact && t("message_actions_delete")}
-        </Button>
+        </button>
       )}
 
       {/* Export button */}
       {showExport && (
-        <Button
-          variant="secondary"
-          size={buttonSize}
+        <button
+          type="button"
           onClick={handleExport}
           disabled={disabled}
-          icon={<DownloadIcon size={iconSize} />}
           aria-label={t("message_actions_export")}
-          className={isTouchDevice ? "min-h-[44px] min-w-[44px] active:scale-95" : ""}
+          className={cn(btnBase, isTouchDevice && "min-h-[44px] min-w-[44px] active:scale-95")}
         >
+          <span className="shrink-0"><DownloadIcon size={iconSize} /></span>
           {!compact && t("message_actions_export")}
-        </Button>
+        </button>
       )}
     </div>
   );
@@ -264,9 +267,9 @@ export function ActionIcon({
             ? "opacity-50 cursor-not-allowed"
             : danger
               ? "hover:bg-[color-mix(in_oklab,var(--app-color-danger)_14%,transparent)] hover:text-[var(--app-color-danger)]"
-              : "hover:bg-kumo-control"
+              : "hover:bg-muted"
         }
-        text-kumo-subtle
+        text-foreground-muted
       `}
     >
       {icon}

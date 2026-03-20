@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { Button, Text } from "@cloudflare/kumo";
 import { Dialog } from "../../../components/ui/dialog";
+import { cn } from "../../../components/ui/utils";
 import { useAuth } from "../../chat/context/AuthContext";
 import { useToast } from "../../../hooks/useToast";
 import type { UiMessageKey } from "../../../i18n/ui";
@@ -66,17 +66,24 @@ export function ProfileDialog({ open, onClose, t }: ProfileDialogProps) {
       title={t("auth_profile_title")}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center rounded-lg border border-border bg-muted px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+          >
             {t("message_actions_cancel")}
-          </Button>
-          <Button
+          </button>
+          <button
             type="submit"
             form={formId}
-            variant="primary"
             disabled={!canSubmit || isLoading}
+            className={cn(
+              "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              (!canSubmit || isLoading) && "cursor-not-allowed opacity-50"
+            )}
           >
             {t("auth_change_password_action")}
-          </Button>
+          </button>
         </div>
       }
     >
@@ -88,59 +95,59 @@ export function ProfileDialog({ open, onClose, t }: ProfileDialogProps) {
           void onSubmit();
         }}
       >
-        <div className="rounded-xl border border-kumo-line bg-kumo-control/40 p-3">
-          <Text size="sm" variant="secondary">
+        <div className="rounded-xl border border-border bg-muted/40 p-3">
+          <span className="text-sm text-foreground-muted">
             {t("auth_profile_username")}
-          </Text>
-          <p className="mt-1 text-sm font-medium text-kumo-default">{user?.username ?? "-"}</p>
+          </span>
+          <p className="mt-1 text-sm font-medium text-foreground">{user?.username ?? "-"}</p>
           <div className="mt-2">
-            <Text size="sm" variant="secondary">
+            <span className="text-sm text-foreground-muted">
               {t("auth_profile_created_at")}
-            </Text>
+            </span>
           </div>
-          <p className="mt-1 text-sm text-kumo-default">
+          <p className="mt-1 text-sm text-foreground">
             {user?.createdAt ? new Date(user.createdAt).toLocaleString() : "-"}
           </p>
         </div>
 
         <label className="block space-y-1">
-          <Text size="sm" variant="secondary">
+          <span className="text-sm text-foreground-muted">
             {t("auth_current_password")}
-          </Text>
+          </span>
           <input
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             autoComplete="current-password"
             type="password"
-            className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default outline-none focus:border-kumo-accent"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             placeholder={t("auth_current_password_placeholder")}
           />
         </label>
 
         <label className="block space-y-1">
-          <Text size="sm" variant="secondary">
+          <span className="text-sm text-foreground-muted">
             {t("auth_new_password")}
-          </Text>
+          </span>
           <input
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
             type="password"
-            className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default outline-none focus:border-kumo-accent"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             placeholder={t("auth_new_password_placeholder")}
           />
         </label>
 
         <label className="block space-y-1">
-          <Text size="sm" variant="secondary">
+          <span className="text-sm text-foreground-muted">
             {t("auth_password_confirm")}
-          </Text>
+          </span>
           <input
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
             type="password"
-            className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default outline-none focus:border-kumo-accent"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
             placeholder={t("auth_password_confirm_placeholder")}
           />
         </label>

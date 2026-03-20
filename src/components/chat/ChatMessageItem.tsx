@@ -1,7 +1,8 @@
 import { memo, useMemo, useState } from "react";
-import { Button, Text } from "@cloudflare/kumo";
+import { User as UserIcon, Sparkle as SparkleIcon } from "@phosphor-icons/react";
 import type { UIMessage } from "ai";
 import { Dialog } from "../ui";
+import { cn } from "../ui/utils";
 import { MessageActions } from "../MessageActions";
 import { MessageSources } from "../MessageSources";
 import { MarkdownRenderer } from "../MarkdownRenderer";
@@ -36,7 +37,7 @@ function ChatMessageItemInner({
   isStreaming,
   canEdit,
   isLastMessage,
-  variant = "bubble",
+  variant,
   markdownPrefs,
   onDelete,
   onEdit,
@@ -53,19 +54,7 @@ function ChatMessageItemInner({
   const approvalContext = useApprovalContext();
 
   const hasRenderableBlock = !isUser && RENDERABLE_BLOCK_PATTERN.test(text);
-  const actionsLayout: "inline" | "stack" =
-    variant === "docs" || hasRenderableBlock ? "stack" : "inline";
-  const bubbleWidthClass =
-    variant === "docs"
-      ? "w-full max-w-full"
-      : isUser
-        ? "w-fit max-w-[95%] sm:max-w-[85%]"
-        : hasRenderableBlock
-          ? "w-full max-w-full"
-          : "w-fit max-w-[95%] sm:max-w-[85%]";
-  const bubbleToneClass = isUser
-    ? "app-user-bubble"
-    : "bg-kumo-surface/95 text-kumo-default ring ring-kumo-line";
+  const hasErrorLikeContent = !isUser && /(处理请求时出错|error|failed)/i.test(text);
 
   const toolCalls = useMemo(
     () =>
@@ -85,7 +74,6 @@ function ChatMessageItemInner({
       })),
     [sourceGroups]
   );
-  const hasErrorLikeContent = !isUser && /(处理请求时出错|error|failed)/i.test(text);
 
   const saveEdit = async () => {
     if (!draft.trim() || draft === text) {
@@ -104,12 +92,40 @@ function ChatMessageItemInner({
 
   return (
     <div
-      className={`group flex flex-col ${
-        variant === "docs" ? "items-stretch" : isUser ? "items-end" : "items-start"
-      }`}
+      className={cn(
+        "group flex flex-col gap-1 px-4 py-3 w-full",
+        isUser ? "items-end" : "items-start"
+      )}
     >
+      {/* Role label row */}
+      <div
+        className={cn(
+          "flex items-center gap-1.5 mb-1",
+          isUser ? "flex-row-reverse" : "flex-row"
+        )}
+      >
+        <span
+          className={cn(
+            "flex items-center justify-center rounded-full shrink-0",
+            isUser
+              ? "h-6 w-6 bg-surface-secondary text-foreground-muted"
+              : "h-6 w-6 bg-accent/10 text-accent"
+          )}
+        >
+          {isUser ? (
+            <UserIcon size={13} weight="bold" />
+          ) : (
+            <SparkleIcon size={13} weight="fill" />
+          )}
+        </span>
+        <span className="text-xs font-medium text-foreground-muted select-none">
+          {isUser ? t("role_user" as import("../../i18n/ui").UiMessageKey) ?? "You" : t("role_assistant" as import("../../i18n/ui").UiMessageKey) ?? "Assistant"}
+        </span>
+      </div>
+
+      {/* Tool call cards — shown above the text bubble for assistant messages */}
       {!isUser && toolCalls.length > 0 && (
-        <div className="mb-2 w-full max-w-[95%] space-y-2 sm:max-w-[85%]">
+        <div className="w-full space-y-2 mb-2">
           {toolCalls.map((toolCall, index) => (
             <ToolCallCard
               key={`${toolCall.toolName}-${index}`}
@@ -132,14 +148,15 @@ function ChatMessageItemInner({
         </div>
       )}
 
-      <div
-        className={`${bubbleWidthClass} rounded-2xl px-4 py-2.5 shadow-[var(--app-shadow-soft)] ${bubbleToneClass}`}
-      >
-        {isUser ? (
-          <span className="block whitespace-pre-wrap">
-            <Text size="sm">{prefixedText}</Text>
+      {/* Message body */}
+      {isUser ? (
+        <div className="bg-surface-secondary rounded-2xl px-4 py-3 max-w-[85%] sm:max-w-[75%]">
+          <span className="block whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+            {prefixedText}
           </span>
-        ) : (
+        </div>
+      ) : (
+        <div className={cn("w-full", hasRenderableBlock ? "max-w-full" : "max-w-full")}>
           <MarkdownRenderer
             content={prefixedText}
             isStreaming={isStreaming && isLastMessage}
@@ -148,18 +165,21 @@ function ChatMessageItemInner({
             streamCursor={markdownPrefs?.streamCursor ?? true}
             citations={citations}
           />
-        )}
-      </div>
+        </div>
+      )}
 
+      {/* Error card */}
       {hasErrorLikeContent && (
-        <div className="mt-2 rounded-lg border app-border-danger-soft app-bg-danger-soft p-2">
+        <div className="mt-2 w-full rounded-lg border border-border bg-surface-secondary p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="app-text-danger">
-              <Text size="xs">{text}</Text>
-            </span>
-            <Button
-              size="xs"
-              variant="secondary"
+            <span className="text-xs text-foreground-muted">{text}</span>
+            <button
+              className={cn(
+                "inline-flex items-center justify-center rounded-lg border border-border",
+                "bg-surface-elevated px-3 h-7 text-xs font-medium text-foreground",
+                "hover:bg-muted transition-colors",
+                "disabled:pointer-events-none disabled:opacity-50"
+              )}
               disabled={!canEdit}
               onClick={() => {
                 trackChatEvent("message_regenerate", { messageId: message.id, source: "error-card" });
@@ -167,13 +187,14 @@ function ChatMessageItemInner({
               }}
             >
               {t("message_actions_regenerate")}
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
+      {/* Message sources */}
       {!isUser && (
-        <div className={`${hasRenderableBlock ? "w-full max-w-full" : "w-full max-w-[95%] sm:max-w-[85%]"}`}>
+        <div className="w-full">
           <MessageSources
             groups={sourceGroups}
             title={t("chat_sources_title")}
@@ -182,7 +203,16 @@ function ChatMessageItemInner({
         </div>
       )}
 
-      <div className={`mt-1 ${actionsLayout === "stack" ? "w-full" : ""}`}>
+      {/* Message actions — visible on hover (desktop) or always (mobile) */}
+      <div
+        className={cn(
+          "mt-1 transition-opacity duration-150",
+          "opacity-0 group-hover:opacity-100",
+          "sm:opacity-0 sm:group-hover:opacity-100",
+          // Always visible on mobile (no hover support)
+          "max-sm:opacity-100"
+        )}
+      >
         <MessageActions
           content={text}
           showRegenerate={!isUser}
@@ -200,10 +230,11 @@ function ChatMessageItemInner({
           onDelete={() => onDelete(message.id)}
           disabled={isStreaming}
           disableMutations={!canEdit}
-          compact={actionsLayout !== "stack"}
+          compact={!hasRenderableBlock}
         />
       </div>
 
+      {/* Edit dialog */}
       <Dialog
         open={isEditing}
         onClose={() => {
@@ -213,26 +244,43 @@ function ChatMessageItemInner({
         title={t("message_actions_edit_message")}
         footer={
           <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
+              className={cn(
+                "inline-flex items-center justify-center rounded-lg border border-border",
+                "bg-surface-elevated px-3 h-8 text-xs font-medium text-foreground",
+                "hover:bg-muted transition-colors",
+                "disabled:pointer-events-none disabled:opacity-50"
+              )}
               onClick={() => {
                 setIsEditing(false);
                 setDraft(text);
               }}
             >
               {t("message_actions_cancel")}
-            </Button>
-            <Button variant="primary" size="sm" onClick={saveEdit} disabled={saving}>
+            </button>
+            <button
+              className={cn(
+                "inline-flex items-center justify-center rounded-lg",
+                "bg-accent px-3 h-8 text-xs font-medium text-white",
+                "hover:bg-accent/90 transition-colors shadow-sm",
+                "disabled:pointer-events-none disabled:opacity-50"
+              )}
+              onClick={saveEdit}
+              disabled={saving}
+            >
               {t("message_actions_save")}
-            </Button>
+            </button>
           </div>
         }
       >
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          className="min-h-36 w-full resize-y rounded-lg border border-kumo-line bg-kumo-base/80 p-2 text-sm text-kumo-default"
+          className={cn(
+            "min-h-36 w-full resize-y rounded-lg border border-border",
+            "bg-surface-secondary/80 p-3 text-sm text-foreground",
+            "focus:outline-none focus:ring-2 focus:ring-accent/40 transition"
+          )}
           aria-label={t("message_actions_edit_message")}
         />
       </Dialog>

@@ -1,5 +1,4 @@
 import { memo, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { Surface, Button } from "@cloudflare/kumo";
 import { CopyIcon, CheckIcon, CodeIcon } from "@phosphor-icons/react";
 import {
   parseHtmlDocument,
@@ -20,7 +19,7 @@ function CodeBlockSkeleton() {
       {[...Array(3)].map((_, i) => (
         <div
           key={i}
-          className="h-4 bg-kumo-control/50 rounded animate-pulse"
+          className="h-4 bg-muted/50 rounded animate-pulse"
           style={{ width: `${60 + Math.random() * 30}%` }}
         />
       ))}
@@ -166,25 +165,25 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
   }
 
   return (
-    <Surface className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
+    <div className="my-3 w-full not-prose rounded-xl ring ring-border overflow-hidden bg-surface-elevated">
       {/* Header */}
-      <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line flex items-center justify-between gap-2">
+      <div className="px-3 py-2 text-xs text-foreground-muted bg-muted/50 border-b border-border flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <CodeIcon size={14} />
           <span>HTML Preview</span>
           {parsed.isFullDocument && (
-            <span className="px-1.5 py-0.5 rounded bg-kumo-brand/20 text-kumo-brand text-[10px]">
+            <span className="px-1.5 py-0.5 rounded bg-accent/20 text-accent text-[10px]">
               Full Document
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
           {showCodeToggle && (
-            <div className="inline-flex items-center rounded-md border border-kumo-line p-0.5">
+            <div className="inline-flex items-center rounded-md border border-border p-0.5">
               <button
                 type="button"
                 className={`rounded px-2 py-1 text-[11px] ${
-                  activeTab === "code" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+                  activeTab === "code" ? "bg-muted text-foreground" : "text-foreground-muted"
                 }`}
                 onClick={() => setActiveTab("code")}
               >
@@ -193,7 +192,7 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
               <button
                 type="button"
                 className={`rounded px-2 py-1 text-[11px] ${
-                  activeTab === "preview" ? "bg-kumo-control text-kumo-default" : "text-kumo-subtle"
+                  activeTab === "preview" ? "bg-muted text-foreground" : "text-foreground-muted"
                 }`}
                 onClick={() => setActiveTab("preview")}
               >
@@ -201,14 +200,14 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
               </button>
             </div>
           )}
-          <Button
-            variant="secondary"
-            size="xs"
+          <button
+            type="button"
             onClick={handleCopy}
-            icon={copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-foreground-muted border border-border bg-muted/50 hover:bg-muted transition-colors"
           >
+            {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
             {copied ? "Copied" : "Copy"}
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -216,7 +215,7 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
       {activeTab === "preview" ? (
         <div
           ref={containerRef}
-          className="html-preview-content bg-[var(--surface-1)]"
+          className="html-preview-content bg-surface"
           style={{ minHeight: 100 }}
         />
       ) : (
@@ -226,6 +225,6 @@ export const HtmlDirectRenderer = memo(function HtmlDirectRenderer({
           </Suspense>
         </div>
       )}
-    </Surface>
+    </div>
   );
 });

@@ -1,5 +1,4 @@
 import { memo, useMemo, useRef, useCallback, type ReactNode, type FC } from "react";
-import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
 import type { ParsedAdcSpec, AdcChartType } from "../utils/adcSpecParser";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
@@ -403,22 +402,24 @@ export function AntDesignChartsRenderer({
 
   if (!ChartComponent) {
     return (
-      <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
-        <Text size="xs">
+      <div className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+        <span className="text-xs">
           <span className="app-text-danger">Unknown chart type: {spec.type}</span>
-        </Text>
-      </Surface>
+        </span>
+      </div>
     );
   }
 
   return (
-    <Surface className="w-full p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
+    <div className="w-full p-4 rounded-xl ring ring-border bg-surface-elevated">
       <div className="flex items-center gap-2 mb-3">
-        <ChartBar size={14} className="text-kumo-accent" />
-        <Text size="xs" variant="secondary" bold>
+        <ChartBar size={14} className="text-accent" />
+        <span className="text-xs text-foreground-muted font-semibold">
           Ant Design Charts
-        </Text>
-        <Badge variant="secondary">{spec.type}</Badge>
+        </span>
+        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
+          {spec.type}
+        </span>
       </div>
       <div
         className={`adc-chart-container ${animated ? "animate-fade-in" : ""}`}
@@ -433,7 +434,7 @@ export function AntDesignChartsRenderer({
           <ChartComponent {...chartConfig} onReady={onReady} />
         </ConfigProvider>
       </div>
-    </Surface>
+    </div>
   );
 }
 

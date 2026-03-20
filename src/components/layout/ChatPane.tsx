@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback, useMemo, type MutableRefObject } from "react";
-import { Badge, Button, Surface, Text } from "@cloudflare/kumo";
 import type { UIMessage } from "ai";
 import type { CommandSuggestionItem } from "../../types/command";
 import { ChatInputArea, ChatMessageList, LoadingDots } from "../chat";
@@ -8,6 +7,8 @@ import { useChatAutoScroll } from "../../features/chat/hooks/useChatAutoScroll";
 import { trackChatEvent } from "../../features/chat/services/trackChatEvent";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useVirtualViewport } from "../../hooks/useVirtualViewport";
+import { cn } from "../ui/utils";
+import type { UiMessageKey } from "../../i18n/ui";
 
 interface ProgressEntry {
   id: string;
@@ -50,7 +51,7 @@ interface ChatPaneProps {
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
-  t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
+  t: (key: UiMessageKey, vars?: Record<string, string>) => string;
   getMessageText: (message: UIMessage) => string;
   exportCaptureRef?: MutableRefObject<HTMLElement | null>;
 }
@@ -80,11 +81,11 @@ export function ChatPane({
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtuosoScrollerRef = useRef<HTMLElement | null>(null);
   const liveFeedScrollRef = useRef<HTMLDivElement>(null);
-  const onAccentTextClass = "text-white hover:text-white";
-  const [messageVariant, setMessageVariant] = useState<"bubble" | "docs">("bubble");
   const markdownPrefs = DEFAULT_MARKDOWN_PREFS;
   const { mobile } = useResponsive();
-  const activeMessageVariant: "bubble" | "docs" = mobile ? "docs" : messageVariant;
+  // Bubble/docs variant prop is accepted but we always use docs-style (clean document layout).
+  const activeMessageVariant = "docs" as const;
+
   const isAndroid = useMemo(() => {
     if (typeof navigator === "undefined") return false;
     return /Android/i.test(navigator.userAgent);
@@ -132,7 +133,7 @@ export function ChatPane({
     }
   }, [awaitingFirstAssistant, liveProgress.length, scrollToBottom]);
 
-  // Keep inner Live execution feed pinned to latest progress entry.
+  // Keep inner live execution feed pinned to latest progress entry.
   useEffect(() => {
     if (!awaitingFirstAssistant) {
       return;
@@ -192,136 +193,124 @@ export function ChatPane({
   }, []);
 
   return (
-    <section className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]">
-      <div
-        className={`relative flex min-h-0 flex-col overflow-hidden px-3 sm:px-5 ${
-          mobile ? "pb-1 pt-2" : "pb-2 pt-3"
-        }`}
-      >
-        {!mobile && (
-          <div className="mb-2 flex items-center justify-end gap-2">
-            <Button
-              variant={messageVariant === "bubble" ? "primary" : "secondary"}
-              size="xs"
-              className={messageVariant === "bubble" ? onAccentTextClass : ""}
-              style={{ minHeight: 44, minWidth: 44, color: messageVariant === "bubble" ? "#fff" : undefined }}
-              onClick={() => setMessageVariant("bubble")}
-              aria-label={t("chat_message_variant_bubble")}
-            >
-              {t("chat_message_variant_bubble")}
-            </Button>
-            <Button
-              variant={messageVariant === "docs" ? "primary" : "secondary"}
-              size="xs"
-              className={messageVariant === "docs" ? onAccentTextClass : ""}
-              style={{ minHeight: 44, minWidth: 44, color: messageVariant === "docs" ? "#fff" : undefined }}
-              onClick={() => setMessageVariant("docs")}
-              aria-label={t("chat_message_variant_docs")}
-            >
-              {t("chat_message_variant_docs")}
-            </Button>
-          </div>
-        )}
+    <section className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] bg-surface-chat">
+      {/* Message area */}
+      <div className="relative flex min-h-0 flex-col overflow-hidden">
         <div
           ref={handleScrollContainerRef}
           onScroll={onScroll}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 [overflow-anchor:none]"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [overflow-anchor:none]"
         >
-          <ChatMessageList
-            messages={messages}
-            isStreaming={isStreaming}
-            canEdit={canEdit}
-            variant={activeMessageVariant}
-            markdownPrefs={markdownPrefs}
-            activeToolsCount={activeToolsCount}
-            onDeleteMessage={onDeleteMessage}
-            onEditMessage={onEditMessage}
-            onRegenerateMessage={onRegenerateMessage}
-            getMessageText={getMessageText}
-            t={t}
-            onScrollerReady={handleScrollerReady}
-            bottomInset={messageListBottomInset}
-          />
-          {awaitingFirstAssistant && (
-            <div className="mt-3">
-              <Surface className="app-panel-soft rounded-xl p-3 ring ring-kumo-line">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <Text size="sm" bold>
-                    {t("live_feed_title")}
-                  </Text>
-                  <Badge variant="secondary">{liveProgress.length}</Badge>
-                </div>
-                {liveProgress.length === 0 && (
-                  <div className="mb-2 flex items-center gap-2 text-kumo-subtle">
-                    <Text size="xs">{t("chat_loading_thinking")}</Text>
-                    <LoadingDots />
+          {/* Centered content column */}
+          <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+            <ChatMessageList
+              messages={messages}
+              isStreaming={isStreaming}
+              canEdit={canEdit}
+              variant={activeMessageVariant}
+              markdownPrefs={markdownPrefs}
+              activeToolsCount={activeToolsCount}
+              onDeleteMessage={onDeleteMessage}
+              onEditMessage={onEditMessage}
+              onRegenerateMessage={onRegenerateMessage}
+              getMessageText={getMessageText}
+              t={t}
+              onScrollerReady={handleScrollerReady}
+              bottomInset={messageListBottomInset}
+            />
+
+            {/* Live progress feed */}
+            {awaitingFirstAssistant && (
+              <div className="mt-4">
+                <div className="rounded-lg border border-border bg-surface-chat/80 px-4 py-3">
+                  {/* Header */}
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-foreground">
+                      {t("live_feed_title")}
+                    </span>
+                    {liveProgress.length > 0 && (
+                      <span className="rounded-full bg-border px-1.5 py-0.5 text-[10px] font-medium text-foreground-muted tabular-nums">
+                        {liveProgress.length}
+                      </span>
+                    )}
                   </div>
-                )}
-                <div ref={liveFeedScrollRef} className="max-h-40 space-y-1.5 overflow-y-auto">
-                  {groupedLiveProgress.map((group) => {
-                    const entries = group.entries;
-                    const latest = entries[entries.length - 1];
-                    if (!latest) return null;
-                    const isCollapsed = collapsedGroups[group.key] ?? false;
-                    const canCollapse = entries.length > 1;
-                    const phaseLabel = phaseLabels[latest.phase] || latest.phase;
-                    const groupLabel = `${phaseLabel}${latest.toolName ? ` · ${latest.toolName}` : ""}`;
-                    return (
-                      <div
-                        key={group.key}
-                        className="rounded-lg border border-kumo-line/70 bg-kumo-base/65 px-2.5 py-1.5"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="shrink-0">
-                            <Text size="xs" bold>
+
+                  {/* Empty / thinking state */}
+                  {liveProgress.length === 0 && (
+                    <div className="flex items-center gap-2 text-foreground-muted">
+                      <span className="text-xs">{t("chat_loading_thinking")}</span>
+                      <LoadingDots />
+                    </div>
+                  )}
+
+                  {/* Progress entries */}
+                  <div
+                    ref={liveFeedScrollRef}
+                    className="max-h-40 space-y-1 overflow-y-auto"
+                  >
+                    {groupedLiveProgress.map((group) => {
+                      const entries = group.entries;
+                      const latest = entries[entries.length - 1];
+                      if (!latest) return null;
+                      const isCollapsed = collapsedGroups[group.key] ?? false;
+                      const canCollapse = entries.length > 1;
+                      const phaseLabel = phaseLabels[latest.phase] || latest.phase;
+                      const groupLabel = `${phaseLabel}${latest.toolName ? ` · ${latest.toolName}` : ""}`;
+
+                      return (
+                        <div key={group.key} className="text-xs">
+                          {/* Group header row */}
+                          <div className="flex min-w-0 items-center gap-2 py-0.5">
+                            <span className="shrink-0 font-medium text-foreground">
                               {groupLabel}
                               {canCollapse ? ` · ${entries.length}` : ""}
-                            </Text>
-                          </span>
-                          <span className="min-w-0 truncate">
-                            <Text size="xs">{latest.snippet || latest.message}</Text>
-                          </span>
-                          <span className="shrink-0 text-kumo-subtle">
-                            <Text size="xs">{formatProgressTime(latest.timestamp)}</Text>
-                          </span>
-                          {(latest.status === "start" || latest.status === "info") && (
-                            <LoadingDots className="shrink-0" />
-                          )}
-                          {canCollapse && (
-                            <Button
-                              variant="ghost"
-                              size="xs"
-                              onClick={() => toggleGroupCollapsed(group.key)}
-                              aria-label={isCollapsed ? t("chat_input_expand") : t("chat_input_collapse")}
-                            >
-                              {isCollapsed ? t("chat_input_expand") : t("chat_input_collapse")}
-                            </Button>
+                            </span>
+                            <span className="min-w-0 truncate text-foreground-muted">
+                              {latest.snippet || latest.message}
+                            </span>
+                            <span className="ml-auto shrink-0 text-foreground-muted tabular-nums">
+                              {formatProgressTime(latest.timestamp)}
+                            </span>
+                            {(latest.status === "start" || latest.status === "info") && (
+                              <LoadingDots className="shrink-0" />
+                            )}
+                            {canCollapse && (
+                              <button
+                                type="button"
+                                className="shrink-0 text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+                                onClick={() => toggleGroupCollapsed(group.key)}
+                                aria-label={isCollapsed ? t("chat_input_expand") : t("chat_input_collapse")}
+                              >
+                                {isCollapsed ? t("chat_input_expand") : t("chat_input_collapse")}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Expanded sub-entries */}
+                          {canCollapse && !isCollapsed && (
+                            <div className="ml-3 mt-0.5 space-y-0.5 border-l border-border pl-3">
+                              {entries.slice(0, -1).map((entry) => (
+                                <div key={entry.id} className="flex min-w-0 items-center gap-2">
+                                  <span className="shrink-0 text-foreground-muted tabular-nums">
+                                    {formatProgressTime(entry.timestamp)}
+                                  </span>
+                                  <span className="min-w-0 truncate text-foreground-muted">
+                                    {entry.snippet || entry.message}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        {canCollapse && !isCollapsed && (
-                          <div className="mt-1.5 space-y-1 border-t border-kumo-line/60 pt-1.5">
-                            {entries.slice(0, -1).map((entry) => (
-                              <div key={entry.id} className="flex min-w-0 items-center gap-2 pl-1">
-                                <span className="shrink-0 text-kumo-subtle">
-                                  <Text size="xs">{formatProgressTime(entry.timestamp)}</Text>
-                                </span>
-                                <span className="min-w-0 truncate">
-                                  <Text size="xs" variant="secondary">
-                                    {entry.snippet || entry.message}
-                                  </Text>
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </Surface>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
+
         <ScrollJumpControls
           showBackToTop={showBackToTop}
           showBackToBottom={showBackToBottom}
@@ -340,29 +329,42 @@ export function ChatPane({
         />
       </div>
 
-      <div
-        className="shrink-0 border-t border-kumo-line/80 bg-kumo-base/80 px-3 py-3 app-glass sm:px-5"
-        style={{
-          // Ensure mobile composer clears home-indicator area even when env(safe-area-inset-bottom)
-          // resolves to 0 in headless/test runtimes.
-          paddingBottom: mobile
-            ? "calc(0.75rem + max(var(--safe-area-inset-bottom, 0px), 34px))"
-            : undefined
-        }}
-      >
-        <ChatInputArea
-          value={input}
-          onChange={setInput}
-          onSubmit={onSend}
-          onStop={onStop}
-          commandSuggestions={commandSuggestions}
-          isStreaming={isStreaming}
-          isConnected={isConnected}
-          isReadOnly={isReadonly}
-          placeholder={
-            activeToolsCount > 0 ? t("chat_placeholder_tools") : t("chat_placeholder_default")
-          }
+      {/* Input area — floats at the bottom with a gradient fade above */}
+      <div className="relative shrink-0">
+        {/* Gradient fade */}
+        <div
+          className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-surface-chat to-transparent"
+          aria-hidden="true"
         />
+
+        <div
+          className={cn(
+            "border-t border-border bg-surface-chat/95 backdrop-blur-sm",
+            mobile ? "px-3 py-3" : "px-4 py-4"
+          )}
+          style={{
+            paddingBottom: mobile
+              ? "calc(0.75rem + max(var(--safe-area-inset-bottom, 0px), 34px))"
+              : undefined
+          }}
+        >
+          {/* Keep input constrained to the same reading width */}
+          <div className="mx-auto w-full max-w-3xl">
+            <ChatInputArea
+              value={input}
+              onChange={setInput}
+              onSubmit={onSend}
+              onStop={onStop}
+              commandSuggestions={commandSuggestions}
+              isStreaming={isStreaming}
+              isConnected={isConnected}
+              isReadOnly={isReadonly}
+              placeholder={
+                activeToolsCount > 0 ? t("chat_placeholder_tools") : t("chat_placeholder_default")
+              }
+            />
+          </div>
+        </div>
       </div>
     </section>
   );

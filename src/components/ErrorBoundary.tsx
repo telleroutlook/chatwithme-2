@@ -1,5 +1,4 @@
 import { Component, type ReactNode, type ErrorInfo } from "react";
-import { Button, Text, Surface } from "@cloudflare/kumo";
 import { WarningIcon, ArrowClockwiseIcon } from "@phosphor-icons/react";
 
 interface ErrorBoundaryProps {
@@ -52,66 +51,70 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       if (level === "app") {
         return (
-          <div className="flex h-screen w-screen items-center justify-center bg-kumo-base p-4">
-            <Surface className="w-full max-w-md rounded-xl p-6 text-center ring ring-kumo-line">
-              <WarningIcon size={48} className="mx-auto mb-4 text-kumo-critical" weight="thin" />
+          <div className="flex h-screen w-screen items-center justify-center bg-surface p-4">
+            <div className="rounded-xl border border-border bg-surface-elevated w-full max-w-md rounded-xl p-6 text-center ring ring-border">
+              <WarningIcon size={48} className="mx-auto mb-4 text-[var(--app-color-danger)]" weight="thin" />
               <div className="mb-2">
-                <Text size="lg" bold>
+                <p className="text-lg font-bold text-foreground">
                   Something went wrong
-                </Text>
+                </p>
               </div>
               <div className="mb-4">
-                <Text size="sm" variant="secondary">
+                <p className="text-sm text-foreground-muted">
                   {this.state.error?.message ?? "An unexpected error occurred"}
-                </Text>
+                </p>
               </div>
-              <Button variant="primary" onClick={this.handleRetry}>
+              <button
+                type="button"
+                onClick={this.handleRetry}
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors bg-accent text-white hover:bg-accent/90 shadow-sm h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
+              >
                 <ArrowClockwiseIcon size={16} className="mr-2" />
                 Reload
-              </Button>
-            </Surface>
+              </button>
+            </div>
           </div>
         );
       }
 
       if (level === "chart") {
         return (
-          <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+          <div className="rounded-xl border border-border bg-surface-elevated rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
             <div className="flex items-center gap-2">
               <WarningIcon size={14} className="app-text-danger" />
-              <Text size="xs">
-                <span className="app-text-danger">Render error</span>
-              </Text>
+              <span className="text-xs app-text-danger">Render error</span>
             </div>
-          </Surface>
+          </div>
         );
       }
 
       // message level
       return (
-        <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+        <div className="rounded-xl border border-border bg-surface-elevated rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
               <WarningIcon size={16} className="mt-0.5 app-text-danger" weight="fill" />
               <div>
-                <Text size="sm">
-                  <span className="app-text-danger">Failed to render content</span>
-                </Text>
+                <span className="text-sm app-text-danger">Failed to render content</span>
                 <div className="mt-1">
-                  <Text size="xs" variant="secondary">
+                  <span className="text-xs text-foreground-muted">
                     {this.state.error?.message ?? "Unknown error"}
-                  </Text>
+                  </span>
                 </div>
               </div>
             </div>
             {this.props.onRetry && (
-              <Button size="xs" variant="secondary" onClick={this.handleRetry}>
+              <button
+                type="button"
+                onClick={this.handleRetry}
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-medium transition-colors border border-border bg-surface-elevated hover:bg-muted text-foreground h-6 px-2 disabled:pointer-events-none disabled:opacity-50"
+              >
                 <ArrowClockwiseIcon size={12} className="mr-1" />
                 Retry
-              </Button>
+              </button>
             )}
           </div>
-        </Surface>
+        </div>
       );
     }
 

@@ -1,4 +1,4 @@
-import { Button } from "@cloudflare/kumo";
+import { cn } from "../ui/utils";
 import { PaperPlaneTiltIcon, StopIcon } from "@phosphor-icons/react";
 import { useI18n } from "../../hooks/useI18n";
 
@@ -17,32 +17,38 @@ export function ChatSendButton({ disabled, isStreaming, onSend, onStop }: ChatSe
 
   if (isStreaming) {
     return (
-      <Button
+      <button
         type="button"
-        variant="secondary"
         onClick={onStop}
-        icon={<StopIcon size={16} weight="fill" />}
-        className="rounded-lg"
         style={touchTargetStyle}
         aria-label={t("chat_input_action_stop")}
+        className={cn(
+          "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
+          "border border-border bg-surface-elevated hover:bg-muted text-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
       >
+        <span className="shrink-0"><StopIcon size={16} weight="fill" /></span>
         <span className="hidden sm:inline">{t("chat_input_action_stop")}</span>
-      </Button>
+      </button>
     );
   }
 
   return (
-    <Button
+    <button
       type="button"
-      variant="primary"
       onClick={onSend}
       disabled={disabled}
-      icon={<PaperPlaneTiltIcon size={16} />}
-      className="rounded-lg text-white hover:text-white"
       style={{ ...touchTargetStyle, color: "#fff" }}
       aria-label={t("chat_input_action_send")}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
+        "bg-accent text-white hover:bg-accent/90 shadow-sm",
+        "disabled:pointer-events-none disabled:opacity-50"
+      )}
     >
+      <span className="shrink-0"><PaperPlaneTiltIcon size={16} /></span>
       <span className="hidden sm:inline">{t("chat_input_action_send")}</span>
-    </Button>
+    </button>
   );
 }

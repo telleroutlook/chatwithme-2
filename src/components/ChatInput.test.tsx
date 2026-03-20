@@ -66,14 +66,14 @@ describe("ChatInput", () => {
     const onStop = vi.fn();
     render(<ChatInput {...defaultProps} isStreaming={true} onStop={onStop} />);
 
-    expect(screen.getByText("Stop")).toBeInTheDocument();
+    expect(screen.getByLabelText("Stop")).toBeInTheDocument();
   });
 
   it("should call onStop when stop button is clicked", () => {
     const onStop = vi.fn();
     render(<ChatInput {...defaultProps} isStreaming={true} onStop={onStop} />);
 
-    const stopButton = screen.getByText("Stop");
+    const stopButton = screen.getByLabelText("Stop");
     fireEvent.click(stopButton);
 
     expect(onStop).toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe("ChatInput", () => {
   it("should show send button when not streaming", () => {
     render(<ChatInput {...defaultProps} isStreaming={false} />);
 
-    expect(screen.getByText("Send")).toBeInTheDocument();
+    expect(screen.getByLabelText("Send")).toBeInTheDocument();
   });
 
   it("should disable input when not connected", () => {
@@ -165,7 +165,7 @@ describe("SimpleChatInput", () => {
     const onStop = vi.fn();
     render(<SimpleChatInput {...defaultProps} isStreaming={true} onStop={onStop} />);
 
-    expect(screen.getByText("Stop")).toBeInTheDocument();
+    expect(screen.getByLabelText("Stop")).toBeInTheDocument();
   });
 
   it("should disable simple input in readonly mode", () => {

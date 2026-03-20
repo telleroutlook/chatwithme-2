@@ -1,10 +1,10 @@
 import { useCallback, useRef, memo, useEffect } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { Empty } from "@cloudflare/kumo";
 import { ChatCircleIcon } from "@phosphor-icons/react";
 import type { UIMessage } from "ai";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { MessageSkeletonList } from "../skeletons";
+import { cn } from "../ui/utils";
 
 interface ChatMessageListProps {
   messages: UIMessage[];
@@ -122,16 +122,19 @@ function ChatMessageListInner({
     }
 
     return (
-      <div className="flex h-full items-center justify-center">
-        <Empty
-          icon={<ChatCircleIcon size={32} />}
-          title={t("chat_empty_title")}
-          description={
-            activeToolsCount > 0
-              ? t("chat_empty_with_tools", { count: String(activeToolsCount) })
-              : t("chat_empty_no_tools")
-          }
+      <div className="flex h-full flex-col items-center justify-center gap-2">
+        <ChatCircleIcon
+          size={48}
+          className={cn("text-foreground-subtle opacity-30")}
         />
+        <p className="text-lg font-medium text-foreground">
+          {t("chat_empty_title")}
+        </p>
+        <p className="text-sm text-foreground-muted">
+          {activeToolsCount > 0
+            ? t("chat_empty_with_tools", { count: String(activeToolsCount) })
+            : t("chat_empty_no_tools")}
+        </p>
       </div>
     );
   }

@@ -1,5 +1,3 @@
-import { Text } from "@cloudflare/kumo";
-
 export interface CitationCardItem {
   id: string;
   title: string;
@@ -18,33 +16,33 @@ export function CitationCards({ items }: CitationCardsProps) {
 
   return (
     <div className="mt-3 space-y-2 not-prose">
-      <Text size="xs" bold>
+      <span className="text-xs font-bold text-foreground">
         Citations
-      </Text>
+      </span>
       {items.map((item) => (
         <article
           key={item.id}
-          className="rounded-lg border border-kumo-line bg-kumo-control/35 px-3 py-2"
+          className="rounded-lg border border-border bg-muted/35 px-3 py-2"
         >
           <div className="flex items-center justify-between gap-2">
-            <Text size="xs" bold>
+            <span className="text-xs font-bold text-foreground">
               {item.title}
-            </Text>
+            </span>
             {item.url ? (
               <a
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-kumo-accent hover:underline"
+                className="text-xs text-accent-foreground hover:underline"
               >
                 open
               </a>
             ) : null}
           </div>
           <span className="mt-1 block">
-            <Text size="xs" variant="secondary">
+            <span className="text-xs text-foreground-muted">
               {item.preview}
-            </Text>
+            </span>
           </span>
         </article>
       ))}

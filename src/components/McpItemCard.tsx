@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Surface, Text, Badge } from "@cloudflare/kumo";
 import { WrenchIcon, DatabaseIcon } from "@phosphor-icons/react";
 
 interface McpItemCardProps {
@@ -21,34 +20,36 @@ export function McpItemCard({
   const jsonContent = useMemo(() => JSON.stringify(data, null, 2), [data]);
 
   return (
-    <Surface className="app-panel rounded-2xl ring ring-kumo-line overflow-hidden">
-      <div className="px-4 py-3 border-b border-kumo-line/80 bg-kumo-control/25">
+    <div className="rounded-xl border border-border bg-surface-elevated app-panel rounded-2xl ring ring-border overflow-hidden">
+      <div className="px-4 py-3 border-b border-border/80 bg-muted/25">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <WrenchIcon size={16} weight="bold" className="text-kumo-accent" />
-              <Text size="sm" bold>
+              <WrenchIcon size={16} weight="bold" className="text-accent" />
+              <span className="text-sm font-semibold text-foreground">
                 {name}
-              </Text>
+              </span>
             </div>
-            <div className="mt-1 flex items-center gap-1 text-kumo-subtle">
+            <div className="mt-1 flex items-center gap-1 text-foreground-muted">
               <DatabaseIcon size={14} />
-              <Text size="xs" variant="secondary">
+              <span className="text-xs text-foreground-muted">
                 {serverLabel}
-              </Text>
+              </span>
             </div>
           </div>
-          <Badge variant="secondary">{serverId}</Badge>
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
+            {serverId}
+          </span>
         </div>
       </div>
       <div className="px-4 py-3">
-        <Text size="xs" variant="secondary">
+        <span className="text-xs text-foreground-muted">
           {payloadLabel}
-        </Text>
-        <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-kumo-control/25 p-3 text-xs whitespace-pre-wrap break-words text-kumo-subtle font-mono">
+        </span>
+        <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-muted/25 p-3 text-xs whitespace-pre-wrap break-words text-foreground-muted font-mono">
           {jsonContent}
         </pre>
       </div>
-    </Surface>
+    </div>
   );
 }

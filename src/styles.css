@@ -1,117 +1,109 @@
 @import "tailwindcss";
-@import "@cloudflare/kumo/styles/tailwind";
-@import "@cloudflare/agents-ui/theme/workers.css";
 @import "katex/dist/katex.min.css";
-@source "../../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+
+/* ============================================
+   Design Tokens — ChatGPT-like theme
+   ============================================ */
+
+@theme {
+  --color-background: #f7f7f8;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-secondary: #f0f0f0;
+  --color-surface-chat: #f7f7f8;
+  --color-sidebar: #171717;
+  --color-sidebar-hover: #2a2a2a;
+  --color-sidebar-active: #343434;
+  --color-sidebar-text: #ececec;
+  --color-sidebar-text-muted: #9a9a9a;
+
+  --color-foreground: #0d0d0d;
+  --color-foreground-muted: #6b6b6b;
+  --color-foreground-subtle: #999999;
+
+  --color-border: #e5e5e5;
+  --color-border-strong: #cdcdcd;
+
+  --color-accent: #0d0d0d;
+  --color-accent-foreground: #ffffff;
+
+  --color-muted: #f0f0f0;
+
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  --color-user-bubble: #0d0d0d;
+  --color-user-bubble-text: #ffffff;
+
+  --color-ring: #0d0d0d;
+
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
 
 :root {
-  /* Safe area insets for notch/home indicator devices */
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
-
-  --surface-1: #ffffff;
-  --surface-2: #f8fafc;
-  --surface-3: #e2e8f0;
-  --surface-elevated: #ffffff;
-  --accent-soft: color-mix(in oklab, #2563eb 12%, #ffffff 88%);
-  --status-info: #0ea5e9;
-  --status-success: #16a34a;
-  --status-warning: #d97706;
-  --status-danger: #dc2626;
-
-  --app-surface-primary: #f8fafc;
-  --app-surface-secondary: #f1f5f9;
-  --app-surface-tertiary: #e2e8f0;
-
-  --app-text-primary: #0f172a;
-  --app-text-secondary: #334155;
-  --app-text-muted: #64748b;
-  --app-text-on-accent: #ffffff;
-
-  --app-border-default: #cbd5e1;
-  --app-border-strong: #94a3b8;
-
-  --app-accent: #2563eb;
-  --app-color-success: #16a34a;
-  --app-color-warning: #d97706;
-  --app-color-danger: #dc2626;
-  --app-overlay: rgba(15, 23, 42, 0.5);
-  --app-shadow-soft: 0 4px 18px rgba(15, 23, 42, 0.06);
-  --app-shadow-medium: 0 12px 36px rgba(15, 23, 42, 0.12);
-  --app-user-msg-bg: #dbeafe;
-  --app-user-msg-text: #1e3a8a;
-  --app-user-msg-border: #93c5fd;
   --app-viewport-height: 100vh;
 }
 
-[data-mode="light"] {
-  --surface-1: #ffffff;
-  --surface-2: #f8fafc;
-  --surface-3: #e2e8f0;
-  --surface-elevated: #ffffff;
-  --accent-soft: color-mix(in oklab, #2563eb 12%, #ffffff 88%);
-  --status-info: #0ea5e9;
-  --status-success: #16a34a;
-  --status-warning: #d97706;
-  --status-danger: #dc2626;
-
-  --app-surface-primary: #f8fafc;
-  --app-surface-secondary: #f1f5f9;
-  --app-surface-tertiary: #e2e8f0;
-
-  --app-text-primary: #0f172a;
-  --app-text-secondary: #334155;
-  --app-text-muted: #64748b;
-  --app-text-on-accent: #ffffff;
-
-  --app-border-default: #cbd5e1;
-  --app-border-strong: #94a3b8;
-
-  --app-accent: #2563eb;
-  --app-color-success: #16a34a;
-  --app-color-warning: #d97706;
-  --app-color-danger: #dc2626;
-  --app-user-msg-bg: #dbeafe;
-  --app-user-msg-text: #1e3a8a;
-  --app-user-msg-border: #93c5fd;
+@supports (height: 100dvh) {
+  :root {
+    --app-viewport-height: 100dvh;
+  }
 }
+
+/* ============================================
+   Dark Mode Tokens
+   ============================================ */
 
 [data-mode="dark"] {
-  --surface-1: #0b1220;
-  --surface-2: #111b2f;
-  --surface-3: #1d2b43;
-  --surface-elevated: #172437;
-  --accent-soft: color-mix(in oklab, #60a5fa 25%, #111b2f 75%);
-  --status-info: #38bdf8;
-  --status-success: #4ade80;
-  --status-warning: #f59e0b;
-  --status-danger: #f87171;
+  --color-background: #171717;
+  --color-surface: #212121;
+  --color-surface-elevated: #2a2a2a;
+  --color-surface-secondary: #2a2a2a;
+  --color-surface-chat: #212121;
+  --color-sidebar: #0a0a0a;
+  --color-sidebar-hover: #1a1a1a;
+  --color-sidebar-active: #252525;
+  --color-sidebar-text: #ececec;
+  --color-sidebar-text-muted: #8e8e8e;
 
-  --app-surface-primary: #020617;
-  --app-surface-secondary: #0f172a;
-  --app-surface-tertiary: #1e293b;
+  --color-foreground: #ececec;
+  --color-foreground-muted: #b4b4b4;
+  --color-foreground-subtle: #8e8e8e;
 
-  --app-text-primary: #e2e8f0;
-  --app-text-secondary: #cbd5e1;
-  --app-text-muted: #94a3b8;
-  --app-text-on-accent: #f8fafc;
+  --color-border: #3a3a3a;
+  --color-border-strong: #505050;
 
-  --app-border-default: #334155;
-  --app-border-strong: #475569;
+  --color-accent: #ffffff;
+  --color-accent-foreground: #0d0d0d;
 
-  --app-accent: #60a5fa;
-  --app-color-success: #4ade80;
-  --app-color-warning: #f59e0b;
-  --app-color-danger: #f87171;
-  --app-overlay: rgba(2, 6, 23, 0.7);
-  --app-shadow-soft: 0 6px 20px rgba(2, 6, 23, 0.45);
-  --app-shadow-medium: 0 14px 38px rgba(2, 6, 23, 0.65);
-  --app-user-msg-bg: #1d4ed8;
-  --app-user-msg-text: #dbeafe;
-  --app-user-msg-border: #3b82f6;
+  --color-muted: #2a2a2a;
+
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+
+  --color-user-bubble: #303030;
+  --color-user-bubble-text: #ececec;
+
+  --color-ring: #ffffff;
+
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
+
+/* ============================================
+   Base Styles
+   ============================================ */
 
 html,
 body,
@@ -128,18 +120,10 @@ body,
   min-height: var(--app-viewport-height);
 }
 
-@supports (height: 100dvh) {
-  :root {
-    --app-viewport-height: 100dvh;
-  }
-}
-
-/* Touch optimization */
 html {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Improve touch interaction on interactive elements */
 button,
 a,
 input,
@@ -149,35 +133,30 @@ select {
 }
 
 body {
-  background:
-    radial-gradient(
-      1200px 500px at 0% -10%,
-      color-mix(in oklab, var(--app-accent) 10%, transparent),
-      transparent 62%
-    ),
-    radial-gradient(
-      1200px 600px at 100% -25%,
-      color-mix(in oklab, var(--app-color-success) 9%, transparent),
-      transparent 68%
-    ),
-    var(--app-surface-primary);
-  color: var(--app-text-primary);
-  font-family: "IBM Plex Sans", "Noto Sans SC", "Segoe UI", sans-serif;
+  background: var(--color-surface-chat);
+  color: var(--color-foreground);
+  font-family: "Söhne", "Segoe UI", "Noto Sans SC", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 code,
 pre {
-  font-family: "IBM Plex Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-family: "Söhne Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
 }
+
+/* ============================================
+   Scrollbar Styles
+   ============================================ */
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--app-border-strong) 60%, transparent) transparent;
+  scrollbar-color: var(--color-border-strong) transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 *::-webkit-scrollbar-track {
@@ -185,92 +164,27 @@ pre {
 }
 
 *::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
   border-radius: 999px;
-  background-clip: padding-box;
-  background-color: color-mix(in oklab, var(--app-border-strong) 66%, transparent);
+  background-color: var(--color-border-strong);
 }
 
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-foreground-subtle);
+}
+
+/* ============================================
+   Focus Styles
+   ============================================ */
+
 *:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--app-accent) 75%, white 25%);
+  outline: 2px solid var(--color-ring);
   outline-offset: 2px;
 }
 
-.app-panel {
-  border: 1px solid var(--app-border-default);
-  background: color-mix(in oklab, var(--surface-elevated) 92%, var(--surface-2) 8%);
-  box-shadow: var(--app-shadow-soft);
-}
+/* ============================================
+   Animations
+   ============================================ */
 
-.app-panel-soft {
-  border: 1px solid color-mix(in oklab, var(--app-border-default) 82%, transparent);
-  background: color-mix(in oklab, var(--surface-2) 82%, transparent);
-}
-
-.app-text-success {
-  color: var(--app-color-success);
-}
-
-.app-text-warning {
-  color: var(--app-color-warning);
-}
-
-.app-text-danger {
-  color: var(--app-color-danger);
-}
-
-.app-bg-success-soft {
-  background: color-mix(in oklab, var(--app-color-success) 12%, transparent);
-}
-
-.app-bg-warning-soft {
-  background: color-mix(in oklab, var(--app-color-warning) 12%, transparent);
-}
-
-.app-bg-danger-soft {
-  background: color-mix(in oklab, var(--app-color-danger) 12%, transparent);
-}
-
-.app-border-success-soft {
-  border-color: color-mix(in oklab, var(--app-color-success) 45%, var(--app-border-default) 55%);
-}
-
-.app-border-warning-soft {
-  border-color: color-mix(in oklab, var(--app-color-warning) 45%, var(--app-border-default) 55%);
-}
-
-.app-border-danger-soft {
-  border-color: color-mix(in oklab, var(--app-color-danger) 45%, var(--app-border-default) 55%);
-}
-
-.app-user-bubble {
-  border: 1px solid var(--app-user-msg-border);
-  background: var(--app-user-msg-bg);
-  color: var(--app-user-msg-text);
-}
-
-.surface-1 {
-  background: var(--surface-1);
-}
-
-.surface-2 {
-  background: var(--surface-2);
-}
-
-.surface-3 {
-  background: var(--surface-3);
-}
-
-.surface-elevated {
-  background: var(--surface-elevated);
-}
-
-.app-glass {
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-}
-
-/* Toast animations */
 @keyframes slide-in {
   from {
     transform: translateX(100%);
@@ -286,7 +200,6 @@ pre {
   animation: slide-in 0.3s ease-out;
 }
 
-/* Blinking cursor animation for streaming */
 @keyframes blink-cursor {
   0%,
   50% {
@@ -326,7 +239,7 @@ pre {
   width: 4px;
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--app-accent) 78%, white 22%);
+  background: var(--color-foreground-muted);
   animation: live-feed-pulse 1s infinite ease-in-out;
 }
 
@@ -338,7 +251,6 @@ pre {
   animation-delay: 0.3s;
 }
 
-/* BottomSheet slide-up animation */
 @keyframes sheet-slide-up {
   from {
     transform: translateY(100%);
@@ -352,7 +264,6 @@ pre {
   animation: sheet-slide-up 0.2s ease-out;
 }
 
-/* BottomSheet drag handle styling */
 .sheet-drag-handle {
   cursor: grab;
   touch-action: none;
@@ -362,10 +273,29 @@ pre {
   cursor: grabbing;
 }
 
-/* BottomSheet content scrollable area */
 .sheet-content-scrollable {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -379,9 +309,13 @@ pre {
   }
 }
 
-/* Markdown content styles */
+/* ============================================
+   Markdown Content
+   ============================================ */
+
 .markdown-content {
-  line-height: 1.6;
+  line-height: 1.7;
+  font-size: 0.9375rem;
 }
 
 .markdown-content pre {
@@ -391,14 +325,69 @@ pre {
 }
 
 .markdown-content pre code {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-family: "Söhne Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    monospace;
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
-/* Shiki syntax highlighting styles */
+.markdown-content a {
+  color: var(--color-info);
+  text-decoration: none;
+  transition: text-decoration 0.15s ease;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-content blockquote {
+  font-style: italic;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+}
+
+.markdown-content th,
+.markdown-content td {
+  text-align: left;
+}
+
+.markdown-content .katex {
+  font-size: 1.1em;
+}
+
+.markdown-content .katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown-content .katex-display > .katex {
+  white-space: normal;
+}
+
+[data-mode="dark"] .markdown-content .katex {
+  color: var(--color-foreground);
+}
+
+/* ============================================
+   Shiki Code Highlighting
+   ============================================ */
+
 .shiki-container {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-family: "Söhne Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    monospace;
 }
 
 .shiki-container pre {
@@ -415,72 +404,19 @@ pre {
   background: transparent !important;
 }
 
-/* Shiki theme overrides */
 [data-mode="dark"] .shiki {
-  background-color: color-mix(in oklab, var(--surface-elevated) 88%, #0f172a 12%) !important;
-  color: var(--app-text-primary) !important;
+  background-color: var(--color-surface) !important;
+  color: var(--color-foreground) !important;
 }
 
 [data-mode="light"] .shiki {
-  background-color: var(--surface-1) !important;
-  color: var(--app-text-primary) !important;
+  background-color: var(--color-surface-secondary) !important;
+  color: var(--color-foreground) !important;
 }
 
-/* Link styles within markdown */
-.markdown-content a {
-  color: var(--app-accent);
-  text-decoration: none;
-  transition: text-decoration 0.15s ease;
-}
-
-.markdown-content a:hover {
-  text-decoration: underline;
-}
-
-/* List styles */
-.markdown-content ul,
-.markdown-content ol {
-  margin-bottom: 0.75rem;
-}
-
-.markdown-content li {
-  margin-bottom: 0.25rem;
-}
-
-/* Blockquote styles */
-.markdown-content blockquote {
-  font-style: italic;
-}
-
-/* Table styles */
-.markdown-content table {
-  border-collapse: collapse;
-}
-
-.markdown-content th,
-.markdown-content td {
-  text-align: left;
-}
-
-/* KaTeX math styles */
-.markdown-content .katex {
-  font-size: 1.1em;
-}
-
-.markdown-content .katex-display {
-  margin: 1rem 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.markdown-content .katex-display > .katex {
-  white-space: normal;
-}
-
-/* Dark mode KaTeX adjustments */
-[data-mode="dark"] .markdown-content .katex {
-  color: var(--app-text-primary);
-}
+/* ============================================
+   Chart Containers
+   ============================================ */
 
 .mermaid-container svg {
   display: block;
@@ -493,10 +429,10 @@ pre {
 .g2-chart-container,
 .adc-chart-container {
   border-radius: 12px;
-  background: color-mix(in oklab, var(--surface-elevated) 90%, var(--surface-2) 10%);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--app-border-default) 65%, transparent);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
   padding: 12px;
-  transition: background-color 180ms ease, box-shadow 180ms ease;
+  transition: background-color 180ms ease;
 }
 
 .g2-chart-container canvas,
@@ -504,4 +440,60 @@ pre {
 .adc-chart-container canvas,
 .adc-chart-container svg {
   margin-inline: auto;
+}
+
+/* ============================================
+   Legacy compatibility classes
+   (gradually remove as components migrate)
+   ============================================ */
+
+.app-panel {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-soft);
+}
+
+.app-panel-soft {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+}
+
+.app-text-success {
+  color: var(--color-success);
+}
+.app-text-warning {
+  color: var(--color-warning);
+}
+.app-text-danger {
+  color: var(--color-danger);
+}
+
+.app-bg-success-soft {
+  background: color-mix(in oklab, var(--color-success) 12%, transparent);
+}
+.app-bg-warning-soft {
+  background: color-mix(in oklab, var(--color-warning) 12%, transparent);
+}
+.app-bg-danger-soft {
+  background: color-mix(in oklab, var(--color-danger) 12%, transparent);
+}
+
+.app-border-success-soft {
+  border-color: color-mix(in oklab, var(--color-success) 45%, var(--color-border) 55%);
+}
+.app-border-warning-soft {
+  border-color: color-mix(in oklab, var(--color-warning) 45%, var(--color-border) 55%);
+}
+.app-border-danger-soft {
+  border-color: color-mix(in oklab, var(--color-danger) 45%, var(--color-border) 55%);
+}
+
+.app-user-bubble {
+  background: var(--color-user-bubble);
+  color: var(--color-user-bubble-text);
+}
+
+.app-glass {
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
 }

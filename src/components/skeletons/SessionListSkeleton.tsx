@@ -26,7 +26,7 @@ export const SessionListSkeleton = memo(function SessionListSkeleton({
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="rounded-lg border border-kumo-line p-2.5 cursor-wait"
+          className="rounded-lg border border-border p-2.5 cursor-wait"
         >
           {/* Session title */}
           <div className="flex items-center justify-between mb-1.5">
@@ -77,7 +77,7 @@ export const McpPaneSkeleton = memo(function McpPaneSkeleton({
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="rounded-lg border border-kumo-line/60 p-2.5"
+          className="rounded-lg border border-border/60 p-2.5"
         >
           <div className="flex items-center gap-2 mb-1.5">
             <Skeleton className="h-4 w-4 rounded" animate={animate} />
@@ -107,9 +107,9 @@ export const SidebarSkeleton = memo(function SidebarSkeleton({
   animate = true,
 }: SidebarSkeletonProps) {
   return (
-    <aside className="w-72 flex flex-col border-r border-kumo-line bg-kumo-base/95 overflow-hidden shrink-0">
+    <aside className="w-72 flex flex-col border-r border-border bg-surface/95 overflow-hidden shrink-0">
       {/* Header */}
-      <div className="space-y-3 border-b border-kumo-line/80 bg-kumo-base/60 p-3">
+      <div className="space-y-3 border-b border-border/80 bg-surface/60 p-3">
         <Skeleton className="h-4 w-20" animate={animate} />
         {/* Section tabs */}
         <div className="grid grid-cols-2 gap-1.5">

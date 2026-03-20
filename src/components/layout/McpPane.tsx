@@ -1,4 +1,3 @@
-import { Badge, Surface, Switch, Text } from "@cloudflare/kumo";
 import {
   CheckCircleIcon,
   InfoIcon,
@@ -8,6 +7,7 @@ import {
   WrenchIcon
 } from "@phosphor-icons/react";
 import { McpItemCard } from "../McpItemCard";
+import { cn } from "../ui/utils";
 
 interface PreconfiguredServer {
   config: {
@@ -41,27 +41,27 @@ export function McpPane({
   return (
     <section className="h-full overflow-y-auto px-3 py-5 sm:px-5">
       <div className="mx-auto max-w-4xl space-y-8">
-        <Surface className="app-panel rounded-2xl p-4 ring ring-kumo-line">
+        <div className="rounded-xl border border-border bg-surface-elevated app-panel rounded-2xl p-4 ring ring-border">
           <div className="flex gap-3">
-            <InfoIcon size={20} weight="bold" className="mt-0.5 shrink-0 text-kumo-accent" />
+            <InfoIcon size={20} weight="bold" className="mt-0.5 shrink-0 text-accent" />
             <div>
-              <Text size="sm" bold>
+              <span className="text-sm font-semibold text-foreground">
                 {t("mcp_info_title")}
-              </Text>
+              </span>
               <span className="mt-1 block">
-                <Text size="xs" variant="secondary">
+                <span className="text-xs text-foreground-muted">
                   {t("mcp_info_desc")}
-                </Text>
+                </span>
               </span>
             </div>
           </div>
-        </Surface>
+        </div>
 
         {isLoading && (
           <div className="flex items-center justify-center py-8">
-            <SpinnerIcon size={24} className="animate-spin text-kumo-accent" />
+            <SpinnerIcon size={24} className="animate-spin text-accent" />
             <span className="ml-2">
-              <Text size="sm">{t("mcp_loading")}</Text>
+              <span className="text-sm text-foreground">{t("mcp_loading")}</span>
             </span>
           </div>
         )}
@@ -69,60 +69,73 @@ export function McpPane({
         {!isLoading && preconfiguredServerList.length > 0 && (
           <section>
             <div className="mb-3 flex items-center gap-2">
-              <PlugIcon size={18} weight="bold" className="text-kumo-subtle" />
-              <Text size="base" bold>
+              <PlugIcon size={18} weight="bold" className="text-foreground-muted" />
+              <span className="text-base font-semibold text-foreground">
                 {t("mcp_available_servers")}
-              </Text>
+              </span>
             </div>
             <div className="space-y-2">
               {preconfiguredServerList.map(([name, server]) => (
-                <Surface key={name} className="app-panel-soft rounded-2xl p-4 ring ring-kumo-line">
+                <div key={name} className="rounded-xl border border-border bg-surface-elevated app-panel-soft rounded-2xl p-4 ring ring-border">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <Text size="sm" bold>
+                        <span className="text-sm font-semibold text-foreground">
                           {server.config.name}
-                        </Text>
+                        </span>
                         {server.connected ? (
-                          <Badge variant="primary">
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-accent/20 text-accent">
                             <CheckCircleIcon size={12} weight="fill" className="mr-1" />
                             {t("mcp_status_active")}
-                          </Badge>
+                          </span>
                         ) : (
-                          <Badge variant="secondary">{t("mcp_status_inactive")}</Badge>
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
+                            {t("mcp_status_inactive")}
+                          </span>
                         )}
                       </div>
                       <span className="mt-1 block">
-                        <Text size="xs" variant="secondary">
+                        <span className="text-xs text-foreground-muted">
                           {server.config.description}
-                        </Text>
+                        </span>
                       </span>
                       <span className="mt-0.5 block font-mono">
-                        <Text size="xs" variant="secondary">
+                        <span className="text-xs text-foreground-muted">
                           {server.config.url}
-                        </Text>
+                        </span>
                       </span>
                       {server.error && (
                         <div className="mt-2 flex items-center gap-1 app-text-danger">
                           <WarningIcon size={14} weight="fill" />
-                          <Text size="xs">{server.error}</Text>
+                          <span className="text-xs">{server.error}</span>
                         </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       {togglingServer === name ? (
-                        <SpinnerIcon size={20} className="animate-spin text-kumo-accent" />
+                        <SpinnerIcon size={20} className="animate-spin text-accent" />
                       ) : (
-                        <Switch
-                          checked={server.connected}
+                        <button
+                          role="switch"
+                          aria-checked={server.connected}
+                          onClick={() => onToggleServer(name)}
                           disabled={!canEdit}
-                          onChange={() => onToggleServer(name)}
                           aria-label={t("mcp_toggle_server", { name })}
-                        />
+                          className={cn(
+                            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors",
+                            server.connected ? "bg-accent" : "bg-border",
+                            !canEdit && "cursor-not-allowed opacity-50"
+                          )}
+                        >
+                          <span className={cn(
+                            "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                            server.connected ? "translate-x-4" : "translate-x-0"
+                          )} />
+                        </button>
                       )}
                     </div>
                   </div>
-                </Surface>
+                </div>
               ))}
             </div>
           </section>
@@ -131,11 +144,13 @@ export function McpPane({
         {mcpTools.length > 0 && (
           <section>
             <div className="mb-3 flex items-center gap-2">
-              <WrenchIcon size={18} weight="bold" className="text-kumo-subtle" />
-              <Text size="base" bold>
+              <WrenchIcon size={18} weight="bold" className="text-foreground-muted" />
+              <span className="text-base font-semibold text-foreground">
                 {t("mcp_available_tools")}
-              </Text>
-              <Badge variant="secondary">{mcpTools.length}</Badge>
+              </span>
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
+                {mcpTools.length}
+              </span>
             </div>
             <div className="space-y-2">
               {mcpTools.map((tool) => (

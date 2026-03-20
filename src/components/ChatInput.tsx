@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef, useEffect, memo, useMemo } from "react";
-import { Button, Text } from "@cloudflare/kumo";
-import { PaperPlaneTiltIcon, StopIcon, XCircleIcon, TextAUnderlineIcon } from "@phosphor-icons/react";
+import { ArrowUpIcon, StopIcon, XCircleIcon } from "@phosphor-icons/react";
 import { useI18n } from "../hooks/useI18n";
 import { useCommandInput } from "../hooks/useCommandInput";
 import type { CommandSuggestionItem } from "../types/command";
 import { ChatActionBar } from "./chat/ChatActionBar";
+import { cn } from "./ui/utils";
 
 interface ChatInputProps {
   value: string;
@@ -176,6 +176,8 @@ export const ChatInput = memo(function ChatInput({
       files: "Files"
     };
 
+    void sectionTitles;
+
     const groups: Array<{ section: CommandSuggestionItem["section"]; items: CommandSuggestionItem[] }> = [];
     for (const section of ["tools", "sessions", "actions"] as const) {
       const items = filteredSuggestions.filter((item) => item.section === section);
@@ -189,24 +191,15 @@ export const ChatInput = memo(function ChatInput({
 
   return (
     <div
-      className={`
-        app-panel relative flex flex-col rounded-2xl border bg-kumo-base/95 app-glass
-        transition-all duration-200
-        ${isFocused ? "ring-2 ring-kumo-accent/70 border-kumo-accent" : "border-kumo-line"}
-        ${!isConnected ? "opacity-75" : ""}
-      `}
+      className={cn(
+        "relative flex flex-col rounded-2xl border border-border bg-surface-elevated shadow-soft",
+        "transition-all duration-200",
+        isFocused && "ring-1 ring-foreground/20",
+        !isConnected && "opacity-75"
+      )}
       aria-busy={isStreaming}
     >
-      <div className="flex items-end gap-2 px-2.5 pb-2 pt-2.5">
-        {multiline && (
-          <div
-            className="hidden shrink-0 p-2 text-kumo-subtle sm:block"
-            title={t("chat_input_multiline_indicator")}
-          >
-            <TextAUnderlineIcon size={16} />
-          </div>
-        )}
-
+      <div className="flex items-end gap-2 px-3 pb-2.5 pt-3">
         <textarea
           ref={textareaRef}
           value={value}
@@ -232,56 +225,59 @@ export const ChatInput = memo(function ChatInput({
           disabled={!isConnected || isReadOnly}
           maxLength={maxLength}
           rows={minRows}
-          className={`
-            flex-1 resize-none bg-transparent text-sm text-kumo-default
-            placeholder:text-kumo-inactive focus:outline-none
-            disabled:cursor-not-allowed disabled:opacity-50
-            ${multiline ? "py-2.5" : "py-2"}
-          `}
+          className={cn(
+            "flex-1 resize-none bg-transparent text-sm text-foreground",
+            "placeholder:text-foreground-subtle focus:outline-none",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            multiline ? "py-1.5" : "py-1"
+          )}
           style={{
             minHeight: multiline ? `${minRows * 20}px` : undefined,
             maxHeight: multiline ? `${maxRows * 20}px` : undefined
           }}
         />
 
-        {value && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="shrink-0 rounded-lg p-2.5 text-kumo-subtle transition-colors hover:bg-kumo-control hover:text-kumo-default"
-            title={t("chat_input_action_clear")}
-            aria-label={t("chat_input_action_clear")}
-          >
-            <XCircleIcon size={18} />
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-1 pb-0.5">
+          {value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+              title={t("chat_input_action_clear")}
+              aria-label={t("chat_input_action_clear")}
+            >
+              <XCircleIcon size={18} />
+            </button>
+          )}
 
-        {isStreaming ? (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleStop}
-            icon={<StopIcon size={16} weight="fill" />}
-            className="rounded-lg px-3 sm:px-4"
-            style={{ minHeight: 44, minWidth: 44, padding: "10px 12px" }}
-            aria-label={t("chat_input_action_stop")}
-          >
-            <span className="hidden sm:inline">{t("chat_input_action_stop")}</span>
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            icon={<PaperPlaneTiltIcon size={16} />}
-            className="rounded-lg px-3 sm:px-4 text-white hover:text-white"
-            style={{ minHeight: 44, minWidth: 44, padding: "10px 12px", color: "#fff" }}
-            aria-label={t("chat_input_action_send")}
-          >
-            <span className="hidden sm:inline">{t("chat_input_action_send")}</span>
-          </Button>
-        )}
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={handleStop}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-secondary text-foreground transition-colors hover:bg-surface-secondary/80"
+              aria-label={t("chat_input_action_stop")}
+            >
+              <StopIcon size={16} weight="fill" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full",
+                "bg-accent text-accent-foreground",
+                "transition-colors",
+                canSubmit
+                  ? "hover:opacity-90"
+                  : "cursor-not-allowed opacity-40"
+              )}
+              aria-label={t("chat_input_action_send")}
+            >
+              <ArrowUpIcon size={16} weight="bold" />
+            </button>
+          )}
+        </div>
       </div>
 
       {hasOpenMenu && (
@@ -294,11 +290,15 @@ export const ChatInput = memo(function ChatInput({
       )}
 
       {showCharCount && (value || isFocused || isStreaming || !isConnected || isReadOnly) && (
-        <div className="flex items-center justify-between px-3.5 pb-2.5">
-          <span />
-          <Text size="xs" variant={isOverLimit ? "error" : "secondary"}>
+        <div className="flex items-center justify-end px-3.5 pb-2">
+          <span
+            className={cn(
+              "text-xs opacity-50",
+              isOverLimit ? "text-red-500 opacity-100" : "text-foreground-subtle"
+            )}
+          >
             {charCount}/{maxLength}
-          </Text>
+          </span>
         </div>
       )}
     </div>
@@ -345,8 +345,10 @@ export function SimpleChatInput({
     [handleSubmit]
   );
 
+  const canSubmit = !!value.trim() && isConnected && !isReadOnly;
+
   return (
-    <div className="flex gap-2">
+    <div className="flex items-center gap-2">
       <input
         type="text"
         value={value}
@@ -366,32 +368,41 @@ export function SimpleChatInput({
               : placeholder
         }
         disabled={!isConnected || isReadOnly}
-        className="flex-1 rounded-xl border border-kumo-line bg-kumo-base px-4 py-2 text-sm text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:opacity-50"
+        className={cn(
+          "flex-1 rounded-2xl border border-border bg-surface-elevated px-4 py-2.5",
+          "text-sm text-foreground placeholder:text-foreground-subtle",
+          "focus:outline-none focus:ring-1 focus:ring-foreground/20",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+          "transition-all duration-200"
+        )}
       />
+
       {isStreaming ? (
-        <Button
+        <button
           type="button"
-          variant="secondary"
           onClick={onStop}
-          icon={<StopIcon size={16} weight="fill" />}
-          style={{ minHeight: 44, minWidth: 44, padding: "10px 12px" }}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-secondary text-foreground transition-colors hover:bg-surface-secondary/80"
           aria-label={t("chat_input_action_stop")}
         >
-          {t("chat_input_action_stop")}
-        </Button>
+          <StopIcon size={16} weight="fill" />
+        </button>
       ) : (
-        <Button
+        <button
           type="submit"
-          variant="primary"
           onClick={handleSubmit}
-          disabled={!value.trim() || !isConnected || isReadOnly}
-          icon={<PaperPlaneTiltIcon size={16} />}
-          className="text-white hover:text-white"
-          style={{ minHeight: 44, minWidth: 44, padding: "10px 12px", color: "#fff" }}
+          disabled={!canSubmit}
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+            "bg-accent text-accent-foreground",
+            "transition-colors",
+            canSubmit
+              ? "hover:opacity-90"
+              : "cursor-not-allowed opacity-40"
+          )}
           aria-label={t("chat_input_action_send")}
         >
-          {t("chat_input_action_send")}
-        </Button>
+          <ArrowUpIcon size={16} weight="bold" />
+        </button>
       )}
     </div>
   );

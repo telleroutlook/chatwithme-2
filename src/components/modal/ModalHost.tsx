@@ -1,7 +1,6 @@
 import { useEffect, useCallback, memo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useModalStack } from "./useModalStack";
-import { Button, Text } from "@cloudflare/kumo";
 import { XIcon } from "@phosphor-icons/react";
 import { useResponsive, isMobile } from "../../hooks/useResponsive";
 import { useSheetSwipeClose } from "../../hooks/useSheetSwipeClose";
@@ -230,17 +229,17 @@ const DesktopModal = memo(function Modal({
       >
         {/* Header */}
         {(title || closable) && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-kumo-line">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             {title && (
-              <Text size="lg" bold id={titleId}>
+              <p className="text-lg font-bold text-foreground" id={titleId}>
                 {title}
-              </Text>
+              </p>
             )}
             {closable && (
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1 rounded-md text-kumo-subtle hover:text-kumo-default hover:bg-kumo-control transition-colors"
+                className="p-1 rounded-md text-foreground-muted hover:text-foreground hover:bg-muted transition-colors"
                 aria-label="Close modal"
               >
                 <XIcon size={20} />
@@ -254,11 +253,15 @@ const DesktopModal = memo(function Modal({
 
         {/* Footer */}
         {footer !== null && (
-          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-kumo-line">
+          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border">
             {footer || (
-              <Button variant="secondary" onClick={onClose}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors border border-border bg-surface-elevated hover:bg-muted text-foreground h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
+              >
                 Close
-              </Button>
+              </button>
             )}
           </div>
         )}
@@ -423,17 +426,17 @@ const MobileSheet = memo(function MobileSheet({
 
         {/* Header */}
         {(title || closable) && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-kumo-line">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             {title && (
-              <Text size="lg" bold id={`sheet-title-${String(id)}`}>
+              <p className="text-lg font-bold text-foreground" id={`sheet-title-${String(id)}`}>
                 {title}
-              </Text>
+              </p>
             )}
             {closable && (
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1 rounded-md text-kumo-subtle hover:text-kumo-default hover:bg-kumo-control transition-colors"
+                className="p-1 rounded-md text-foreground-muted hover:text-foreground hover:bg-muted transition-colors"
                 aria-label="Close"
               >
                 <XIcon size={20} />
@@ -449,11 +452,15 @@ const MobileSheet = memo(function MobileSheet({
 
         {/* Footer */}
         {footer !== null && (
-          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-kumo-line">
+          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border">
             {footer || (
-              <Button variant="secondary" onClick={onClose}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors border border-border bg-surface-elevated hover:bg-muted text-foreground h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
+              >
                 Close
-              </Button>
+              </button>
             )}
           </div>
         )}

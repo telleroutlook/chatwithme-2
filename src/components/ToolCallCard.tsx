@@ -1,4 +1,3 @@
-import { Surface } from "@cloudflare/kumo";
 import {
   WrenchIcon,
   SpinnerIcon,
@@ -122,17 +121,17 @@ const statusConfig: Record<
 > = {
   "input-streaming": {
     icon: SpinnerIcon,
-    color: "text-kumo-accent",
+    color: "text-accent-foreground",
     label: "Running",
-    badgeClass: "bg-kumo-accent/15 text-kumo-accent",
-    panelClass: "ring-kumo-accent/40"
+    badgeClass: "bg-accent/15 text-accent-foreground",
+    panelClass: "ring-accent/40"
   },
   "input-available": {
     icon: ClockIcon,
-    color: "text-kumo-subtle",
+    color: "text-foreground-muted",
     label: "Pending",
-    badgeClass: "bg-kumo-control text-kumo-subtle",
-    panelClass: "ring-kumo-line"
+    badgeClass: "bg-muted text-foreground-muted",
+    panelClass: "ring-border"
   },
   "output-available": {
     icon: CheckCircleIcon,
@@ -202,9 +201,9 @@ export function ToolCallCard({
     : null;
 
   return (
-    <Surface className={`app-panel my-2 rounded-2xl ring overflow-hidden ${config.panelClass}`}>
+    <div className={`rounded-xl border border-border bg-surface-elevated app-panel my-2 rounded-2xl ring overflow-hidden ${config.panelClass}`}>
       {/* Header */}
-      <div className="flex items-start justify-between gap-2 px-4 py-3 bg-kumo-control/20 border-b border-kumo-line/80">
+      <div className="flex items-start justify-between gap-2 px-4 py-3 bg-muted/20 border-b border-border/80">
         <div className="flex items-center gap-2">
           <StatusIcon
             size={16}
@@ -212,9 +211,9 @@ export function ToolCallCard({
             className={`${config.color} ${isRunning ? "animate-spin" : ""}`}
           />
           <div>
-            <div className="text-sm font-medium text-kumo-default">{formatToolName(toolName)}</div>
+            <div className="text-sm font-medium text-foreground">{formatToolName(toolName)}</div>
             {toolNamespace && (
-              <div className="text-xs text-kumo-subtle font-mono mt-0.5">{toolNamespace}</div>
+              <div className="text-xs text-foreground-muted font-mono mt-0.5">{toolNamespace}</div>
             )}
           </div>
         </div>
@@ -223,16 +222,16 @@ export function ToolCallCard({
             {config.label}
           </span>
           {duration !== undefined && (
-            <span className="text-xs text-kumo-subtle tabular-nums">{duration}ms</span>
+            <span className="text-xs text-foreground-muted tabular-nums">{duration}ms</span>
           )}
         </div>
       </div>
 
       {/* Input Section */}
       {input && Object.keys(input).length > 0 && (
-        <div className="px-4 py-2 border-b border-kumo-line/50">
-          <div className="text-xs text-kumo-subtle mb-1 font-medium">Input</div>
-          <pre className="text-xs text-kumo-default font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-kumo-control/20 p-2.5">
+        <div className="px-4 py-2 border-b border-border/50">
+          <div className="text-xs text-foreground-muted mb-1 font-medium">Input</div>
+          <pre className="text-xs text-foreground font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-muted/20 p-2.5">
             {JSON.stringify(input, null, 2)}
           </pre>
         </div>
@@ -242,7 +241,7 @@ export function ToolCallCard({
       {state === "output-available" && output !== undefined && (
         <div className="px-4 py-2 app-bg-success-soft">
           <div className="mb-1 text-xs font-medium app-text-success">Result</div>
-          <pre className="text-xs text-kumo-default font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-kumo-control/20 p-2.5">
+          <pre className="text-xs text-foreground font-mono overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-muted/20 p-2.5">
             {formatOutput(output)}
           </pre>
         </div>
@@ -259,12 +258,12 @@ export function ToolCallCard({
       )}
 
       {state === "approval-requested" && approvalId && onApprove && onReject && (
-        <div className="flex items-center gap-2 border-t border-kumo-line/50 px-4 py-2">
+        <div className="flex items-center gap-2 border-t border-border/50 px-4 py-2">
           <button
             type="button"
             onClick={() => onApprove(approvalId)}
             disabled={!canApprove || approvalBusy}
-            className="rounded border border-kumo-line px-2 py-1 text-xs text-kumo-subtle hover:bg-kumo-control disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border border-border px-2 py-1 text-xs text-foreground-muted hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
           >
             Approve
           </button>
@@ -272,7 +271,7 @@ export function ToolCallCard({
             type="button"
             onClick={() => onReject(approvalId)}
             disabled={!canApprove || approvalBusy}
-            className="rounded border border-kumo-line px-2 py-1 text-xs text-kumo-subtle hover:bg-kumo-control disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border border-border px-2 py-1 text-xs text-foreground-muted hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
           >
             Reject
           </button>
@@ -280,13 +279,13 @@ export function ToolCallCard({
       )}
 
       {state === "approval-requested" && !approvalId && (
-        <div className="border-t border-kumo-line/50 px-4 py-2">
+        <div className="border-t border-border/50 px-4 py-2">
           <div className="text-xs app-text-danger">
             Approval request is invalid: missing or malformed approval ID.
           </div>
         </div>
       )}
-    </Surface>
+    </div>
   );
 }
 

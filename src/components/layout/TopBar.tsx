@@ -1,15 +1,14 @@
-import { useState } from "react";
-import { Popover, Text } from "@cloudflare/kumo";
+import { useEffect, useRef, useState } from "react";
 import {
   CaretDownIcon,
   DownloadSimpleIcon,
   ListIcon,
   MoonIcon,
   PlusIcon,
-  PlugsConnectedIcon,
   SunIcon
 } from "@phosphor-icons/react";
 import { ConnectionIndicator, type ConnectionStatus, useThemeMode } from "../AgentsUiCompat";
+import { cn } from "../ui/utils";
 import { useResponsive } from "../../hooks/useResponsive";
 import { UserMenu } from "../../features/auth/components/UserMenu";
 
@@ -36,124 +35,166 @@ export function TopBar({
 }: TopBarProps) {
   const { mode, setMode } = useThemeMode();
   const { touch } = useResponsive();
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
   const resolvedMode =
     mode === "system" ? (document.documentElement.getAttribute("data-mode") ?? "light") : mode;
   const isDark = resolvedMode === "dark";
-
-  // Apply touch feedback on mobile or touch devices
   const isTouchDevice = mobile || touch;
 
   const handleToggleTheme = () => {
     setMode(isDark ? "light" : "dark");
   };
 
+  // Close export dropdown on outside click
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [exportOpen]);
+
+  // Shared icon-button base styles
+  const iconBtn = cn(
+    "inline-flex items-center justify-center rounded-md p-2",
+    "text-foreground-muted transition-colors",
+    "hover:bg-surface hover:text-foreground",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border",
+    isTouchDevice && "active:scale-95"
+  );
+
   return (
     <header
-      className={`app-glass border-b border-kumo-line/80 bg-kumo-base/70 px-3 sm:px-5 ${
-        mobile ? "py-2" : "py-3"
-      }`}
+      className={cn(
+        "flex items-center justify-between border-b border-border bg-surface/80 backdrop-blur-sm",
+        mobile ? "px-3" : "px-4",
+        "h-12"
+      )}
       style={{
-        paddingTop: mobile ? "calc(0.5rem + var(--safe-area-inset-top))" : undefined
+        paddingTop: mobile ? "var(--safe-area-inset-top, 0px)" : undefined
       }}
     >
-      <div className={`flex flex-wrap items-center justify-between ${mobile ? "gap-2" : "gap-3"}`}>
-        <div className={`flex items-center ${mobile ? "gap-2" : "gap-3"}`}>
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className={`rounded-lg p-2 transition-colors hover:bg-kumo-control focus-visible:outline-none ${
-              isTouchDevice ? "active:scale-95" : ""
-            }`}
-            style={{ minHeight: 44, minWidth: 44 }}
-            aria-label={mobile ? t("sidebar_open") : t("sidebar_toggle")}
-          >
-            <ListIcon size={20} className="text-kumo-subtle" />
-          </button>
-          <div className="flex items-center gap-2 sm:gap-3">
-            {!mobile && (
-              <PlugsConnectedIcon size={22} className="shrink-0 text-kumo-accent" weight="bold" />
-            )}
-            <div>
-              <h1 className="text-base font-semibold leading-tight text-kumo-default sm:text-lg">
-                {t("app_title")}
-              </h1>
-              <Text size="xs" variant="secondary">
-                {t("app_subtitle")}
-              </Text>
-            </div>
-          </div>
-        </div>
+      {/* Left: sidebar toggle + app name */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className={iconBtn}
+          style={{ minHeight: 36, minWidth: 36 }}
+          aria-label={mobile ? t("sidebar_open") : t("sidebar_toggle")}
+        >
+          <ListIcon size={18} />
+        </button>
 
-        <div className={`flex items-center ${mobile ? "gap-1.5" : "gap-2 sm:gap-3"}`}>
+        <div className="flex flex-col leading-none">
+          <span className="text-sm font-semibold text-foreground">{t("app_title")}</span>
+          {!mobile && (
+            <span className="mt-0.5 text-[11px] text-foreground-muted">{t("app_subtitle")}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Right: actions */}
+      <div className={cn("flex items-center", mobile ? "gap-0.5" : "gap-1")}>
+        {/* New chat */}
+        <button
+          type="button"
+          onClick={onNewSession}
+          className={cn(
+            iconBtn,
+            "gap-1.5 px-2.5 text-xs font-medium",
+            "border border-border"
+          )}
+          style={{ minHeight: 36, minWidth: 36 }}
+          aria-label={t("session_new")}
+          title={t("session_new")}
+        >
+          <PlusIcon size={16} />
+          <span className="hidden sm:inline">{t("session_new")}</span>
+        </button>
+
+        {/* Export dropdown */}
+        <div ref={exportRef} className="relative">
           <button
             type="button"
-            onClick={onNewSession}
-            className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-kumo-line px-2.5 py-2 text-xs font-medium text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 sm:justify-start ${
-              isTouchDevice ? "active:scale-95" : ""
-            }`}
-            style={{ minHeight: 44, minWidth: 44 }}
-            aria-label={t("session_new")}
-            title={t("session_new")}
+            disabled={disableExportAll}
+            onClick={() => setExportOpen((prev) => !prev)}
+            className={cn(
+              iconBtn,
+              "gap-0.5",
+              disableExportAll && "cursor-not-allowed opacity-40"
+            )}
+            style={{ minHeight: 36, minWidth: 36 }}
+            aria-label={t("topbar_export_options")}
+            title={t("topbar_export_options")}
+            aria-haspopup="menu"
+            aria-expanded={exportOpen}
           >
-            <PlusIcon size={16} />
-            <span className="hidden sm:inline">{t("session_new")}</span>
+            <DownloadSimpleIcon size={17} />
+            <CaretDownIcon
+              size={12}
+              className={cn("transition-transform", exportOpen && "rotate-180")}
+            />
           </button>
-          <Popover open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
-            <Popover.Trigger asChild>
+
+          {exportOpen && (
+            <div
+              role="menu"
+              className={cn(
+                "absolute right-0 top-full z-50 mt-1.5",
+                "w-44 rounded-lg border border-border bg-surface shadow-lg",
+                "py-1"
+              )}
+            >
               <button
                 type="button"
-                disabled={disableExportAll}
-                className={`inline-flex items-center justify-center gap-1 rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
-                  isTouchDevice ? "active:scale-95" : ""
-                } ${disableExportAll ? "cursor-not-allowed opacity-50" : ""}`}
-                style={{ minHeight: 44, minWidth: 44 }}
-                aria-label={t("topbar_export_options")}
-                title={t("topbar_export_options")}
+                role="menuitem"
+                className="w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none"
+                onClick={() => {
+                  onExportMarkdown();
+                  setExportOpen(false);
+                }}
               >
-                <DownloadSimpleIcon size={18} />
-                <CaretDownIcon size={14} />
+                {t("topbar_export_markdown")}
               </button>
-            </Popover.Trigger>
-            <Popover.Content className="w-56 p-2">
-              <div className="flex flex-col gap-1">
-                <button
-                  type="button"
-                  className="rounded-md px-3 py-2 text-left text-sm text-kumo-default transition-colors hover:bg-kumo-control"
-                  onClick={() => {
-                    onExportMarkdown();
-                    setExportMenuOpen(false);
-                  }}
-                >
-                  {t("topbar_export_markdown")}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md px-3 py-2 text-left text-sm text-kumo-default transition-colors hover:bg-kumo-control"
-                  onClick={() => {
-                    onExportPdf();
-                    setExportMenuOpen(false);
-                  }}
-                >
-                  {t("topbar_export_pdf")}
-                </button>
-              </div>
-            </Popover.Content>
-          </Popover>
-          <button
-            type="button"
-            onClick={handleToggleTheme}
-            className={`inline-flex items-center justify-center rounded-lg border border-kumo-line p-2 text-kumo-subtle transition-colors hover:bg-kumo-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-accent/40 ${
-              isTouchDevice ? "active:scale-95" : ""
-            }`}
-            style={{ minHeight: 44, minWidth: 44 }}
-            aria-label={t("theme_toggle")}
-            title={t("theme_toggle")}
-          >
-            {isDark ? <SunIcon size={18} /> : <MoonIcon size={18} />}
-          </button>
-          <UserMenu t={t} isTouchDevice={isTouchDevice} />
-          {!mobile ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none"
+                onClick={() => {
+                  onExportPdf();
+                  setExportOpen(false);
+                }}
+              >
+                {t("topbar_export_pdf")}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Theme toggle */}
+        <button
+          type="button"
+          onClick={handleToggleTheme}
+          className={iconBtn}
+          style={{ minHeight: 36, minWidth: 36 }}
+          aria-label={t("theme_toggle")}
+          title={t("theme_toggle")}
+        >
+          {isDark ? <SunIcon size={17} /> : <MoonIcon size={17} />}
+        </button>
+
+        {/* User menu */}
+        <UserMenu t={t} isTouchDevice={isTouchDevice} />
+
+        {/* Connection indicator — desktop only */}
+        {!mobile && (
+          <div className="ml-1 hidden items-center sm:flex">
             <ConnectionIndicator
               status={connectionStatus}
               labels={{
@@ -162,8 +203,8 @@ export function TopBar({
                 disconnected: t("connection_disconnected")
               }}
             />
-          ) : null}
-        </div>
+          </div>
+        )}
       </div>
     </header>
   );

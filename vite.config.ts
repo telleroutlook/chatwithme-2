@@ -53,8 +53,8 @@ export default defineConfig({
             return 'vendor-markdown';
           }
 
-          // UI utilities
-          if (id.includes('node_modules/@cloudflare/kumo/') || id.includes('node_modules/@phosphor-icons/react/')) {
+          // UI utilities (icons, Radix primitives)
+          if (id.includes('node_modules/@phosphor-icons/react/') || id.includes('node_modules/@radix-ui/')) {
             return 'vendor-ui';
           }
 

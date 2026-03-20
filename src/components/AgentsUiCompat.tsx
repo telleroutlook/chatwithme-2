@@ -97,7 +97,7 @@ export function ConnectionIndicator({ status, labels }: ConnectionIndicatorProps
   const label = labels?.[status] ?? status;
 
   return (
-    <div className="inline-flex items-center gap-1.5 text-xs text-kumo-subtle" aria-live="polite">
+    <div className="inline-flex items-center gap-1.5 text-xs text-foreground-muted" aria-live="polite">
       {isConnected ? (
         <CheckCircleIcon size={14} className="text-[var(--app-color-success)]" weight="fill" />
       ) : (

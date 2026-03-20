@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, memo, useMemo, useCallback } from "react";
-import { Text, Surface, Badge } from "@cloudflare/kumo";
 import { ChartBar } from "@phosphor-icons/react";
 import { sanitizeMermaidCode, validateMermaidCode } from "../utils/mermaidValidator";
 import { trackChatEvent } from "../features/chat/services/trackChatEvent";
@@ -104,37 +103,37 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
   // Pre-validation error display
   if (validationError) {
     return (
-      <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
-        <Text size="xs">
+      <div className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+        <span className="text-xs">
           <span className="app-text-danger">Mermaid Validation Error: {validationError}</span>
-        </Text>
+        </span>
         <details className="mt-2">
-          <summary className="text-xs text-kumo-subtle cursor-pointer">View code</summary>
-          <pre className="mt-1 text-xs bg-kumo-control p-2 rounded overflow-auto max-h-32">
+          <summary className="text-xs text-foreground-muted cursor-pointer">View code</summary>
+          <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
             {code}
           </pre>
         </details>
-      </Surface>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
-        <Text size="xs">
+      <div className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+        <span className="text-xs">
           <span className="app-text-danger">Mermaid Error: {error}</span>
-        </Text>
-      </Surface>
+        </span>
+      </div>
     );
   }
 
   return (
-    <Surface className="w-full p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
+    <div className="w-full p-4 rounded-xl ring ring-border bg-surface-elevated">
       <div className="flex items-center gap-2 mb-2">
-        <ChartBar size={14} className="text-kumo-accent" />
-        <Text size="xs" variant="secondary" bold>
+        <ChartBar size={14} className="text-accent" />
+        <span className="text-xs text-foreground-muted font-semibold">
           Mermaid Diagram
-        </Text>
+        </span>
       </div>
       <div className="relative overflow-x-auto">
         <div
@@ -143,12 +142,12 @@ export function MermaidRenderer({ code, animated = false }: MermaidRendererProps
           style={{ minHeight: 100 }}
         />
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-1)]/85">
-            <span className="text-sm text-kumo-subtle">Rendering...</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-surface/85">
+            <span className="text-sm text-foreground-muted">Rendering...</span>
           </div>
         )}
       </div>
-    </Surface>
+    </div>
   );
 }
 
@@ -519,22 +518,26 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
 
   if (error) {
     return (
-      <Surface className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
-        <Text size="xs">
+      <div className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
+        <span className="text-xs">
           <span className="app-text-danger">G2 Chart Error: {error}</span>
-        </Text>
-      </Surface>
+        </span>
+      </div>
     );
   }
 
   return (
-    <Surface className="w-full p-4 rounded-xl ring ring-kumo-line bg-[var(--surface-elevated)]">
+    <div className="w-full p-4 rounded-xl ring ring-border bg-surface-elevated">
       <div className="flex items-center gap-2 mb-2">
-        <ChartBar size={14} className="text-kumo-accent" />
-        <Text size="xs" variant="secondary" bold>
+        <ChartBar size={14} className="text-accent" />
+        <span className="text-xs text-foreground-muted font-semibold">
           G2 Chart
-        </Text>
-        {spec.type && <Badge variant="secondary">{String(spec.type)}</Badge>}
+        </span>
+        {spec.type && (
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
+            {String(spec.type)}
+          </span>
+        )}
       </div>
       <div className="relative">
         <div
@@ -546,11 +549,11 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
           style={{ minHeight: 200 }}  // Minimum height only
         />
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-1)]/80">
-            <span className="text-sm text-kumo-subtle">Rendering chart...</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-surface/80">
+            <span className="text-sm text-foreground-muted">Rendering chart...</span>
           </div>
         )}
       </div>
-    </Surface>
+    </div>
   );
 }

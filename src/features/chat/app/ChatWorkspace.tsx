@@ -158,7 +158,7 @@ export function ChatWorkspace({
   };
 
   return (
-    <div className="flex h-full bg-kumo-base/70 text-kumo-default">
+    <div className="flex h-full bg-surface text-foreground">
       {mobile && sidebarOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden"

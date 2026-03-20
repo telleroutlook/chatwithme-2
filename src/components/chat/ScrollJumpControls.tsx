@@ -3,7 +3,7 @@
  */
 
 import { memo } from "react";
-import { Button } from "@cloudflare/kumo";
+import { cn } from "../ui/utils";
 import { ArrowLineDownIcon, ArrowLineUpIcon } from "@phosphor-icons/react";
 
 interface ScrollJumpControlsProps {
@@ -35,14 +35,17 @@ export const ScrollJumpControls = memo(function ScrollJumpControls({
           showBackToTop ? "opacity-100" : "opacity-0"
         }`}
       >
-        <Button
-          className="pointer-events-auto app-panel"
-          variant="secondary"
-          icon={<ArrowLineUpIcon size={16} />}
+        <button
+          type="button"
           onClick={onScrollToTop}
+          className={cn(
+            "pointer-events-auto app-panel inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
+            "border border-border bg-surface-elevated hover:bg-muted text-foreground h-8 px-3"
+          )}
         >
+          <span className="shrink-0"><ArrowLineUpIcon size={16} /></span>
           {topLabel}
-        </Button>
+        </button>
       </div>
 
       {/* Back to Bottom - positioned at bottom */}
@@ -51,16 +54,19 @@ export const ScrollJumpControls = memo(function ScrollJumpControls({
           showBackToBottom ? "opacity-100" : "opacity-0"
         }`}
       >
-        <Button
-          className="pointer-events-auto app-panel"
-          variant="secondary"
-          icon={<ArrowLineDownIcon size={16} />}
+        <button
+          type="button"
           onClick={onScrollToBottom}
+          className={cn(
+            "pointer-events-auto app-panel inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
+            "border border-border bg-surface-elevated hover:bg-muted text-foreground h-8 px-3"
+          )}
         >
+          <span className="shrink-0"><ArrowLineDownIcon size={16} /></span>
           {bottomLabel}
           {unreadCount > 0 ? ` (${unreadCount})` : ""}
           {modeLabel ? ` · ${modeLabel}` : ""}
-        </Button>
+        </button>
       </div>
     </>
   );

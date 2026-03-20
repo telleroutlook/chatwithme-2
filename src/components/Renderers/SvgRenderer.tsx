@@ -1,5 +1,4 @@
 import { memo, useMemo } from "react";
-import { Surface } from "@cloudflare/kumo";
 
 interface SvgRendererProps {
   code: string;
@@ -77,16 +76,16 @@ export const SvgRenderer = memo(function SvgRenderer({
   );
 
   return (
-    <Surface className="my-3 w-full not-prose rounded-xl ring ring-kumo-line overflow-hidden bg-[var(--surface-elevated)]">
+    <div className="my-3 w-full not-prose rounded-xl ring ring-border overflow-hidden bg-surface-elevated">
       {showControls && (
-        <div className="px-3 py-2 text-xs text-kumo-subtle bg-kumo-control/50 border-b border-kumo-line flex items-center gap-2">
+        <div className="px-3 py-2 text-xs text-foreground-muted bg-muted/50 border-b border-border flex items-center gap-2">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
           </svg>
           <span>SVG Preview</span>
         </div>
       )}
-      <div className="bg-[var(--surface-1)] p-4 flex items-center justify-center overflow-x-auto">
+      <div className="bg-surface p-4 flex items-center justify-center overflow-x-auto">
         <img
           src={svgDataUrl}
           alt="SVG Preview"
@@ -97,6 +96,6 @@ export const SvgRenderer = memo(function SvgRenderer({
           draggable={false}
         />
       </div>
-    </Surface>
+    </div>
   );
 });
