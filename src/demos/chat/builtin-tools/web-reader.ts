@@ -13,7 +13,7 @@ import { tool } from "ai";
 // ============ Constants ============
 
 const JINA_READER_BASE = "https://r.jina.ai/";
-const MAX_CONTENT_LENGTH = 8000;
+const MAX_CONTENT_LENGTH = 4000;
 const FETCH_TIMEOUT_MS = 20_000;
 
 // ============ Jina Reader ============

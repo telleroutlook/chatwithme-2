@@ -21,7 +21,7 @@ export interface SearchResult {
 // ============ DDG HTML Parser ============
 
 const DDG_URL = "https://html.duckduckgo.com/html/";
-const MAX_RESULTS = 8;
+const MAX_RESULTS = 5;
 
 /**
  * Fetch and parse DuckDuckGo HTML search results.
@@ -220,7 +220,7 @@ export function createWebSearchTool(): ToolSet {
   return {
     [BUILTIN_TOOL_KEY]: tool({
       description:
-        "Search the web using DuckDuckGo. Returns titles, URLs, and snippets for up to 8 results. Use for current events, real-time data, fact-checking, or any query that may require up-to-date information. You MUST provide the search_query parameter.",
+        "Search the web using DuckDuckGo. Returns titles, URLs, and snippets for up to 5 results. Use for current events, real-time data, fact-checking, or any query that may require up-to-date information. You MUST provide the search_query parameter.",
       inputSchema: z.object({
         search_query: z
           .string()
