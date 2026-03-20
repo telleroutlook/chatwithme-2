@@ -641,3 +641,84 @@ The next major initiative is documented in a dedicated plan:
 **[Visual Excellence Execution Plan](./visual-excellence-execution-plan.md)**
 
 Goals: ECharts integration, chart export toolbar, interactive tables, KPI cards, dashboard layouts, Excalidraw hand-drawn diagrams, React sandbox, and removal of redundant G2 engine.
+
+## Execution Notes (2026-03-20, Visual Excellence — All 5 Phases Complete)
+
+### Summary
+
+The Visual Excellence Execution Plan (`docs/visual-excellence-execution-plan.md`) has been fully implemented across 5 phases. The system now supports 9 visualization engines, all lazy-loaded.
+
+### Phase 1: Base Experience (completed)
+
+- **ChartToolbar** (`src/components/ChartToolbar.tsx`): floating export toolbar (PNG/SVG/PDF/JSON) on all chart containers
+- **InteractiveTable** (`src/components/InteractiveTable.tsx`): sortable/searchable/paginated tables, auto-upgrade for Markdown tables >3 rows. Dependency: `@tanstack/react-table@^8`
+- **StatCard** (`src/components/StatCard.tsx`): KPI metric cards via ` ```stat ` code blocks, parsed by `src/utils/statCardParser.ts`
+- **G2 engine removed**: deleted `src/utils/g2SpecParser.ts`, `knowledge-base/charts/g2.json`, `src/components/ChartRenderer.test.ts`; removed `@antv/g2` from direct dependencies; g2 code blocks gracefully degrade to JSON display
+
+### Phase 2: ECharts Integration (completed)
+
+- **EChartsRenderer** (`src/components/EChartsRenderer.tsx`): SVG renderer, dark/light theme, ResizeObserver, deferred init via viewport hook. Dependency: `echarts@^5.6`
+- **Knowledge base** (`knowledge-base/charts/echarts.json`): 11 chart types — map, sankey, tree, treemap, sunburst, gauge, candlestick, themeRiver, wordCloud, bar3D, scatter3D
+- **Keyword mapping**: 50+ keywords (EN+CN) in `chart-knowledge.ts` for automatic engine selection
+- **System prompt**: three-engine selection strategy (ADC default → ECharts advanced → Mermaid structural)
+- **Build**: `vendor-echarts` lazy chunk ~346 KB gzip
+
+### Phase 3: Editing & Interactions (completed)
+
+- **ChartEditor** (`src/components/ChartEditor.tsx`): slide-out drawer with CodeMirror JSON editor + live preview (300ms debounce). Dependencies: `@codemirror/lang-json`, `codemirror`, `@codemirror/view`, `@codemirror/state`, `@codemirror/theme-one-dark`
+- **ADC interactions**: `elementHighlight` + `tooltip` defaults
+- **ECharts interactions**: default `toolbox` (zoom/restore/save) + `dataZoom` for xAxis charts
+- **Mermaid interactions**: mouse/touch zoom-pan, double-click reset, node hover highlighting, zoom controls UI
+- **Animations**: `useInViewport` hook (`src/hooks/useInViewport.ts`) for one-shot viewport-triggered entrance animations; CSS keyframes `chart-fade-in`, `mermaid-node-enter`, `mermaid-edge-draw` in `src/styles.css`
+
+### Phase 4: Advanced Content Types (completed)
+
+- **DashboardRenderer** (`src/components/DashboardRenderer.tsx`): composite grid layout via ` ```dashboard ` code blocks, parsed by `src/utils/dashboardParser.ts`. Supports stat/adc/echarts/text items with responsive grid
+- **ExcalidrawRenderer** (`src/components/ExcalidrawRenderer.tsx`): interactive hand-drawn diagrams via ` ```excalidraw ` code blocks. Dependency: `@excalidraw/excalidraw@^0.18`
+- **MarkmapRenderer** (`src/components/MarkmapRenderer.tsx`): interactive mind maps via ` ```mindmap ` code blocks with collapse/expand/zoom. Dependencies: `markmap-view`, `markmap-lib`, `markmap-common`. Mermaid mindmap blocks also get a "Switch to interactive" toggle
+- **Streaming skeletons**: 7 type-aware chart skeletons during streaming (`src/utils/streamingChartDetector.ts`, enhanced `MessageSkeleton.tsx`): line, bar, pie, mermaid, echarts, stat, generic
+
+### Phase 5: Frontier Capabilities (completed)
+
+- **ReactSandbox** (`src/components/ReactSandbox.tsx`): secure iframe sandbox for ` ```react ` code blocks. Loads React 18, Tailwind, Lucide, Babel from CDN. Security: `sandbox="allow-scripts"` without `allow-same-origin`. Template in `src/utils/reactSandboxTemplate.ts`
+- **VegaLiteRenderer** (`src/components/VegaLiteRenderer.tsx`): declarative charts via ` ```vega-lite ` code blocks, parsed by `src/utils/vegaLiteParser.ts`. Knowledge base: `knowledge-base/charts/vega-lite.json` (10 chart types). Dependencies: `vega`, `vega-lite`, `vega-embed`
+- **Data analyzer tool** (`src/demos/chat/builtin-tools/data-analyzer.ts`): `builtin_data_analyzer` for CSV/JSON analysis with column type detection, statistics, and chart recommendations. No external dependencies
+
+### Engine Matrix (final)
+
+| Engine | Code Block | Lazy Chunk | Use Case |
+|--------|-----------|------------|----------|
+| ADC | ` ```adc ` | vendor-adc | Default data charts (line/bar/pie/scatter/radar/area/funnel/heatmap/gauge) |
+| ECharts | ` ```echarts ` | vendor-echarts | Advanced charts (map/sankey/tree/treemap/sunburst/candlestick/themeRiver) |
+| Mermaid | ` ```mermaid ` | vendor-mermaid | Structural diagrams (flowchart/sequence/ER/state/class/gantt/mindmap) |
+| Vega-Lite | ` ```vega-lite ` | (inline+vega) | Declarative/statistical charts (boxplot/facet/layer) |
+| Excalidraw | ` ```excalidraw ` | vendor-excalidraw | Hand-drawn sketches, editable diagrams |
+| Markmap | ` ```mindmap ` | vendor-markmap | Interactive mind maps (collapse/expand/zoom) |
+| StatCard | ` ```stat ` | (inline) | KPI metric cards |
+| Dashboard | ` ```dashboard ` | (inline) | Composite layouts (stat + chart grids) |
+| React Sandbox | ` ```react ` | (inline+CDN) | Arbitrary React components |
+| InteractiveTable | (auto) | (inline) | Markdown tables >3 rows auto-upgrade |
+
+### Builtin Tools (3 total)
+
+| Tool | File | Purpose |
+|------|------|---------|
+| `builtin_web_search` | `src/demos/chat/builtin-tools/web-search.ts` | DuckDuckGo search |
+| `builtin_web_reader` | `src/demos/chat/builtin-tools/web-reader.ts` | Jina Reader URL content |
+| `builtin_data_analyzer` | `src/demos/chat/builtin-tools/data-analyzer.ts` | CSV/JSON data analysis + chart recommendations |
+
+### Validation
+
+- `npx tsc --noEmit`: 0 errors
+- `npm run test:run`: 33 files, 283 tests, 0 failures
+- `npx vite build`: successful (11,217 modules)
+- Production deployed to `https://chat2.3we.org/`
+- 15 real chat tests: all engines triggered correctly (ADC, ECharts, Mermaid, StatCard, Dashboard)
+
+### File Change Summary
+
+- 47 files changed: +18,550 / -9,043 lines
+- 17 new files created (renderers, parsers, tools, hooks)
+- 3 files deleted (G2 engine)
+- 27 existing files modified
+- Commit: `b8ab9f8` on `main`

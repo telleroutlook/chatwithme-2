@@ -9,7 +9,7 @@ The architecture refactor execution history is documented in `docs/official-arch
 ## Priorities
 
 1. Keep the worker and front-end maintainable; the plan document (`docs/official-architecture-refactor-execution-plan.md`) records architectural decisions and execution history.
-2. Production URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
+2. Production URL: `https://chat2.3we.org/` (Cloudflare Workers: `https://chatwithme2mcp.lintao-mailbox.workers.dev`)
 
 ## Running & Validation
 
@@ -29,4 +29,5 @@ The architecture refactor execution history is documented in `docs/official-arch
 ## Collaboration Notes
 
 - Git operations assume a GitHub repo at `https://github.com/<user>/chatwithme-2.git`; adjust the remote once the real URL is available.
+- The visual excellence execution plan and its completion status are documented in `docs/visual-excellence-execution-plan.md`.
 - Always note decisions in the docs file before pushing. Keep the repo lightweight to simplify future cloning and reviewing.
