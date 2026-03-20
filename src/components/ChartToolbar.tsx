@@ -3,10 +3,14 @@
  *
  * Appears on hover over the parent chart area with fade-in animation.
  * Supports PNG, SVG, PDF and JSON/CSV export for both Mermaid and ADC charts.
+ *
+ * Canvas-based engines (ADC, ECharts) read pixels directly from the <canvas>
+ * element instead of using html-to-image / html2canvas, which cannot capture
+ * canvas content reliably (blank PNG, garbled colors in PDF, etc.).
  */
 
 import { useState, useCallback, type RefObject } from "react";
-import { exportToPng, downloadTextFile } from "../utils/exporters/image";
+import { exportToPng, downloadTextFile, downloadFile } from "../utils/exporters/image";
 import { exportToPdf } from "../utils/exporters/pdf";
 
 // ---------------------------------------------------------------------------
@@ -32,23 +36,44 @@ export interface ChartToolbarProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Engines that render to <canvas> instead of <svg>. */
+const CANVAS_ENGINES: ReadonlySet<ChartEngine> = new Set(["adc", "echarts"]);
+
 function makeFilename(engine: ChartEngine, chartType: string | undefined, ext: string): string {
   const type = chartType ?? engine;
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   return `chart-${type}-${ts}.${ext}`;
 }
 
-/** Extract the raw SVG markup from a Mermaid container element. */
-function extractSvgMarkup(container: HTMLElement): string | null {
-  const svg = container.querySelector("svg");
-  if (!svg) return null;
-  // Clone so we don't mutate the live DOM
-  const clone = svg.cloneNode(true) as SVGElement;
-  // Ensure xmlns is present for standalone SVG files
-  if (!clone.getAttribute("xmlns")) {
-    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  }
-  return new XMLSerializer().serializeToString(clone);
+/**
+ * Build a composited PNG data-URL from a canvas-based chart container.
+ * Draws a white background + optional title header + the chart canvas pixels
+ * onto an offscreen canvas, returning the data URL.
+ */
+function compositeCanvasPng(container: HTMLElement, bgColor = "#ffffff"): string | null {
+  const chartCanvas = container.querySelector("canvas");
+  if (!chartCanvas || chartCanvas.width === 0) return null;
+
+  const padding = 24;
+  const headerHeight = 0; // title is outside containerRef, so not captured here
+
+  const outWidth = chartCanvas.width + padding * 2;
+  const outHeight = chartCanvas.height + padding * 2 + headerHeight;
+
+  const offscreen = document.createElement("canvas");
+  offscreen.width = outWidth;
+  offscreen.height = outHeight;
+  const ctx = offscreen.getContext("2d");
+  if (!ctx) return null;
+
+  // White background
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, outWidth, outHeight);
+
+  // Draw chart canvas
+  ctx.drawImage(chartCanvas, padding, padding + headerHeight);
+
+  return offscreen.toDataURL("image/png");
 }
 
 // ---------------------------------------------------------------------------
@@ -64,23 +89,34 @@ export function ChartToolbar({
 }: ChartToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
 
+  const isCanvasEngine = CANVAS_ENGINES.has(engine);
+
   // ---- PNG ----
   const handlePng = useCallback(async () => {
     const el = containerRef.current;
     if (!el) return;
     setBusy("png");
     try {
-      await exportToPng(el, {
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-        filename: makeFilename(engine, chartType, "png"),
-      });
+      if (isCanvasEngine) {
+        // Read pixels directly from the chart <canvas>
+        const dataUrl = compositeCanvasPng(el);
+        if (dataUrl) {
+          downloadFile(dataUrl, makeFilename(engine, chartType, "png"));
+        }
+      } else {
+        // SVG-based engines (Mermaid, Vega-Lite): html-to-image works fine
+        await exportToPng(el, {
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+          filename: makeFilename(engine, chartType, "png"),
+        });
+      }
     } catch (err) {
       console.error("PNG export failed:", err);
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType]);
+  }, [containerRef, engine, chartType, isCanvasEngine]);
 
   // ---- SVG ----
   const handleSvg = useCallback(() => {
@@ -88,30 +124,19 @@ export function ChartToolbar({
     if (!el) return;
     setBusy("svg");
     try {
-      if (engine === "mermaid") {
-        const markup = extractSvgMarkup(el);
-        if (markup) {
-          downloadTextFile(markup, makeFilename(engine, chartType, "svg"), "image/svg+xml");
+      const svg = el.querySelector("svg");
+      if (svg) {
+        const clone = svg.cloneNode(true) as SVGElement;
+        if (!clone.getAttribute("xmlns")) {
+          clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
         }
-      } else {
-        // ADC / ECharts: try to find an embedded <svg> first, fall back to canvas toDataURL
-        const svg = el.querySelector("svg");
-        if (svg) {
-          const clone = svg.cloneNode(true) as SVGElement;
-          if (!clone.getAttribute("xmlns")) {
-            clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-          }
-          const markup = new XMLSerializer().serializeToString(clone);
-          downloadTextFile(markup, makeFilename(engine, chartType, "svg"), "image/svg+xml");
-        } else {
-          const canvas = el.querySelector("canvas");
-          if (canvas) {
-            const dataUrl = canvas.toDataURL("image/png");
-            const link = document.createElement("a");
-            link.download = makeFilename(engine, chartType, "png");
-            link.href = dataUrl;
-            link.click();
-          }
+        const markup = new XMLSerializer().serializeToString(clone);
+        downloadTextFile(markup, makeFilename(engine, chartType, "svg"), "image/svg+xml");
+      } else if (isCanvasEngine) {
+        // Canvas engines have no SVG — export as PNG from canvas directly
+        const dataUrl = compositeCanvasPng(el);
+        if (dataUrl) {
+          downloadFile(dataUrl, makeFilename(engine, chartType, "png"));
         }
       }
     } catch (err) {
@@ -119,7 +144,7 @@ export function ChartToolbar({
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType]);
+  }, [containerRef, engine, chartType, isCanvasEngine]);
 
   // ---- PDF ----
   const handlePdf = useCallback(async () => {
@@ -127,15 +152,52 @@ export function ChartToolbar({
     if (!el) return;
     setBusy("pdf");
     try {
-      await exportToPdf(el, {
-        filename: makeFilename(engine, chartType, "pdf"),
-      });
+      if (isCanvasEngine) {
+        // Build PDF directly from canvas pixels — avoids html2canvas color issues
+        const dataUrl = compositeCanvasPng(el);
+        if (dataUrl) {
+          const { default: jsPDF } = await import("jspdf");
+
+          const img = new Image();
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = reject;
+            img.src = dataUrl;
+          });
+
+          const isLandscape = img.width > img.height;
+          const pdf = new jsPDF({
+            orientation: isLandscape ? "landscape" : "portrait",
+            unit: "mm",
+            format: "a4",
+          });
+
+          const pageW = pdf.internal.pageSize.getWidth();
+          const pageH = pdf.internal.pageSize.getHeight();
+          const margin = 10;
+          const ratio = Math.min(
+            (pageW - margin * 2) / img.width,
+            (pageH - margin * 2) / img.height
+          );
+          const w = img.width * ratio;
+          const h = img.height * ratio;
+          const x = (pageW - w) / 2;
+          const y = margin;
+
+          pdf.addImage(dataUrl, "PNG", x, y, w, h);
+          pdf.save(makeFilename(engine, chartType, "pdf"));
+        }
+      } else {
+        await exportToPdf(el, {
+          filename: makeFilename(engine, chartType, "pdf"),
+        });
+      }
     } catch (err) {
       console.error("PDF export failed:", err);
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType]);
+  }, [containerRef, engine, chartType, isCanvasEngine]);
 
   // ---- JSON ----
   const handleJson = useCallback(() => {
@@ -151,12 +213,15 @@ export function ChartToolbar({
     }
   }, [spec, engine, chartType]);
 
-  // Build the button list. JSON only shown when spec is provided.
+  // Build the button list.
+  // Canvas engines have no real SVG, so show "PNG" instead of "SVG".
   const buttons: { key: string; label: string; handler: () => void | Promise<void> }[] = [
     { key: "png", label: "PNG", handler: handlePng },
-    { key: "svg", label: "SVG", handler: handleSvg },
-    { key: "pdf", label: "PDF", handler: handlePdf },
   ];
+  if (!isCanvasEngine) {
+    buttons.push({ key: "svg", label: "SVG", handler: handleSvg });
+  }
+  buttons.push({ key: "pdf", label: "PDF", handler: handlePdf });
   if (spec != null) {
     buttons.push({ key: "json", label: "JSON", handler: handleJson });
   }
