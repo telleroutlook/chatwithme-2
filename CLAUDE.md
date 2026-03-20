@@ -22,9 +22,20 @@ The architecture refactor execution history is documented in `docs/official-arch
   - `npm run deploy:raw` for quick deploy (skips typecheck + verify, but still builds)
   - `npm run test:run` to run all tests before deploying
 
+## Critical Developer Rules
+
+> **Read `docs/developer-pitfalls.md` for full explanations, code examples, and debugging checklists.**
+
+1. **Tool definitions**: Use `inputSchema` (NOT `parameters`) with `tool()` from `ai`. Using `parameters` silently sends an empty schema to the model.
+2. **Retry without tools**: Any code path calling the model with `tools: {}` must strip tool descriptions from the system prompt via `stripToolSections()`. Otherwise the model outputs raw JSON tool calls as text.
+3. **Streaming + empty result.text**: `streamText`'s `result.text` can be `""` when all steps end with tool-calls. Track streamed text independently and avoid duplicate output on retry.
+4. **Deploy safety**: Always `npm run deploy`, never raw `wrangler deploy` — the latter skips the Vite build and deploys stale code.
+5. **Install safety**: Always `npm install --legacy-peer-deps` due to zod v3/v4 peer dep conflict.
+
 ## Documentation
 
 - The execution history and architecture decisions are in `docs/official-architecture-refactor-execution-plan.md`; append to it when you discover new constraints, test results, or rollout notes.
+- **Developer pitfalls and lessons learned** are in `docs/developer-pitfalls.md`; read this before modifying tool definitions, streaming logic, or the retry/fallback paths.
 
 ## Collaboration Notes
 
