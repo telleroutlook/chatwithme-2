@@ -24,7 +24,7 @@ export const LIGHT_CHART_THEME_TOKENS: ChartThemeTokens = {
     "#7c3aed",
     "#b45309",
     "#be123c",
-    "#0f766e",
+    "#0284c7",
     "#1e40af",
     "#475569",
     "#166534",

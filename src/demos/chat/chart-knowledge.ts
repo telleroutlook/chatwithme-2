@@ -23,27 +23,40 @@ const MERMAID_KEYWORD_MAP: Record<string, string[]> = {
   flow: ["flowchart"],
   process: ["flowchart"],
   workflow: ["flowchart"],
+  "流程": ["flowchart"],
   // Sequence/API keywords
   sequence: ["sequenceDiagram"],
   api: ["sequenceDiagram"],
   interaction: ["sequenceDiagram"],
+  "时序": ["sequenceDiagram"],
+  "交互": ["sequenceDiagram"],
   // Class/state keywords
   class: ["classDiagram"],
   state: ["stateDiagram-v2"],
+  "类图": ["classDiagram"],
+  "状态": ["stateDiagram-v2"],
   // Database keywords
   er: ["erDiagram"],
   database: ["erDiagram"],
   entity: ["erDiagram"],
+  "数据库": ["erDiagram"],
+  "实体": ["erDiagram"],
   // Timeline/schedule keywords
   gantt: ["gantt"],
   schedule: ["gantt"],
   timeline: ["timeline"],
+  "甘特": ["gantt"],
+  "时间线": ["timeline"],
+  "排期": ["gantt"],
   // Other diagram types
   pie: ["pie"],
   mindmap: ["mindmap"],
   journey: ["journey"],
   git: ["gitGraph"],
   kanban: ["kanban"],
+  "思维导图": ["mindmap"],
+  "看板": ["kanban"],
+  "用户旅程": ["journey"],
 };
 
 /** Keywords to ADC chart types mapping */
@@ -59,6 +72,19 @@ const ADC_KEYWORD_MAP: Record<string, string[]> = {
   heatmap: ["heatmap"],
   funnel: ["funnel"],
   histogram: ["histogram"],
+  dual: ["dualAxes"],
+  "折线": ["line"],
+  "柱状": ["column"],
+  "条形": ["bar"],
+  "面积": ["area"],
+  "饼": ["pie"],
+  "散点": ["scatter"],
+  "雷达": ["radar"],
+  "仪表": ["gauge"],
+  "热力": ["heatmap"],
+  "漏斗": ["funnel"],
+  "直方": ["histogram"],
+  "双轴": ["dualAxes"],
 };
 
 /** Keywords to G2 chart types mapping */
@@ -69,6 +95,12 @@ const G2_KEYWORD_MAP: Record<string, string[]> = {
   area: ["area"],
   scatter: ["point"],
   heatmap: ["cell"],
+  "柱状": ["interval"],
+  "条形": ["interval"],
+  "折线": ["line"],
+  "面积": ["area"],
+  "散点": ["point"],
+  "热力": ["cell"],
 };
 
 // ============================================================================
@@ -86,8 +118,14 @@ export interface DetectedKeywords {
  * Check if a keyword matches the user message with word-boundary awareness.
  * Uses \b word boundaries for ASCII keywords to avoid false positives
  * (e.g., "line" matching "deadline", "bar" matching "barrier").
+ * For non-ASCII keywords (Chinese, etc.), uses plain substring matching.
  */
 function keywordMatches(lower: string, keyword: string): boolean {
+  // Non-ASCII keywords (Chinese, etc.) — use plain includes
+  if (/[^\x00-\x7F]/.test(keyword)) {
+    return lower.includes(keyword);
+  }
+  // ASCII keywords — use word boundary
   const re = new RegExp(`\\b${keyword}\\b`, "i");
   return re.test(lower);
 }
@@ -353,11 +391,11 @@ export function buildAdcPromptSection(knowledge: AdcKnowledge | null): string {
 
   const lines: string[] = [];
 
-  lines.push("### For Data Charts (line, column, bar, area, pie, scatter, radar, gauge, heatmap, funnel, histogram, dual axes):");
-  lines.push("Use Ant Design Charts (ADC) JSON format in a code block:");
+  lines.push("### For Data Charts — Ant Design Charts (ADC):");
+  lines.push("Use ADC JSON format in a code block with language tag `adc`:");
   lines.push("");
   lines.push("```adc");
-  lines.push('{\n  "type": "line",\n  "data": [\n    {"year": "1991", "value": 3},\n    {"year": "1992", "value": 4}\n  ],\n  "xField": "year",\n  "yField": "value"\n}');
+  lines.push('{\n  "type": "line",\n  "data": [\n    {"month": "Jan", "value": 35, "category": "A"},\n    {"month": "Feb", "value": 46, "category": "A"},\n    {"month": "Mar", "value": 51, "category": "A"},\n    {"month": "Jan", "value": 28, "category": "B"},\n    {"month": "Feb", "value": 38, "category": "B"},\n    {"month": "Mar", "value": 43, "category": "B"}\n  ],\n  "xField": "month",\n  "yField": "value",\n  "colorField": "category",\n  "style": {"lineWidth": 2.5},\n  "interaction": {"tooltip": true}\n}');
   lines.push("```");
   lines.push("");
   lines.push("ADC output contract (MUST follow):");
@@ -365,14 +403,22 @@ export function buildAdcPromptSection(knowledge: AdcKnowledge | null): string {
   for (const rule of knowledge.outputContract) {
     lines.push(`- ${rule}`);
   }
-  lines.push("- Prefer readable aesthetics: smooth line shapes where appropriate, subtle grid lines, and clear legend contrast.");
 
   lines.push("");
-  lines.push("ADC chart types:");
-  for (const chart of knowledge.chartTypes.slice(0, 6)) {
-    lines.push(`- "${chart.type}" : ${chart.type} charts`);
+  lines.push("ADC chart types and key fields:");
+  for (const chart of knowledge.chartTypes) {
+    const tipStr = chart.tips ? ` — ${chart.tips}` : "";
+    lines.push(`- **${chart.type}**: required: ${chart.requiredFields.join(", ")}${tipStr}`);
   }
-  lines.push("...");
+
+  lines.push("");
+  lines.push("ADC styling best practices:");
+  lines.push("- Use colorField/seriesField for multi-series data to auto-generate legends");
+  lines.push("- Add interaction:{\"tooltip\":true} for hover information");
+  lines.push("- Use style.radiusTopLeft/radiusTopRight (2-6) for rounded bar/column tops");
+  lines.push("- For pie/donut charts, use innerRadius (0.4-0.6) for donut style");
+  lines.push("- Include 4-8 data points minimum for meaningful visualization");
+  lines.push("- Use descriptive field names and realistic data values");
 
   return lines.join("\n");
 }
@@ -385,11 +431,11 @@ export function buildG2PromptSection(knowledge: G2Knowledge | null): string {
 
   const lines: string[] = [];
 
-  lines.push("### For Data Charts (bar, line, area, scatter) - G2 Format:");
-  lines.push("Use G2 JSON format in a code block:");
+  lines.push("### For Data Charts — G2 Format:");
+  lines.push("Use G2 JSON format in a code block with language tag `g2`:");
   lines.push("");
   lines.push("```g2");
-  lines.push('{\n  "type": "interval",\n  "data": [\n    {"month": "Jan", "sales": 100},\n    {"month": "Feb", "sales": 150}\n  ],\n  "encode": {"x": "month", "y": "sales"}\n}');
+  lines.push('{\n  "type": "interval",\n  "data": [\n    {"quarter": "Q1", "revenue": 120, "dept": "Sales"},\n    {"quarter": "Q2", "revenue": 180, "dept": "Sales"},\n    {"quarter": "Q1", "revenue": 80, "dept": "Marketing"},\n    {"quarter": "Q2", "revenue": 120, "dept": "Marketing"}\n  ],\n  "encode": {"x": "quarter", "y": "revenue", "color": "dept"},\n  "transform": [{"type": "dodgeX"}],\n  "tooltip": true\n}');
   lines.push("```");
   lines.push("");
   lines.push("G2 output contract (MUST follow):");
@@ -397,13 +443,21 @@ export function buildG2PromptSection(knowledge: G2Knowledge | null): string {
   for (const rule of knowledge.outputContract) {
     lines.push(`- ${rule}`);
   }
-  lines.push("- Prefer readable aesthetics: balanced categorical colors, light grid lines, and high-contrast axis/legend text.");
 
   lines.push("");
-  lines.push("G2 chart types:");
+  lines.push("G2 chart types and key fields:");
   for (const chart of knowledge.chartTypes) {
-    lines.push(`- "${chart.type}" : ${chart.type} charts`);
+    const tipStr = chart.tips ? ` — ${chart.tips}` : "";
+    lines.push(`- **${chart.type}**: required: ${chart.requiredFields.join(", ")}${tipStr}`);
   }
+
+  lines.push("");
+  lines.push("G2 styling best practices:");
+  lines.push("- Use encode.color for categorical grouping");
+  lines.push("- Add tooltip:true for hover information");
+  lines.push("- Use transform:[{type:'dodgeX'}] for grouped bars, [{type:'stackY'}] for stacked");
+  lines.push("- Add axis.y.title or axis.x.title for labeled axes");
+  lines.push("- Use style.fillOpacity (0.3-0.7) for semi-transparent fills");
 
   return lines.join("\n");
 }
@@ -416,12 +470,8 @@ export function buildMermaidPromptSection(knowledge: MermaidKnowledge | null): s
 
   const lines: string[] = [];
 
-  lines.push("### For Diagrams (flowcharts, sequence, pie charts):");
-  lines.push("Use Mermaid syntax in a code block:");
-  lines.push("");
-  lines.push("```mermaid");
-  lines.push("graph TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[Action 1]\n    B -->|No| D[Action 2]");
-  lines.push("```");
+  lines.push("### For Diagrams — Mermaid:");
+  lines.push("Use Mermaid syntax in a code block with language tag `mermaid`:");
   lines.push("");
 
   // Add universal rules
@@ -430,29 +480,38 @@ export function buildMermaidPromptSection(knowledge: MermaidKnowledge | null): s
     for (const rule of knowledge.universalRules) {
       lines.push(`- ${rule}`);
     }
-    lines.push("- Keep node labels concise and avoid crowded edge labels for better readability.");
     lines.push("");
   }
 
+  // Show available diagram types with whenToUse hints
+  lines.push("Available diagram types:");
+  const diagramKeys = Object.keys(knowledge.diagramTypes);
+  for (const key of diagramKeys) {
+    const diagram = knowledge.diagramTypes[key];
+    lines.push(`- **${key}**: ${diagram.whenToUse}`);
+  }
+  lines.push("");
+
+  // Show up to 3 example templates for the most relevant types
+  const shownCount = Math.min(diagramKeys.length, 3);
   lines.push("Mermaid examples:");
   lines.push("");
 
-  // Add timeline example if available
-  if (knowledge.diagramTypes.timeline) {
-    lines.push("**Timeline:**");
+  for (let i = 0; i < shownCount; i++) {
+    const key = diagramKeys[i];
+    const diagram = knowledge.diagramTypes[key];
+    lines.push(`**${key}:**`);
     lines.push("```mermaid");
-    lines.push(knowledge.diagramTypes.timeline.minimalTemplate);
+    lines.push(diagram.minimalTemplate);
     lines.push("```");
     lines.push("");
   }
 
-  // Add flowchart example if available
-  if (knowledge.diagramTypes.flowchart) {
-    lines.push("**Flowchart:**");
-    lines.push("```mermaid");
-    lines.push(knowledge.diagramTypes.flowchart.minimalTemplate);
-    lines.push("```");
-  }
+  lines.push("Mermaid best practices:");
+  lines.push("- Use descriptive node labels and meaningful IDs");
+  lines.push("- Use varied node shapes: [] for process, {} for decision, () for start/end, [()] for database");
+  lines.push("- For sequence diagrams, use actor for humans and participant for systems");
+  lines.push("- Include 5-15 nodes/steps for balanced complexity");
 
   return lines.join("\n");
 }

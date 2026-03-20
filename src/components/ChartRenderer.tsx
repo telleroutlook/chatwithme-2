@@ -444,6 +444,24 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
           },
         };
 
+        // Theme-aware tooltip defaults
+        const themeAwareTooltip = {
+          css: {
+            ".g2-tooltip": {
+              "background-color": themeColors.tooltipBackground + " !important",
+              color: themeColors.tooltipTextFill + " !important",
+              "border-radius": "8px !important",
+              "box-shadow": isDark
+                ? "0 4px 12px rgba(0,0,0,0.5) !important"
+                : "0 4px 12px rgba(0,0,0,0.12) !important",
+              "border": `1px solid ${themeColors.axisGridStroke} !important`,
+            },
+            ".g2-tooltip-title": {
+              color: themeColors.tooltipTextFill + " !important",
+            },
+          },
+        };
+
         if (shouldUseOptions) {
           // For composition types, merge theme colors into spec
           const themedSpec = {
@@ -456,6 +474,7 @@ export function G2ChartRenderer({ spec, animated = false }: G2ChartRendererProps
             },
             axis: themeAwareAxis,
             legend: themeAwareLegend,
+            tooltip: themeAwareTooltip,
           };
           chart.options(themedSpec as Record<string, unknown>);
         } else {

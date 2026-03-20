@@ -172,26 +172,35 @@ When the user asks a complex factual question:
 
 When asked to create charts or diagrams, you MUST output them in code blocks.
 ${chartPriority}
-Use Mermaid as a secondary option for diagrams.
+Use Mermaid for diagrams (flowcharts, sequences, ER, mindmaps, etc.).
+
+Chart data quality rules:
+- Always include at least 4-6 data points for meaningful visualization.
+- Use realistic, descriptive field names and data values (not generic x/y or placeholder numbers).
+- For multi-series/category data, include a color/series field to distinguish groups.
+- Add labels, titles, or tooltips where they improve comprehension.
 
 Default chart aesthetics (apply unless user asks otherwise):
 - Prefer a professional business visual style: clear contrast, restrained saturation, readable labels.
-- Use rounded corners for bars/containers where supported and keep line charts smooth when readability benefits.
+- For bar/column charts, use rounded top corners and group or stack multi-series data.
+- For line charts, use smooth lines with visible data point markers when there are few points.
+- For pie/donut charts, use innerRadius for donut style, limit to 4-8 slices.
+- For area charts, use semi-transparent fills (fillOpacity 0.3-0.6).
 - Keep grid lines subtle; axis/legend text should remain readable in both light and dark themes.
-- For multi-series charts, choose clearly distinguishable colors (avoid near-identical hues).
+- For multi-series charts, choose clearly distinguishable colors (the renderer applies a curated palette automatically).
 
 ${mermaidSection}
 ${chartSections}
 IMPORTANT:
-- Always use actual code blocks (triple backticks) for charts
+- Always use actual code blocks (triple backticks) with language tags: \`\`\`adc, \`\`\`g2, or \`\`\`mermaid
 - ${chartPrimary === "adc" ? "Prefer ADC for data visualization with numbers and chart-friendly scenarios" : "Prefer G2 for data visualization with numbers and chart-friendly scenarios"}
-- Use Mermaid as the second choice for diagrams
+- Use Mermaid for diagrams and structural visualizations
 - Make sure JSON is valid in chart blocks
 - Mermaid strict-mode guardrails:
   - Do not use HTML tags in Mermaid (especially <br/>, <b>, <div>)
   - Do not include Markdown syntax in Mermaid blocks (# headings, markdown tables, markdown lists)
   - Use plain text labels; if line break is needed, split text into separate nodes/edges instead of HTML
-- After generating a chart, briefly explain what it shows
+- After generating a chart, briefly explain what it shows and highlight key insights from the data
 
 ## 3. Internal Quality Checks (do NOT include these in your visible response)
 Before finalizing your answer, silently verify:

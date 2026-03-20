@@ -308,6 +308,16 @@ export function normalizeConfigForADC2(
     result.interactions = config.interactions;
   }
 
+  // ============ Tooltip ============
+  if (config.interaction && typeof config.interaction === "object") {
+    const interaction = config.interaction as Record<string, unknown>;
+    if (interaction.tooltip !== false) {
+      result.interaction = { ...interaction, tooltip: true };
+    }
+  } else if (config.tooltip !== false) {
+    result.interaction = { tooltip: true };
+  }
+
   // ============ Style ============
   if (config.style && typeof config.style === "object") {
     result.style = config.style;

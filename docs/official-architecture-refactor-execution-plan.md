@@ -632,3 +632,12 @@
   - Chat API (date awareness): OK — responds with correct system date
   - Chat history persistence: OK — messages persisted and retrievable
   - E2E smoke test (`test:e2e`): PASS
+
+---
+
+## Visual Excellence Plan
+
+The next major initiative is documented in a dedicated plan:
+**[Visual Excellence Execution Plan](./visual-excellence-execution-plan.md)**
+
+Goals: ECharts integration, chart export toolbar, interactive tables, KPI cards, dashboard layouts, Excalidraw hand-drawn diagrams, React sandbox, and removal of redundant G2 engine.

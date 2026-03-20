@@ -11,6 +11,35 @@ interface MermaidThemeVariables {
   clusterBkg: string;
   clusterBorder: string;
   edgeLabelBackground: string;
+  noteBkgColor: string;
+  noteTextColor: string;
+  noteBorderColor: string;
+  actorBkg: string;
+  actorTextColor: string;
+  actorBorder: string;
+  signalColor: string;
+  labelBoxBkgColor: string;
+  sectionBkgColor: string;
+  altSectionBkgColor: string;
+  sectionBkgColor2: string;
+  taskBkgColor: string;
+  taskTextColor: string;
+  activeTaskBkgColor: string;
+  activeTaskBorderColor: string;
+  gridColor: string;
+  doneTaskBkgColor: string;
+  pie1: string;
+  pie2: string;
+  pie3: string;
+  pie4: string;
+  pie5: string;
+  pie6: string;
+  pieTitleTextSize: string;
+  pieTitleTextColor: string;
+  pieSectionTextSize: string;
+  pieSectionTextColor: string;
+  pieLegendTextSize: string;
+  pieLegendTextColor: string;
 }
 
 interface G2ThemePreset {
@@ -76,6 +105,39 @@ export function getChartVisualPreset(isDark: boolean): ChartVisualPreset {
       clusterBkg: isDark ? "#111827" : "#f8fafc",
       clusterBorder: isDark ? "#334155" : "#cbd5e1",
       edgeLabelBackground: isDark ? "#0f172a" : "#ffffff",
+      // Note styling
+      noteBkgColor: isDark ? "#1e293b" : "#fef9c3",
+      noteTextColor: isDark ? "#e2e8f0" : "#422006",
+      noteBorderColor: isDark ? "#475569" : "#d97706",
+      // Sequence diagram actors
+      actorBkg: isDark ? "#1e293b" : "#eff6ff",
+      actorTextColor: isDark ? "#e2e8f0" : "#0f172a",
+      actorBorder: isDark ? "#60a5fa" : "#1d4ed8",
+      signalColor: isDark ? "#e2e8f0" : "#0f172a",
+      labelBoxBkgColor: isDark ? "#1e293b" : "#eff6ff",
+      // Gantt chart styling
+      sectionBkgColor: isDark ? "#1e293b" : "#eff6ff",
+      altSectionBkgColor: isDark ? "#0f172a" : "#f8fafc",
+      sectionBkgColor2: isDark ? "#1a2332" : "#e0f2fe",
+      taskBkgColor: isDark ? "#3b82f6" : "#1d4ed8",
+      taskTextColor: "#ffffff",
+      activeTaskBkgColor: isDark ? "#60a5fa" : "#2563eb",
+      activeTaskBorderColor: isDark ? "#93c5fd" : "#1e40af",
+      gridColor: isDark ? "#334155" : "#e2e8f0",
+      doneTaskBkgColor: isDark ? "#475569" : "#94a3b8",
+      // Pie chart styling
+      pie1: isDark ? "#60a5fa" : "#1d4ed8",
+      pie2: isDark ? "#34d399" : "#0f766e",
+      pie3: isDark ? "#a78bfa" : "#7c3aed",
+      pie4: isDark ? "#f59e0b" : "#b45309",
+      pie5: isDark ? "#fb7185" : "#be123c",
+      pie6: isDark ? "#22d3ee" : "#0284c7",
+      pieTitleTextSize: "16px",
+      pieTitleTextColor: isDark ? "#e2e8f0" : "#0f172a",
+      pieSectionTextSize: "12px",
+      pieSectionTextColor: "#ffffff",
+      pieLegendTextSize: "12px",
+      pieLegendTextColor: isDark ? "#d1d5db" : "#374151",
     },
   };
 }

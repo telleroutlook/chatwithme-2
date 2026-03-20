@@ -33,6 +33,8 @@ export interface AdcChartRule {
   example: string;
   /** Common errors */
   commonErrors: string[];
+  /** Usage tips (optional) */
+  tips?: string;
 }
 
 /** ADC knowledge base */
@@ -55,6 +57,8 @@ export interface G2ChartRule {
   example: string;
   /** Common errors */
   commonErrors: string[];
+  /** Usage tips (optional) */
+  tips?: string;
 }
 
 /** G2 knowledge base */
