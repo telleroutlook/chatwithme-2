@@ -114,6 +114,17 @@ function EChartsRendererInner({ spec }: EChartsRendererProps): ReactNode {
 
   const chartType = useMemo(() => detectChartType(activeSpec), [activeSpec]);
 
+  // Extract user-friendly title from spec (ECharts supports title.text natively)
+  const chartTitle = useMemo(() => {
+    const t = activeSpec.title;
+    if (typeof t === "string" && t.trim()) return t.trim();
+    if (t && typeof t === "object" && !Array.isArray(t)) {
+      const text = (t as Record<string, unknown>).text;
+      if (typeof text === "string" && text.trim()) return text.trim();
+    }
+    return null;
+  }, [activeSpec]);
+
   // Build the merged option: base defaults + user spec (user wins)
   const mergedOption = useMemo<EChartsOption>(() => {
     // Deep-merge tooltip so user can override trigger, formatter, etc.
@@ -281,7 +292,7 @@ function EChartsRendererInner({ spec }: EChartsRendererProps): ReactNode {
       <div className="flex items-center gap-2 mb-3">
         <ChartBar size={14} className="text-accent" />
         <span className="text-xs text-foreground-muted font-semibold">
-          ECharts
+          {chartTitle ?? "ECharts"}
         </span>
         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
           {chartType}

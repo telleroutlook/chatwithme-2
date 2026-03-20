@@ -70,6 +70,9 @@ export function normalizeConfigForADC2(
   const result: Record<string, unknown> = { ...config };
   const themeTokens = getChartThemeTokens(isDark);
 
+  // Remove title — it's for our header display, not an ADC config field
+  delete result.title;
+
   // ============ Core Data (Required) ============
   const rawData = config.data;
   if (type === "dualAxes" && Array.isArray(rawData)) {
@@ -454,6 +457,17 @@ export function AntDesignChartsRenderer({
     [activeSpec]
   );
 
+  // Extract user-friendly title from config (AI may set title or meta.title)
+  const chartTitle = useMemo(() => {
+    const cfg = activeSpec.config;
+    if (typeof cfg.title === "string" && cfg.title.trim()) return cfg.title.trim();
+    if (cfg.meta && typeof cfg.meta === "object" && !Array.isArray(cfg.meta)) {
+      const meta = cfg.meta as Record<string, unknown>;
+      if (typeof meta.title === "string" && meta.title.trim()) return meta.title.trim();
+    }
+    return null;
+  }, [activeSpec.config]);
+
   if (!ChartComponent) {
     return (
       <div className="rounded-lg border app-border-danger-soft app-bg-danger-soft p-3">
@@ -472,7 +486,7 @@ export function AntDesignChartsRenderer({
       <div className="flex items-center gap-2 mb-3">
         <ChartBar size={14} className="text-accent" />
         <span className="text-xs text-foreground-muted font-semibold">
-          Ant Design Charts
+          {chartTitle ?? "Ant Design Charts"}
         </span>
         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
           {activeSpec.type}

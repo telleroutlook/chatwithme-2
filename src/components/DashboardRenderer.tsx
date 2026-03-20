@@ -134,6 +134,9 @@ const DashboardItemWrapper = memo(function DashboardItemWrapper({
   if (item.type === "adc" || item.type === "echarts") {
     return (
       <div className={`${spanClass} min-h-[200px]`}>
+        {item.title && (
+          <h4 className="text-sm font-semibold text-foreground mb-1 px-1">{item.title}</h4>
+        )}
         <ErrorBoundary
           level="chart"
           fallback={<DashboardItemError type={item.type} index={index} />}

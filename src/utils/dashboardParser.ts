@@ -30,6 +30,7 @@ export type DashboardItemType = "stat" | "adc" | "echarts" | "text";
 
 export interface DashboardItem {
   type: DashboardItemType;
+  title?: string;
   data: unknown;
   span?: number;
 }
@@ -212,6 +213,7 @@ export function parseDashboardSpec(code: string): DashboardParseResult {
     const item: DashboardItem = {
       type: raw.type as DashboardItemType,
       data: raw.data,
+      ...(typeof raw.title === "string" && raw.title.trim() ? { title: raw.title.trim() } : {}),
     };
 
     // Normalize ADC items: extract type + config from flat format

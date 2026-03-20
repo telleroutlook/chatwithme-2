@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
   useCallback,
+  useMemo,
   memo,
   type ReactNode,
 } from "react";
@@ -96,6 +97,17 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
   const { currentSessionId } = useChatSessionContext();
 
   const chartType = detectChartType(spec);
+
+  // Extract user-friendly title from spec (Vega-Lite supports title as string or {text})
+  const chartTitle = useMemo(() => {
+    const t = spec.title;
+    if (typeof t === "string" && t.trim()) return t.trim();
+    if (t && typeof t === "object" && !Array.isArray(t)) {
+      const text = (t as Record<string, unknown>).text;
+      if (typeof text === "string" && text.trim()) return text.trim();
+    }
+    return null;
+  }, [spec]);
 
   // Track render success once
   const trackedRef = useRef(false);
@@ -220,7 +232,7 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
       <div className="flex items-center gap-2 mb-3">
         <ChartBar size={14} className="text-accent" />
         <span className="text-xs text-foreground-muted font-semibold">
-          Vega-Lite Chart
+          {chartTitle ?? "Vega-Lite Chart"}
         </span>
         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-foreground-muted">
           {chartType}

@@ -118,17 +118,23 @@ engine + type for the user's data and intent from the catalog below, then call
 1. Call \`builtin_chart_template(engine, chartType)\` BEFORE generating any
    \`\`\`adc\`\`\`, \`\`\`echarts\`\`\`, \`\`\`vega-lite\`\`\`, or \`\`\`mermaid\`\`\` code block.
    Follow the returned contract and example exactly.
-2. Max 2 charts per response unless user explicitly asks for more.
-3. Data: 4-6+ realistic data points, descriptive field names, multi-series
+2. **Title: ALWAYS include a "title" field** describing what the chart shows.
+   - adc: add \`"title": "图表标题"\` as a top-level field in the JSON.
+   - echarts: add \`"title": { "text": "图表标题" }\` in the spec.
+   - vega-lite: add \`"title": "图表标题"\` in the spec.
+   - dashboard items: add \`"title": "图表标题"\` on each adc/echarts item.
+   The title should be short, descriptive, and in the user's language.
+3. Max 2 charts per response unless user explicitly asks for more.
+4. Data: 4-6+ realistic data points, descriptive field names, multi-series
    use colorField/seriesField.
-4. **Theme: Do NOT set colors, font colors, background colors, axis line colors,
+5. **Theme: Do NOT set colors, font colors, background colors, axis line colors,
    or tooltip styles.** The renderer automatically applies a curated palette and
    theme-aware styles for both light and dark modes. You may set structural
    properties (fillOpacity, innerRadius, lineWidth, etc.).
-5. Mermaid: no HTML tags, no %%{init:}%% theme overrides, no Markdown inside.
-6. JSON blocks (adc/echarts/vega-lite) must be strict RFC 8259 JSON.
+6. Mermaid: no HTML tags, no %%{init:}%% theme overrides, no Markdown inside.
+7. JSON blocks (adc/echarts/vega-lite) must be strict RFC 8259 JSON.
    No comments, trailing commas, functions, or callbacks.
-7. After generating, briefly explain what the chart shows.
+8. After generating, briefly explain what the chart shows.
 
 ### Other Formats
 
@@ -174,13 +180,13 @@ When the user asks for a multi-metric overview, comparison dashboard, or a combi
   "layout": "2x2",
   "items": [
     { "type": "stat", "data": [{ "title": "Revenue", "value": "$1.2M", "trend": "up" }, { "title": "Users", "value": "8,430", "trend": "down" }], "span": 2 },
-    { "type": "adc", "data": { "type": "line", "data": [{"month":"Jan","value":100},{"month":"Feb","value":120}], "xField": "month", "yField": "value" } },
+    { "type": "adc", "title": "Monthly Revenue Trend", "data": { "type": "line", "data": [{"month":"Jan","value":100},{"month":"Feb","value":120}], "xField": "month", "yField": "value" } },
     { "type": "text", "data": "Key insight: Revenue grew 12% QoQ." }
   ]
 }
 \`\`\`
 Fields: title (optional string), layout (optional: "2x2","3x1","1x2","2x1","1x3","auto"), items (required array).
-Each item: type ("stat"|"adc"|"echarts"|"text"), data (matching type format), span (optional 1-4).
+Each item: type ("stat"|"adc"|"echarts"|"text"), data (matching type format), title (optional, recommended for adc/echarts items), span (optional 1-4).
 Use for dashboards combining KPIs + charts, multi-metric overviews, or side-by-side comparisons.
 
 ## 5. Interactive React Components
