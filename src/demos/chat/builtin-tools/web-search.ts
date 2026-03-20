@@ -45,11 +45,8 @@ export async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
     redirect: "follow"
   });
 
-  console.log(`[DDG] query="${query}" status=${resp.status} url=${resp.url}`);
-
   // DDG returns 202 when bot-detected — treat as empty results, not a hard error
   if (resp.status === 202) {
-    console.warn(`[DDG] Bot detection (202) for query="${query}"`);
     return [];
   }
 
@@ -58,10 +55,7 @@ export async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
   }
 
   const html = await resp.text();
-  console.log(`[DDG] HTML length=${html.length} for query="${query}"`);
-  const results = parseDdgHtml(html);
-  console.log(`[DDG] Parsed ${results.length} results for query="${query}"`);
-  return results;
+  return parseDdgHtml(html);
 }
 
 /**

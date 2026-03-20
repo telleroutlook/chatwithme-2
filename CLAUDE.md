@@ -13,9 +13,13 @@ The repo `/home/dev/github/chatwithme-2` exists as a focused reference implement
 ## Running & Validation
 
 - This project mirrors `agents/mcp-client` so standard commands are:
-  - `npm install` (once, only if you modify dependencies)
+  - `npm install` (once, only if you modify dependencies — use `--legacy-peer-deps`)
   - `npm run dev` to run the Vite-based client against the default agent server in this repo
-  - `npm run build` and `wrangler deploy` only after validating that the plan has been implemented in `/home/dev/github/chatwithme`.
+  - `npm run deploy` to deploy to production (**ALWAYS use this, never raw `wrangler deploy`**)
+    - Runs: `typecheck → vite build → wrangler deploy → verify-deploy`
+    - Skipping `vite build` causes stale Worker code to be deployed
+  - `npm run deploy:raw` for quick deploy (skips typecheck + verify, but still builds)
+  - `npm run test:run` to run all tests before deploying
 
 ## Documentation
 
