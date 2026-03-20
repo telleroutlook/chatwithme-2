@@ -140,12 +140,16 @@ engine + type for the user's data and intent from the catalog below, then call
    - dashboard items: add \`"title": "图表标题"\` on each adc/echarts item.
    The title should be short, descriptive, and in the user's language.
 3. Max 2 charts per response unless user explicitly asks for more.
-4. Data: 4-6+ realistic data points, descriptive field names. For multi-series
-   adc charts, data MUST be in long/tidy format (one row per observation) with
-   colorField to distinguish series. NEVER use wide format where series names
-   are column keys with yField as an array — that causes blank charts.
+4. Data: 4-6+ realistic data points, descriptive field names. ALL numeric values
+   must be actual JSON numbers (NOT strings like "~1.1%" or "$120").
+   For multi-series adc charts, data MUST be in long/tidy format (one row per
+   observation) with colorField to distinguish series. NEVER use wide format
+   where series names are column keys with yField as an array.
    Example: [{category:"A",value:100,series:"X"},{category:"A",value:50,series:"Y"}]
    with yField:"value", colorField:"series", group:true.
+   **Exception: dualAxes** is the ONLY type that uses yField as an array of TWO
+   field names with WIDE format: [{month:"Jan",revenue:120,rate:0.12}]
+   with yField:["revenue","rate"]. Do NOT use colorField/group with dualAxes.
 5. **Theme: Do NOT set colors, font colors, background colors, axis line colors,
    or tooltip styles.** The renderer automatically applies a curated palette and
    theme-aware styles for both light and dark modes. You may set structural

@@ -15,7 +15,10 @@
     "yField must always be a single string field name, never an array (arrays only work in dualAxes)",
     "seriesField is a legacy v1 field — use colorField instead in ADC 2.x",
     "For grouped column/bar charts, add group:true alongside colorField",
-    "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes"
+    "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes",
+    "CRITICAL: ALL numeric values must be actual JSON numbers, NOT strings. WRONG: \"value\": \"~1.1%\". CORRECT: \"value\": 1.1",
+    "CRITICAL: yField must be a JSON string. WRONG: \"yField\": {\"field\": \"value\"}. CORRECT: \"yField\": \"value\"",
+    "Do not use v1 legacy properties: columnStyle (use style), barStyle (use style), seriesField (use colorField), geometryOptions (removed in v2)"
   ],
   "typeWhitelist": [
     "line",
@@ -143,10 +146,10 @@
       "commonErrors": [
         "Wrong field names for radar dimensions",
         "Not normalizing values to similar scale",
-        "Using wide format with series as column names — WRONG. Each row must have one value + one series identifier",
+        "Using wide format with series as column names — WRONG: {\"axis\":\"Speed\",\"ProductA\":90,\"ProductB\":70} with yField:\"value\". CORRECT: each row must have ONE value + ONE series identifier like {\"dimension\":\"Speed\",\"score\":90,\"product\":\"Product A\"}",
         "Using seriesField (legacy v1) instead of colorField (v2)"
       ],
-      "tips": "Include 5-8 dimensions. Use colorField for multi-product comparison. Data must be long format: each row = {dimension, score, product}. Add area.style.fillOpacity for filled radar."
+      "tips": "Include 5-8 dimensions. Use colorField for multi-product comparison. Data must be long format: each row = {dimension, score, product}. Add area.style.fillOpacity for filled radar. NEVER put multiple series as separate columns in one row."
     },
     {
       "type": "heatmap",
@@ -191,14 +194,19 @@
     {
       "type": "dualAxes",
       "requiredFields": [
-        "data"
+        "data",
+        "xField",
+        "yField"
       ],
-      "example": "{\"type\":\"dualAxes\",\"data\":[{\"month\":\"Jan\",\"revenue\":120,\"growthRate\":0.12},{\"month\":\"Feb\",\"revenue\":180,\"growthRate\":0.18},{\"month\":\"Mar\",\"revenue\":150,\"growthRate\":0.15},{\"month\":\"Apr\",\"revenue\":200,\"growthRate\":0.22}],\"xField\":\"month\",\"yField\":[\"revenue\",\"growthRate\"],\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"dualAxes\",\"data\":[{\"month\":\"Jan\",\"revenue\":120,\"growthRate\":0.12},{\"month\":\"Feb\",\"revenue\":180,\"growthRate\":0.18},{\"month\":\"Mar\",\"revenue\":150,\"growthRate\":0.15},{\"month\":\"Apr\",\"revenue\":200,\"growthRate\":0.22},{\"month\":\"May\",\"revenue\":230,\"growthRate\":0.25},{\"month\":\"Jun\",\"revenue\":210,\"growthRate\":0.20}],\"xField\":\"month\",\"yField\":[\"revenue\",\"growthRate\"],\"interaction\":{\"tooltip\":true},\"title\":\"Revenue vs Growth Rate\"}",
       "commonErrors": [
-        "Not specifying two y-axis configurations",
+        "Using long format with single yField + colorField — WRONG for dualAxes. DualAxes needs WIDE format with yField as array of TWO field names",
+        "WRONG: data=[{x:'A',metric:'Revenue',value:100},{x:'A',metric:'Growth',value:0.1}], yField:'value', colorField:'metric' — this is a grouped column pattern, NOT dualAxes",
+        "CORRECT: data=[{x:'A',revenue:100,growthRate:0.1}], yField:['revenue','growthRate'] — each row has BOTH metrics as separate fields",
+        "Using geometryOptions (v1 legacy, removed in v2)",
         "Mixing incompatible chart types"
       ],
-      "tips": "Use yField as an array of two field names. Provide a flat dataset with both metrics."
+      "tips": "DualAxes is the ONLY chart type where yField is an array. Use exactly TWO field names in yField array. Data must be WIDE format: each row contains both metrics as separate fields. Do NOT use colorField or group with dualAxes. Provide a flat dataset with both metrics per row."
     }
   ]
 }

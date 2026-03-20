@@ -25,6 +25,7 @@ export type VegaLiteSpec = Record<string, unknown>;
 export interface VegaLiteParseResult {
   ok: true;
   spec: VegaLiteSpec;
+  warnings?: string[];
 }
 
 export interface VegaLiteParseError {
@@ -144,5 +145,89 @@ export function parseVegaLiteSpecFromCode(code: string): VegaLiteParseOutcome {
     };
   }
 
-  return { ok: true, spec };
+  // --- Normalize and auto-fix common AI mistakes ---
+  const warnings: string[] = [];
+  const normalized = normalizeVegaLiteSpec(spec, warnings);
+
+  return {
+    ok: true,
+    spec: normalized,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Vega-Lite spec normalization — auto-fix common AI output mistakes
+// ---------------------------------------------------------------------------
+
+function normalizeVegaLiteSpec(
+  spec: VegaLiteSpec,
+  warnings: string[],
+): VegaLiteSpec {
+  const result = { ...spec };
+
+  // 1. Remove $schema — renderer provides it
+  if (result.$schema) {
+    delete result.$schema;
+    warnings.push("$schema removed (renderer adds it automatically)");
+  }
+
+  // 2. Ensure data.values exists when data is present but values is missing
+  if (result.data && typeof result.data === "object" && !Array.isArray(result.data)) {
+    const data = result.data as Record<string, unknown>;
+    // If data has url, that's fine (external source)
+    // If data has no values and no url, check if it's an array masquerading as object
+    if (!data.values && !data.url && !data.name) {
+      warnings.push("data object has no values, url, or name field");
+    }
+  }
+  // AI sometimes puts data as a direct array instead of { values: [...] }
+  if (Array.isArray(result.data)) {
+    result.data = { values: result.data };
+    warnings.push("data was a bare array, wrapped as data.values");
+  }
+
+  // 3. Normalize mark: AI sometimes outputs { "mark": { "type": "boxplot" } }
+  //    where simpler { "mark": "boxplot" } suffices — both are valid but keep as-is
+
+  // 4. Coerce string numbers in data.values
+  if (result.data && typeof result.data === "object" && !Array.isArray(result.data)) {
+    const data = result.data as Record<string, unknown>;
+    if (Array.isArray(data.values)) {
+      const values = data.values as Record<string, unknown>[];
+      if (values.length > 0) {
+        // Detect encoding fields that should be quantitative
+        const quantFields = new Set<string>();
+        const encoding = result.encoding as Record<string, Record<string, unknown>> | undefined;
+        if (encoding) {
+          for (const channel of Object.values(encoding)) {
+            if (channel && typeof channel === "object" && channel.type === "quantitative" && typeof channel.field === "string") {
+              quantFields.add(channel.field);
+            }
+          }
+        }
+
+        // Coerce quantitative fields from string to number
+        if (quantFields.size > 0) {
+          data.values = values.map((row) => {
+            let changed = false;
+            const newRow = { ...row };
+            for (const field of quantFields) {
+              if (typeof newRow[field] === "string") {
+                const cleaned = (newRow[field] as string).replace(/[~%$¥€,\s]/g, "");
+                const num = Number(cleaned);
+                if (!isNaN(num)) {
+                  newRow[field] = num;
+                  changed = true;
+                }
+              }
+            }
+            return changed ? newRow : row;
+          });
+        }
+      }
+    }
+  }
+
+  return result;
 }

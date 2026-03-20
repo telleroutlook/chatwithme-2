@@ -11,6 +11,63 @@ const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 800;
 
 /**
+ * Basic syntax pre-check for React component code.
+ * Catches common structural errors before sending to iframe.
+ */
+function preCheckCode(code: string): string | null {
+  const trimmed = code.trim();
+  if (!trimmed) return "Empty component code";
+
+  // Check for matching braces/brackets/parens
+  const stack: string[] = [];
+  const pairs: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+  let inString: string | null = null;
+  let escaped = false;
+  let inTemplate = false;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === "\\") { escaped = true; continue; }
+
+    if (inString) {
+      if (ch === inString && !inTemplate) inString = null;
+      if (inTemplate && ch === "`") { inString = null; inTemplate = false; }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") { inString = ch; continue; }
+    if (ch === "`") { inString = ch; inTemplate = true; continue; }
+    if (ch === "/" && i + 1 < trimmed.length) {
+      if (trimmed[i + 1] === "/") { while (i < trimmed.length && trimmed[i] !== "\n") i++; continue; }
+      if (trimmed[i + 1] === "*") { i += 2; while (i < trimmed.length - 1 && !(trimmed[i] === "*" && trimmed[i + 1] === "/")) i++; i++; continue; }
+    }
+
+    if (ch === "(" || ch === "[" || ch === "{") stack.push(ch);
+    if (ch === ")" || ch === "]" || ch === "}") {
+      if (stack.length === 0 || stack[stack.length - 1] !== pairs[ch]) {
+        return `Unmatched '${ch}' at position ${i}`;
+      }
+      stack.pop();
+    }
+  }
+
+  if (stack.length > 0) {
+    const unclosed = stack[stack.length - 1];
+    return `Unclosed '${unclosed}' — check your brackets`;
+  }
+
+  // Check for component export pattern
+  const hasExport = /export\s+default|export\s*\{/.test(trimmed);
+  const hasNamedComponent = /function\s+(App|Component|Main)\b|const\s+(App|Component|Main)\s*=/.test(trimmed);
+  if (!hasExport && !hasNamedComponent) {
+    return "No exported component found. Use 'export default function App()' or name your component App/Component/Main.";
+  }
+
+  return null; // no error
+}
+
+/**
  * Renders arbitrary React component code inside a sandboxed iframe.
  *
  * Security model:
@@ -28,6 +85,9 @@ export const ReactSandbox = memo(function ReactSandbox({ code }: ReactSandboxPro
   expandedRef.current = expanded;
 
   const srcdoc = useMemo(() => buildSandboxHtml(code, isDark), [code, isDark]);
+
+  // Pre-check for structural errors before iframe load
+  const preCheckError = useMemo(() => preCheckCode(code), [code]);
 
   // Stable message handler — reads expanded from ref to avoid re-registering
   useEffect(() => {
@@ -84,26 +144,28 @@ export const ReactSandbox = memo(function ReactSandbox({ code }: ReactSandboxPro
       </div>
 
       {/* Error overlay (shown above iframe) */}
-      {error && (
+      {(error || preCheckError) && (
         <div className="px-4 py-2 border-b border-red-500/30 bg-red-500/10 text-xs text-red-400 font-mono whitespace-pre-wrap">
-          {error}
+          {preCheckError || error}
         </div>
       )}
 
-      {/* Sandboxed iframe */}
-      <iframe
-        ref={iframeRef}
-        srcDoc={srcdoc}
-        sandbox="allow-scripts"
-        title="React Component Sandbox"
-        className="w-full border-0"
-        style={{
-          height: `${height}px`,
-          minHeight: `${MIN_HEIGHT}px`,
-          backgroundColor: isDark ? "#111827" : "#ffffff",
-          colorScheme: isDark ? "dark" : "light",
-        }}
-      />
+      {/* Sandboxed iframe — skip loading if pre-check failed */}
+      {!preCheckError && (
+        <iframe
+          ref={iframeRef}
+          srcDoc={srcdoc}
+          sandbox="allow-scripts"
+          title="React Component Sandbox"
+          className="w-full border-0"
+          style={{
+            height: `${height}px`,
+            minHeight: `${MIN_HEIGHT}px`,
+            backgroundColor: isDark ? "#111827" : "#ffffff",
+            colorScheme: isDark ? "dark" : "light",
+          }}
+        />
+      )}
     </div>
   );
 });

@@ -6,11 +6,15 @@
     "Never output callback expressions such as (params) => ... or function (...)",
     "The top-level object IS the ECharts option — do not wrap it in {option: ...}",
     "Must contain a \"series\" array; each series object must have a \"type\" field",
+    "CRITICAL: series must be an array, not a single object. WRONG: \"series\": {...}. CORRECT: \"series\": [{...}]",
+    "CRITICAL: ALL numeric values in series data must be actual JSON numbers, NOT strings",
+    "CRITICAL: Each series must have a non-empty \"data\" array (or use top-level \"dataset\")",
     "Supported series types: map, sankey, tree, treemap, sunburst, candlestick, gauge, themeRiver, wordCloud, bar3D, scatter3D",
     "Include realistic, descriptive data values — not placeholder numbers",
     "Do not set color arrays — the renderer applies a curated palette automatically",
     "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
-    "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer"
+    "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer",
+    "xAxis.data must be an array of strings, NOT a comma-separated string"
   ],
   "typeWhitelist": [
     "map",

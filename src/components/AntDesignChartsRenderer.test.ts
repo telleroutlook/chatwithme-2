@@ -63,7 +63,8 @@ describe("normalizeConfigForADC2", () => {
     expect(normalizedData).toHaveLength(2);
     expect(normalizedData[0]).toEqual(input.data);
     expect(normalizedData[1]).toEqual(input.data);
-    expect(result.geometryOptions).toEqual(input.geometryOptions);
+    // geometryOptions is a v1 property, should be removed in v2 normalization
+    expect(result.geometryOptions).toBeUndefined();
     expect(result.meta).toEqual(input.meta);
   });
 
@@ -212,5 +213,85 @@ describe("normalizeConfigForADC2", () => {
     expect(data[0]).toEqual(input.data[0]);
     expect(result.yField).toBe("revenue");
     expect(result.colorField).toBe("department");
+  });
+
+  it("fixes yField when AI outputs it as an object", () => {
+    const input = {
+      data: [
+        { event: "春分", probability: 1.1 },
+        { event: "龙抬头", probability: 0.5 },
+      ],
+      xField: "event",
+      yField: { probability: "probability" },
+    };
+
+    const result = normalizeConfigForADC2("column", input as Record<string, unknown>, false);
+
+    expect(result.yField).toBe("probability");
+    const data = result.data as Record<string, unknown>[];
+    expect(data).toHaveLength(2);
+  });
+
+  it("coerces string yField values to numbers", () => {
+    const input = {
+      data: [
+        { event: "A", probability: "~1.1%" },
+        { event: "B", probability: "3.5%" },
+        { event: "C", probability: "$120" },
+      ],
+      xField: "event",
+      yField: "probability",
+    };
+
+    const result = normalizeConfigForADC2("column", input, false);
+    const data = result.data as Record<string, unknown>[];
+
+    expect(data[0].probability).toBe(1.1);
+    expect(data[1].probability).toBe(3.5);
+    expect(data[2].probability).toBe(120);
+  });
+
+  it("pivots long-format dualAxes data with colorField into wide format", () => {
+    const input = {
+      data: [
+        { period: "1-2月", metric: "航次", value: 52 },
+        { period: "3月", metric: "航次", value: 20 },
+        { period: "1-2月", metric: "旅客", value: 18 },
+        { period: "3月", metric: "旅客", value: 6.9 },
+      ],
+      xField: "period",
+      yField: "value",
+      colorField: "metric",
+      group: true,
+    };
+
+    const result = normalizeConfigForADC2("dualAxes", input, false);
+
+    // yField should be pivoted to array of group names
+    expect(result.yField).toEqual(["航次", "旅客"]);
+    // data should be [pivotedData, pivotedData]
+    const data = result.data as Record<string, unknown>[][];
+    expect(data).toHaveLength(2);
+    expect(data[0]).toEqual([
+      { period: "1-2月", "航次": 52, "旅客": 18 },
+      { period: "3月", "航次": 20, "旅客": 6.9 },
+    ]);
+    // colorField and group should be removed
+    expect(result.colorField).toBeUndefined();
+    expect(result.group).toBeUndefined();
+  });
+
+  it("migrates legacy columnStyle to style for column charts", () => {
+    const input = {
+      data: [{ x: "A", y: 10 }],
+      xField: "x",
+      yField: "y",
+      columnStyle: { fill: "#5B8FF9", fillOpacity: 0.7 },
+    };
+
+    const result = normalizeConfigForADC2("column", input, false);
+
+    expect(result.style).toEqual({ fill: "#5B8FF9", fillOpacity: 0.7 });
+    expect(result.columnStyle).toBeUndefined();
   });
 });

@@ -170,8 +170,19 @@ export function normalizeConfigForADC2(
   config: Record<string, unknown>,
   isDark: boolean
 ): Record<string, unknown> {
+  // Pre-normalize: fix yField if AI output it as an object like { "probability": "probability" }
+  const preFixed = { ...config };
+  if (preFixed.yField && typeof preFixed.yField === "object" && !Array.isArray(preFixed.yField)) {
+    const yFieldObj = preFixed.yField as Record<string, unknown>;
+    const values = Object.values(yFieldObj);
+    const stringVal = values.find((v) => typeof v === "string") as string | undefined;
+    if (stringVal) {
+      preFixed.yField = stringVal;
+    }
+  }
+
   // First: auto-convert wide format to long format if needed
-  const normalizedConfig = normalizeWideToLong(type, config);
+  const normalizedConfig = normalizeWideToLong(type, preFixed);
 
   // Preserve user config by default, then override fields that require normalization.
   const result: Record<string, unknown> = { ...normalizedConfig };
@@ -186,24 +197,95 @@ export function normalizeConfigForADC2(
   // Remove title — it's for our header display, not an ADC config field
   delete result.title;
 
+  // ============ Migrate legacy columnStyle → style ============
+  if (type === "column" || type === "bar") {
+    const legacyStyle = config.columnStyle || config.barStyle;
+    if (legacyStyle && typeof legacyStyle === "object" && !result.style) {
+      result.style = legacyStyle;
+    }
+    delete result.columnStyle;
+    delete result.barStyle;
+  }
+
+  // ============ Remove legacy geometryOptions (v1 DualAxes) ============
+  delete result.geometryOptions;
+
   // ============ Core Data (Required) ============
   const rawData = result.data;
-  if (type === "dualAxes" && Array.isArray(rawData)) {
+
+  // Coerce string yField values to numbers for chart types that need numeric y-axis.
+  // AI sometimes outputs values like "~1.1%", "3,500", "$120" which are strings.
+  const numericYTypes = new Set(["line", "column", "bar", "area", "scatter", "histogram"]);
+  if (numericYTypes.has(type) && Array.isArray(rawData) && typeof result.yField === "string") {
+    const yKey = result.yField;
+    const firstRow = rawData[0] as Record<string, unknown> | undefined;
+    if (firstRow && typeof firstRow[yKey] === "string") {
+      result.data = (rawData as Record<string, unknown>[]).map((row) => {
+        const val = row[yKey];
+        if (typeof val === "string") {
+          // Strip common decorators: ~, %, $, ¥, €, commas, spaces
+          const cleaned = val.replace(/[~%$¥€,\s]/g, "");
+          const num = Number(cleaned);
+          if (!isNaN(num)) {
+            return { ...row, [yKey]: num };
+          }
+        }
+        return row;
+      });
+    }
+  }
+
+  if (type === "dualAxes" && Array.isArray(result.data)) {
+    const dualData = result.data as unknown[];
     const yField = result.yField;
     const hasDualYFields =
       Array.isArray(yField) &&
       yField.length >= 2 &&
       yField.every((field) => typeof field === "string");
 
-    if (rawData.length > 0 && !Array.isArray(rawData[0]) && hasDualYFields) {
-      // DualAxes expects two datasets. If model output provides one flat dataset with two metrics,
-      // duplicate it so each axis can consume one yField from the same rows.
-      result.data = [rawData, rawData];
-    } else {
-      result.data = rawData;
+    if (dualData.length > 0 && !Array.isArray(dualData[0])) {
+      if (hasDualYFields) {
+        // DualAxes expects two datasets. If model output provides one flat dataset with two metrics,
+        // duplicate it so each axis can consume one yField from the same rows.
+        result.data = [dualData, dualData];
+      } else {
+        // AI provided long-format data with a single yField + colorField/group.
+        // This is actually a grouped column pattern, not a true dual-axes.
+        // Try to detect and pivot: if data has a colorField/group discriminator,
+        // extract the two unique groups as separate yFields.
+        const colorKey = (result.colorField || result.seriesField) as string | undefined;
+        const xField = result.xField as string | undefined;
+        const singleYField = typeof yField === "string" ? yField : null;
+
+        if (colorKey && xField && singleYField) {
+          const groups = [...new Set((dualData as Record<string, unknown>[]).map((d) => String(d[colorKey])))];
+          if (groups.length === 2) {
+            // Pivot long → wide for DualAxes: merge two series into one row per xField value
+            const xValues = [...new Set((dualData as Record<string, unknown>[]).map((d) => d[xField]))];
+            const lookup = new Map<string, Record<string, unknown>>();
+            for (const row of dualData as Record<string, unknown>[]) {
+              lookup.set(`${row[xField]}::${row[colorKey]}`, row);
+            }
+            const pivotedData: Record<string, unknown>[] = [];
+            for (const x of xValues) {
+              const row: Record<string, unknown> = { [xField]: x };
+              for (const g of groups) {
+                const src = lookup.get(`${x}::${g}`);
+                row[g] = src ? src[singleYField] : 0;
+              }
+              pivotedData.push(row);
+            }
+            result.data = [pivotedData, pivotedData];
+            result.yField = groups;
+            delete result.colorField;
+            delete result.seriesField;
+            delete result.group;
+          }
+        }
+      }
     }
-  } else {
-    result.data = Array.isArray(rawData) ? rawData : [];
+  } else if (!Array.isArray(result.data)) {
+    result.data = [];
   }
 
   // ============ Geometry ============
