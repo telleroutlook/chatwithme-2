@@ -38,7 +38,6 @@
     "@ai-sdk/react": "^3.0.0",
     "@ant-design/charts": "^2.6.7",
     "@cloudflare/ai-chat": "^0.1.9",
-    "@cloudflare/kumo": "^1.7.0",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/state": "^6.6.0",
     "@codemirror/theme-one-dark": "^6.1.3",

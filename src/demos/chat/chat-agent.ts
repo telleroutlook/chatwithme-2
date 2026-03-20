@@ -651,15 +651,15 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     // happens when the model outputs pre-tool-call text but then exhausts all
     // maxToolSteps without a final "stop" response.
     if (finalResponse.trim().length === 0) {
-      // If we already streamed some text, add a separator before the retry
-      if (streamedLength > 0) {
-        writer.write({ type: "text-delta", id: textId, delta: "\n\n" });
-      }
       finalResponse = await this.retryEmptyResponse(
         message, ctx, abortSignal, emitProgress
       );
       // Write fallback response as a single delta (it wasn't streamed)
       if (finalResponse.trim().length > 0) {
+        // Add separator if we already streamed some text before the retry
+        if (streamedLength > 0) {
+          writer.write({ type: "text-delta", id: textId, delta: "\n\n" });
+        }
         writer.write({ type: "text-delta", id: textId, delta: finalResponse });
       }
     }

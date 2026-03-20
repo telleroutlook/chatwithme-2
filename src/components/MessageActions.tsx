@@ -68,11 +68,14 @@ export const MessageActions = memo(function MessageActions({
   const [copied, setCopied] = useState(false);
   const [copyAnnouncement, setCopyAnnouncement] = useState("");
   const copiedTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
   const { t } = useI18n();
   const { mobile, touch } = useResponsive();
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (copiedTimerRef.current !== null) {
         window.clearTimeout(copiedTimerRef.current);
       }
@@ -88,12 +91,14 @@ export const MessageActions = memo(function MessageActions({
 
     try {
       await navigator.clipboard.writeText(content);
+      if (!mountedRef.current) return;
       setCopied(true);
       setCopyAnnouncement(t("message_actions_copy_status"));
       if (copiedTimerRef.current !== null) {
         window.clearTimeout(copiedTimerRef.current);
       }
       copiedTimerRef.current = window.setTimeout(() => {
+        if (!mountedRef.current) return;
         setCopied(false);
         setCopyAnnouncement("");
       }, 2000);

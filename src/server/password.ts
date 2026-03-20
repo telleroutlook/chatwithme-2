@@ -41,7 +41,6 @@ function hexToBuffer(hex: string): Uint8Array {
  */
 export async function hashPassword(password: string): Promise<string> {
   const salt = generateSalt();
-  const saltSource = Uint8Array.from(salt);
   const encoder = new TextEncoder();
   const passwordKey = await crypto.subtle.importKey(
     "raw",
@@ -54,7 +53,7 @@ export async function hashPassword(password: string): Promise<string> {
   const hashBuffer = await crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
-      salt: saltSource,
+      salt: salt as BufferSource,
       iterations: ITERATIONS,
       hash: "SHA-256"
     },
@@ -63,7 +62,7 @@ export async function hashPassword(password: string): Promise<string> {
   );
 
   return `${ITERATIONS}:${bufferToHex(salt)}:${bufferToHex(new Uint8Array(hashBuffer))}`;
-    }
+}
 
 /**
  * Verify a password against a stored hash.
@@ -86,7 +85,6 @@ export async function verifyPassword(
 
   try {
     const salt = hexToBuffer(saltHex);
-    const saltSource = Uint8Array.from(salt);
     const expectedHash = hexToBuffer(hashHex);
 
     const encoder = new TextEncoder();
@@ -101,7 +99,7 @@ export async function verifyPassword(
     const actualHash = await crypto.subtle.deriveBits(
       {
         name: "PBKDF2",
-        salt: saltSource,
+        salt: salt as BufferSource,
         iterations,
         hash: "SHA-256"
       },

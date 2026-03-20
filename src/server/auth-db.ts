@@ -36,8 +36,10 @@ export async function ensureAuthSchema(db: D1Database): Promise<void> {
       .then(() => {
         schemaReady = true;
       })
-      .finally(() => {
+      .catch((err) => {
+        // Allow retry on next call by clearing the promise
         schemaInitPromise = null;
+        throw err;
       });
   }
   await schemaInitPromise;

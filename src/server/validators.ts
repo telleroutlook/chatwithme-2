@@ -18,7 +18,7 @@ export function resolveSessionId(input: { sessionId: string }): string {
  * Returns up to 120 valid session IDs.
  */
 export function parseSessionIds(raw: string | undefined): string[] {
-  if (!raw) return [];
+  if (!raw || raw.length > 50000) return [];
   const ids = raw
     .split(",")
     .map((item) => item.trim())

@@ -221,7 +221,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
         requestId: c.get("requestId"),
         error: unknownErrorMessage(error),
       });
-      return errorJson(c, 500, "REGISTRATION_FAILED", unknownErrorMessage(error));
+      return errorJson(c, 500, "REGISTRATION_FAILED", "Registration failed");
     }
   });
 
@@ -273,7 +273,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
         requestId: c.get("requestId"),
         error: unknownErrorMessage(error),
       });
-      return errorJson(c, 500, "LOGIN_FAILED", unknownErrorMessage(error));
+      return errorJson(c, 500, "LOGIN_FAILED", "Login failed");
     }
   });
 
@@ -325,7 +325,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
         requestId: c.get("requestId"),
         error: unknownErrorMessage(error),
       });
-      return errorJson(c, 500, "CHANGE_PASSWORD_FAILED", unknownErrorMessage(error));
+      return errorJson(c, 500, "CHANGE_PASSWORD_FAILED", "Password change failed");
     }
   });
 
@@ -403,7 +403,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
         requestId: c.get("requestId"),
         error: unknownErrorMessage(error),
       });
-      return errorJson(c, 500, "AUTH_CHECK_FAILED", unknownErrorMessage(error));
+      return errorJson(c, 500, "AUTH_CHECK_FAILED", "Authentication check failed");
     }
   });
 }

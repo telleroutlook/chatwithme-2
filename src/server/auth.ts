@@ -89,7 +89,7 @@ function extractToken(request: Request): TokenInfo | null {
   }
 
   const cookie = request.headers.get("Cookie");
-  if (cookie) {
+  if (cookie && cookie.length <= 8192) {
     const match = cookie.match(/auth_token=([^;\s]+)/);
     if (match?.[1]) {
       return { token: match[1].trim(), source: "cookie" };
