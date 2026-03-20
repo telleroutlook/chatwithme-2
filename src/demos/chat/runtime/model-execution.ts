@@ -144,5 +144,11 @@ export function validateToolArguments(
       return `Tool "${toolName}" requires a non-empty "search_query" field.`;
     }
   }
+  if (kind === "builtinWebReader" || kind === "webReader") {
+    const url = args.url;
+    if (typeof url !== "string" || url.trim().length === 0) {
+      return `Tool "${toolName}" requires a non-empty "url" field.`;
+    }
+  }
   return null;
 }

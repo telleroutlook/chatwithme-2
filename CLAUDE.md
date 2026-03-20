@@ -2,18 +2,19 @@
 
 ## Purpose
 
-The repo `/home/dev/github/chatwithme-2` exists as a focused reference implementation inspired by `/home/dev/github/agents/examples/mcp-client`, `/home/dev/github/agents/examples/playground`, and `/home/dev/github/agents/examples/tictactoe`. It stores the high-level execution plan for refactoring `/home/dev/github/chatwithme` into an Agent-first architecture.
+This repo is the **production ChatWithMe-2 application** — an AI chat assistant built on Cloudflare Workers + Durable Objects + Agents SDK. It evolved from a planning/reference repo inspired by Cloudflare Agents examples (`mcp-client`, `playground`, `tictactoe`) and now serves as the deployed product.
+
+The architecture refactor execution history is documented in `docs/official-architecture-refactor-execution-plan.md`.
 
 ## Priorities
 
-1. Keep the worker and front-end simple so the plan document (`/home/dev/github/chatwithme-2/docs/official-architecture-refactor-execution-plan.md`) is easy to follow.
-2. Use this repository only for planning/reference material or as a sandbox for small experiments; real implementation remains in `/home/dev/github/chatwithme`.
-3. Maintain absolute-path references when documenting lessons or decisions, so future developers can quickly cross-check with the canonical sources.
+1. Keep the worker and front-end maintainable; the plan document (`docs/official-architecture-refactor-execution-plan.md`) records architectural decisions and execution history.
+2. Production URL: `https://chatwithme2mcp.lintao-mailbox.workers.dev`
 
 ## Running & Validation
 
-- This project mirrors `agents/mcp-client` so standard commands are:
-  - `npm install` (once, only if you modify dependencies — use `--legacy-peer-deps`)
+- Standard commands:
+  - `npm install --legacy-peer-deps` (once, only if you modify dependencies — required due to zod v3 vs v4 conflict)
   - `npm run dev` to run the Vite-based client against the default agent server in this repo
   - `npm run deploy` to deploy to production (**ALWAYS use this, never raw `wrangler deploy`**)
     - Runs: `typecheck → vite build → wrangler deploy → verify-deploy`
@@ -23,8 +24,7 @@ The repo `/home/dev/github/chatwithme-2` exists as a focused reference implement
 
 ## Documentation
 
-- The single source of truth for this repo is `/home/dev/github/chatwithme-2/docs/official-architecture-refactor-execution-plan.md`; append to it when you discover new constraints, test results, or rollout notes.
-- For architecture questions, compare this repo's code to references in `/home/dev/github/agents/examples/mcp-client`, `/home/dev/github/agents/examples/playground`, and `/home/dev/github/agents/examples/tictactoe`.
+- The execution history and architecture decisions are in `docs/official-architecture-refactor-execution-plan.md`; append to it when you discover new constraints, test results, or rollout notes.
 
 ## Collaboration Notes
 

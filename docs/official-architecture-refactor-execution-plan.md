@@ -414,8 +414,8 @@
 
 ### Phase 5: Testing matrix + new tests
 
-- Added testing matrix doc:
-  - `/home/dev/github/chatwithme-2/docs/testing-chat-agent.md`
+- Added testing matrix doc (since removed):
+  - `/home/dev/github/chatwithme-2/docs/testing-chat-agent.md` (archived)
 - Added tests:
   - `/home/dev/github/chatwithme-2/src/shared/agent-lifecycle.test.ts`
   - `/home/dev/github/chatwithme-2/src/schema/api.test.ts`

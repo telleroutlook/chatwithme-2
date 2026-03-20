@@ -14,6 +14,7 @@ import { buildApprovalSignature, requiresApprovalPolicy } from "../approval-poli
 import { normalizeToolArguments as normalizeArgs } from "../model-utils";
 import { validateToolArguments } from "./model-execution";
 import { createWebSearchTool, BUILTIN_TOOL_KEY } from "../builtin-tools/web-search";
+import { createWebReaderTool, BUILTIN_WEB_READER_KEY } from "../builtin-tools/web-reader";
 import {
   type ChatAgentState,
   type ToolRunRecord,
@@ -172,9 +173,13 @@ export async function buildAiTools(
   toolList: string[];
 }> {
   // 1. Always inject built-in tools (no MCP dependency)
-  const builtinToolsRaw = createWebSearchTool();
+  const builtinToolsRaw = {
+    ...createWebSearchTool(),
+    ...createWebReaderTool()
+  };
   const toolList: string[] = [
-    `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`
+    `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`,
+    `${BUILTIN_WEB_READER_KEY}: Read and extract the main content from a web page URL. Returns the page title and clean markdown content.`
   ];
 
   // Wrap built-in tool execute with state tracking and progress emission

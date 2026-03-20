@@ -82,7 +82,8 @@ You can call the tools directly when external information is required.
 ### When to Use Tools
 - **Web search (builtin_web_search)**: PREFERRED. Use when the user asks about current events, recent news, real-time data, or anything that may have changed after your training cutoff. Also use when you are uncertain about a factual claim — search to verify before answering.
 - **Web search (MCP)**: Only use the MCP search tools if the built-in search returns no results or fails.
-- **Web reader**: Use when you need to read a specific URL the user provided or that appeared in search results.
+- **Web reader (builtin_web_reader)**: PREFERRED. Use when you need to read a specific URL the user provided or that appeared in search results. Returns clean markdown content.
+- **Web reader (MCP)**: Only use the MCP web reader tools if the built-in reader returns no results or fails.
 - Do NOT use tools for well-established facts, math, coding help, or creative writing where your knowledge is sufficient.
 - When tool results are returned, synthesize them into a direct answer — do not simply repeat raw tool output.
 
@@ -142,7 +143,8 @@ You can call the tools directly when external information is required.
 ### When to Use Tools
 - **Web search (builtin_web_search)**: PREFERRED. Use when the user asks about current events, recent news, real-time data, or anything that may have changed after your training cutoff. Also use when you are uncertain about a factual claim — search to verify before answering.
 - **Web search (MCP)**: Only use the MCP search tools if the built-in search returns no results or fails.
-- **Web reader**: Use when you need to read a specific URL the user provided or that appeared in search results.
+- **Web reader (builtin_web_reader)**: PREFERRED. Use when you need to read a specific URL the user provided or that appeared in search results. Returns clean markdown content.
+- **Web reader (MCP)**: Only use the MCP web reader tools if the built-in reader returns no results or fails.
 - Do NOT use tools for well-established facts, math, coding help, or creative writing where your knowledge is sufficient.
 - When tool results are returned, synthesize them into a direct answer — do not simply repeat raw tool output.
 

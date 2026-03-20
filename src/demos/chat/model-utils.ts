@@ -10,7 +10,7 @@ export interface ChatMessageLike {
   parts: MessagePartLike[];
 }
 
-type ToolKind = "webSearch" | "webSearchPrime" | "webReader" | "unknown";
+type ToolKind = "webSearch" | "webSearchPrime" | "webReader" | "builtinWebReader" | "unknown";
 
 interface ToolContext {
   alias?: string;
@@ -41,6 +41,17 @@ export function resolveToolKind(toolName: string, context?: ToolContext): ToolKi
     )
   ) {
     return "webSearch";
+  }
+
+  // Built-in Jina web reader
+  if (
+    names.some(
+      (name) =>
+        name === "builtinwebreader" ||
+        name.includes("builtin_web_reader")
+    )
+  ) {
+    return "builtinWebReader";
   }
 
   if (
@@ -90,7 +101,7 @@ export function normalizeToolArguments(
     return queryValue ? { ...rest, search_query: queryValue } : rest;
   }
 
-  if (toolKind === "webReader") {
+  if (toolKind === "webReader" || toolKind === "builtinWebReader") {
     const urlFields = ["url", "link", "uri", "target_url", "targetUrl", "webpage_url", "webpageUrl"];
     let urlValue = "";
     for (const field of urlFields) {

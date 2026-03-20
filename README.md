@@ -1,92 +1,54 @@
 # ChatWithMe-2
 
-A reference implementation and planning repository for refactoring [ChatWithMe](../chatwithme) into an Agent-first architecture.
+An AI chat assistant powered by Cloudflare Workers, Durable Objects, and the Agents SDK.
 
-## Project Purpose
+## Live
 
-This repository serves as:
+| Resource       | URL                                                          |
+| -------------- | ------------------------------------------------------------ |
+| **Production** | https://chatwithme2mcp.lintao-mailbox.workers.dev            |
 
-- **Planning documentation** for the ChatWithMe architecture refactor
-- **Reference implementation** inspired by Cloudflare Agents examples
-- **Sandbox** for testing optimizations before applying to the main project
+## Features
 
-> ⚠️ **Note**: This is a planning/reference repo. The actual implementation lives in `/home/dev/github/chatwithme`.
+- **AI Chat** — Conversational AI powered by GLM via OpenAI-compatible API
+- **Built-in Web Search** — DuckDuckGo HTML search (no API key required)
+- **Built-in Web Reader** — Jina Reader API for extracting clean content from any URL (no API key required)
+- **MCP Integration** — Pre-configured MCP servers (web-search-prime, web-reader, zread) available as fallbacks
+- **Chart Generation** — ADC (Ant Design Charts), G2, and Mermaid diagram support
+- **Auth System** — JWT-based authentication + guest mode
+- **Real-time** — WebSocket-based agent communication via Durable Objects
 
-## Related Projects
-
-### mcp-client-tool (Production MCP Manager)
-
-A standalone tool for managing MCP server connections, deployed at:
-
-| Resource       | URL                                         |
-| -------------- | ------------------------------------------- |
-| **Production** | https://mcp-client-tool.3we.org             |
-| **GitHub**     | https://github.com/telleroutlook/mcp-client |
-| **Worker**     | `mcp-client-tool`                           |
-
-**Features**:
-
-- Connect to remote MCP servers with OAuth support
-- View available tools, prompts, and resources
-- Toast notifications, loading states, form validation
-- Memoized components for better performance
-
-**Usage**: Use this tool to test and debug MCP servers before integrating them into ChatWithMe.
-
-> 📖 For detailed documentation, debugging guide, and upgrade instructions, see the [mcp-client README](https://github.com/telleroutlook/mcp-client#readme).
-
-## Architecture Overview
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Project Ecosystem                             │
-└─────────────────────────────────────────────────────────────────────┘
-
-┌───────────────────┐     ┌───────────────────┐     ┌────────────────┐
-│   chatwithme      │     │   chatwithme-2    │     │  mcp-client    │
-│   (Main App)      │     │   (Planning)      │     │  (Dev Tool)    │
-│   ============    │     │   ============    │     │  ===========   │
-│ • Chat UI         │◄────│ • Architecture    │     │ • MCP Manager  │
-│ • MCP Agent       │     │   documentation   │     │ • Test MCP     │
-│ • D1 + R2         │     │ • Execution plan  │     │   connections  │
-│ • Production      │     │ • Experiments     │     │ • Debugging    │
-└───────────────────┘     └───────────────────┘     └────────────────┘
-         │                                                   │
-         │                    MCP Protocol                   │
-         └─────────────────────────┬─────────────────────────┘
-                                   │
-                                   ▼
-                    ┌──────────────────────────┐
-                    │   External MCP Servers   │
-                    │   (GitHub, Slack, etc.)  │
-                    └──────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    ChatWithMe-2                          │
+│                                                          │
+│  ┌──────────────┐   ┌──────────────┐   ┌─────────────┐ │
+│  │  React + Vite │   │  Hono Server │   │ ChatAgentV2 │ │
+│  │  (Frontend)   │◄──│  (Routes)    │──►│  (Durable   │ │
+│  │              │   │              │   │   Object)   │ │
+│  └──────────────┘   └──────────────┘   └──────┬──────┘ │
+│                                                │        │
+│                     ┌──────────────────────────┤        │
+│                     │                          │        │
+│              ┌──────▼──────┐           ┌───────▼──────┐ │
+│              │ Built-in    │           │ MCP Servers  │ │
+│              │ Tools       │           │ (fallback)   │ │
+│              │ • DDG Search│           │ • web-search │ │
+│              │ • Jina Read │           │ • web-reader │ │
+│              └─────────────┘           │ • zread      │ │
+│                                        └──────────────┘ │
+└─────────────────────────────────────────────────────────┘
 ```
-
-## Documentation
-
-- **Architecture Plan**: [docs/official-architecture-refactor-execution-plan.md](docs/official-architecture-refactor-execution-plan.md)
-- **Project Instructions**: [CLAUDE.md](CLAUDE.md)
-
----
-
-## Original MCP Client Demo
-
-_The following is the original documentation from the Cloudflare Agents example._
-
----
-
-## What it demonstrates
-
-- **`addMcpServer` / `removeMcpServer`** — managing MCP server connections from an Agent
-- **`onMcpUpdate`** — real-time state updates pushed to the React frontend via WebSocket
-- **OAuth popup flow** — `configureOAuthCallback` with a custom handler that closes the popup after auth
-- **`agentFetch`** — making HTTP requests to the Agent's custom endpoints from the client
 
 ## Running
 
 ```sh
-npm install
-npm run dev
+npm install --legacy-peer-deps   # once
+npm run dev                      # local dev server on :8787
+npm run test:run                 # run all tests
+npm run deploy                   # typecheck → build → deploy → verify
 ```
 
 Database migrations:
@@ -96,70 +58,54 @@ npm run db:migrate:local
 npm run db:migrate:prod
 ```
 
-`db:migrate:*` now discovers SQL files from common migration folders and applies them one by one.
-If no migration files exist, the command fails with a clear message. Local auth tables are still
-auto-initialized in [src/server/auth-db.ts](src/server/auth-db.ts).
+## Deployment
 
-The UI lets you add MCP server URLs, see their connection state, and browse their tools, prompts, and resources.
+**ALWAYS use `npm run deploy`**, never raw `wrangler deploy`.
 
-To test with an authenticated server, run the [`mcp-worker-authenticated`](../mcp-worker-authenticated/) example alongside this one and add its URL.
+The deploy pipeline runs: `typecheck → vite build → wrangler deploy → verify-deploy`. Skipping `vite build` causes stale Worker code to be deployed since the Worker bundle is produced by Vite, not wrangler.
 
-## Environment variables
+`npm run deploy:raw` is available for quick deploys (skips typecheck + verify, but still builds).
 
-Copy `.env.example` to `.env` if you need to override the OAuth callback host:
+## Project Structure
 
-```sh
-cp .env.example .env
+```
+src/
+├── server.ts                    # Hono app entry point
+├── mcp-config.ts                # Pre-configured MCP servers
+├── demos/chat/
+│   ├── chat-agent.ts            # ChatAgentV2 (Durable Object)
+│   ├── system-prompt.ts         # System prompt with chart knowledge
+│   ├── model-utils.ts           # Tool kind resolution & arg normalization
+│   ├── builtin-tools/
+│   │   ├── web-search.ts        # DuckDuckGo search (primary)
+│   │   └── web-reader.ts        # Jina Reader (primary)
+│   └── runtime/
+│       ├── state-runtime.ts     # Immutable state updates
+│       ├── tool-runtime.ts      # Tool execution with retry
+│       ├── approval-runtime.ts  # Tool approval workflow
+│       ├── mcp-server-runtime.ts # MCP connection management
+│       ├── model-execution.ts   # LLM call orchestration
+│       └── chat-methods.ts      # Agent callable methods
+├── server/routes/               # Hono route handlers
+├── features/chat/               # Client-side chat services & hooks
+├── components/                  # React UI components
+└── i18n/                        # Internationalization
 ```
 
-## How it works
+## Documentation
 
-### Server side
+- **Architecture Plan**: [docs/official-architecture-refactor-execution-plan.md](docs/official-architecture-refactor-execution-plan.md)
+- **Project Instructions**: [CLAUDE.md](CLAUDE.md)
 
-The Agent manages MCP connections via the built-in `mcp` property:
+## Related Projects
 
-```typescript
-export class MyAgent extends Agent {
-  onStart() {
-    this.mcp.configureOAuthCallback({
-      customHandler: (result) => {
-        if (result.authSuccess) {
-          return new Response("<script>window.close();</script>", {
-            headers: { "content-type": "text/html" }
-          });
-        }
-        return new Response(`Auth failed: ${result.authError}`, {
-          status: 400
-        });
-      }
-    });
-  }
+### mcp-client-tool (MCP Server Manager)
 
-  async onRequest(request) {
-    // Custom endpoints for the frontend
-    if (url.pathname.endsWith("add-mcp")) {
-      const { name, url } = await request.json();
-      await this.addMcpServer(name, url);
-      return new Response("Ok");
-    }
-  }
-}
-```
+A standalone tool for managing MCP server connections, deployed at:
 
-### Client side
+| Resource       | URL                                         |
+| -------------- | ------------------------------------------- |
+| **Production** | https://mcp-client-tool.3we.org             |
+| **GitHub**     | https://github.com/telleroutlook/mcp-client |
 
-The React frontend uses `useAgent` with `onMcpUpdate` to receive real-time server state:
-
-```typescript
-const agent = useAgent({
-  agent: "my-agent",
-  name: sessionId,
-  onMcpUpdate: (mcpServers) => setMcpState(mcpServers),
-  onOpen: () => setConnected(true)
-});
-```
-
-## Related examples
-
-- [`mcp`](../mcp/) — stateful MCP server (good target to connect to)
-- [`mcp-worker-authenticated`](../mcp-worker-authenticated/) — authenticated server (tests the OAuth flow)
+> 📖 For detailed documentation, see the [mcp-client README](https://github.com/telleroutlook/mcp-client#readme).

@@ -28,8 +28,8 @@ export const MCP_SERVERS: McpServerConfig[] = [
     url: "https://open.bigmodel.cn/api/mcp/web_reader/mcp",
     apiKey: "", // Will use env variable
     envKey: "BIGMODEL_API_KEY",
-    description: "读取网页内容，提取文章、文档等",
-    active: true
+    description: "读取网页内容，提取文章、文档等（备用，内置读取优先）",
+    active: false
   },
   {
     name: "zread",
