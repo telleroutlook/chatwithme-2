@@ -71,7 +71,7 @@ export function TopBar({
   return (
     <header
       className={cn(
-        "flex items-center justify-between border-b border-border bg-surface/80 backdrop-blur-sm",
+        "flex items-center justify-between border-b border-border bg-surface",
         mobile ? "px-3" : "px-4",
         "h-12"
       )}
@@ -147,14 +147,14 @@ export function TopBar({
               role="menu"
               className={cn(
                 "absolute right-0 top-full z-50 mt-1.5",
-                "w-44 rounded-lg border border-border bg-surface shadow-lg",
+                "w-44 rounded-lg border border-border bg-surface-elevated shadow-lg",
                 "py-1"
               )}
             >
               <button
                 type="button"
                 role="menuitem"
-                className="w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none"
+                className="w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none"
                 onClick={() => {
                   onExportMarkdown();
                   setExportOpen(false);
@@ -165,7 +165,7 @@ export function TopBar({
               <button
                 type="button"
                 role="menuitem"
-                className="w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none"
+                className="w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none"
                 onClick={() => {
                   onExportPdf();
                   setExportOpen(false);
