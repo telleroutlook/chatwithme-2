@@ -54,12 +54,18 @@ describe("mergeSessionsWithServer", () => {
     });
   });
 
-  it("marks orphaned after repeated remote misses", () => {
+  it("auto-prunes session after repeated remote misses (3+)", () => {
     const merged = mergeSessionsWithServer([localSession({ mismatchCount: 2 })], [], NOW);
-    expect(merged[0]).toMatchObject({
-      health: "orphaned",
-      mismatchCount: 3
-    });
+    expect(merged).toHaveLength(0);
+  });
+
+  it("auto-prunes session when remote payload is empty after repeated misses", () => {
+    const merged = mergeSessionsWithServer(
+      [localSession({ mismatchCount: 2, messageCount: 2, lastMessage: "non-empty" })],
+      [remoteSession({ messageCount: 0, lastMessage: "" })],
+      NOW
+    );
+    expect(merged).toHaveLength(0);
   });
 
   it("marks stale when remote payload is empty but local has content", () => {

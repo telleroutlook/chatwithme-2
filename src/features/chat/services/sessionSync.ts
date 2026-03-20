@@ -18,31 +18,42 @@ export function mergeSessionsWithServer(
   nowIso: string
 ): SessionMeta[] {
   const serverById = new Map(serverSessions.map((item) => [item.sessionId, item]));
-  return localSessions.map((local) => {
+  const merged: SessionMeta[] = [];
+
+  for (const local of localSessions) {
     const remote = serverById.get(local.id);
     if (!remote) {
       const nextMismatch = (local.mismatchCount ?? 0) + 1;
-      return {
+      // Auto-prune: drop sessions that have been missing on server for 3+ syncs
+      if (nextMismatch >= 3) {
+        continue;
+      }
+      merged.push({
         ...local,
-        health: nextMismatch >= 3 ? "orphaned" : "stale",
+        health: "stale",
         mismatchCount: nextMismatch,
         lastSyncedAt: nowIso,
         source: "local-fallback"
-      };
+      });
+      continue;
     }
 
     if (remote.messageCount === 0 && (local.messageCount > 0 || local.lastMessage.trim().length > 0)) {
       const nextMismatch = (local.mismatchCount ?? 0) + 1;
-      return {
+      if (nextMismatch >= 3) {
+        continue;
+      }
+      merged.push({
         ...local,
-        health: nextMismatch >= 3 ? "orphaned" : "stale",
+        health: "stale",
         mismatchCount: nextMismatch,
         lastSyncedAt: nowIso,
         source: "server"
-      };
+      });
+      continue;
     }
 
-    return {
+    merged.push({
       ...local,
       title: remote.title || local.title,
       lastMessage: remote.lastMessage || local.lastMessage,
@@ -52,8 +63,10 @@ export function mergeSessionsWithServer(
       mismatchCount: 0,
       lastSyncedAt: nowIso,
       source: "server"
-    };
-  });
+    });
+  }
+
+  return merged;
 }
 
 export function markSessionsStaleFallback(
