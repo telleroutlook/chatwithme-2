@@ -122,7 +122,7 @@ function detectSubtypeFromJson(code: string): ChartSkeletonType | null {
 
   if (raw === "line" || raw === "area") return "line";
   if (raw === "bar" || raw === "column" || raw === "histogram") return "bar";
-  if (raw === "pie" || raw === "funnel" || raw === "gauge") return "pie";
+  if (raw === "pie" || raw === "rose" || raw === "funnel" || raw === "gauge") return "pie";
 
   // For less common types fall back to generic
   return null;

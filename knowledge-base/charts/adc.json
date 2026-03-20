@@ -5,7 +5,7 @@
     "All keys must use double quotes; all string values must use double quotes",
     "Never output callback expressions such as (d) => ... or function (...)",
     "Do not set label.position; renderer applies safe defaults by chart type",
-    "Supported chart types: line, column, bar, area, pie, scatter, radar, gauge, heatmap, funnel, histogram, dualAxes",
+    "Supported chart types: line, column, bar, area, pie, rose, scatter, radar, gauge, heatmap, funnel, histogram, dualAxes",
     "Always include at least 4-6 realistic data points for visual clarity",
     "Use descriptive field names (e.g., 'month', 'revenue') rather than generic ('x', 'y')",
     "For multi-series charts, include a seriesField or colorField to distinguish categories"
@@ -95,6 +95,20 @@
         "Not providing colorField for legend"
       ],
       "tips": "Use innerRadius (0.4-0.6) for donut style. Include 4-8 slices for readability."
+    },
+    {
+      "type": "rose",
+      "requiredFields": [
+        "data",
+        "xField",
+        "yField"
+      ],
+      "example": "{\"type\":\"rose\",\"data\":[{\"category\":\"January\",\"value\":40},{\"category\":\"February\",\"value\":25},{\"category\":\"March\",\"value\":55},{\"category\":\"April\",\"value\":35},{\"category\":\"May\",\"value\":60}],\"xField\":\"category\",\"yField\":\"value\",\"colorField\":\"category\",\"label\":{\"text\":\"value\",\"style\":{\"fontSize\":11}},\"interaction\":{\"tooltip\":true}}",
+      "commonErrors": [
+        "Using angleField/colorField like pie — rose uses xField/yField",
+        "Not providing colorField for legend coloring"
+      ],
+      "tips": "Rose charts (nightingale diagrams) show categorical data with varying petal sizes. Good for comparing magnitudes across categories. Use colorField for distinct petal colors."
     },
     {
       "type": "scatter",

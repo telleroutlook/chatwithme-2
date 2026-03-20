@@ -18,6 +18,7 @@ export type AdcChartType =
   | 'bar'
   | 'area'
   | 'pie'
+  | 'rose'
   | 'scatter'
   | 'radar'
   | 'gauge'
@@ -32,6 +33,7 @@ export const ADC_CHART_TYPES: readonly string[] = [
   'bar',
   'area',
   'pie',
+  'rose',
   'scatter',
   'radar',
   'gauge',
