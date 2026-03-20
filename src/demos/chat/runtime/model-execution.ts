@@ -137,10 +137,11 @@ export function validateToolArguments(
   args: Record<string, unknown>,
   context?: { alias?: string; serverId?: string }
 ): string | null {
-  if (resolveToolKind(toolName, context) === "webSearchPrime") {
+  const kind = resolveToolKind(toolName, context);
+  if (kind === "webSearch" || kind === "webSearchPrime") {
     const searchQuery = args.search_query;
     if (typeof searchQuery !== "string" || searchQuery.trim().length === 0) {
-      return 'Tool "webSearchPrime" requires a non-empty "search_query" field.';
+      return `Tool "${toolName}" requires a non-empty "search_query" field.`;
     }
   }
   return null;

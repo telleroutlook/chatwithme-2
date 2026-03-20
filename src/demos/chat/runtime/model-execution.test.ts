@@ -14,7 +14,7 @@ describe("validateToolArguments", () => {
       alias: "web-search-prime.search",
       serverId: "web-search-prime"
     });
-    expect(error).toBe('Tool "webSearchPrime" requires a non-empty "search_query" field.');
+    expect(error).toBe('Tool "search" requires a non-empty "search_query" field.');
   });
 
   it("skips validation for unknown tools", () => {

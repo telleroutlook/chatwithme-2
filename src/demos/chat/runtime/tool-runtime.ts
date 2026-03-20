@@ -13,6 +13,7 @@ import { classifyRetryableError } from "../retry-policy";
 import { buildApprovalSignature, requiresApprovalPolicy } from "../approval-policy";
 import { normalizeToolArguments as normalizeArgs } from "../model-utils";
 import { validateToolArguments } from "./model-execution";
+import { createWebSearchTool, BUILTIN_TOOL_KEY } from "../builtin-tools/web-search";
 import {
   type ChatAgentState,
   type ToolRunRecord,
@@ -156,11 +157,11 @@ export async function callMcpToolWithRetry(
 // ============ Tool List Builder ============
 
 /**
- * Build AI tools from MCP server tools.
+ * Build AI tools from built-in tools + MCP server tools.
  *
- * Uses `mcp.getAITools()` to get tools with real input schemas from the MCP
- * server, so the model knows exact parameter names and types. Each tool's
- * execute function is then wrapped with our approval/retry/state-tracking logic.
+ * Built-in tools (e.g. DuckDuckGo search) are added first and take priority.
+ * MCP tools are added after, with their execute functions wrapped with
+ * approval/retry/state-tracking logic.
  */
 export async function buildAiTools(
   mcp: ToolExecutionContext["mcp"],
@@ -170,52 +171,53 @@ export async function buildAiTools(
   tools: ToolSet;
   toolList: string[];
 }> {
-  if (!mcp) {
-    return { tools: {}, toolList: [] };
-  }
+  // 1. Always inject built-in tools (no MCP dependency)
+  const builtinTools = createWebSearchTool();
+  const toolList: string[] = [
+    `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`
+  ];
+  const tools: ToolSet = { ...builtinTools };
 
-  // Get tools with real inputSchema from the agents framework
-  const aiTools = mcp.getAITools();
-  const availableTools = mcp.listTools();
+  // 2. Add MCP tools if available (web-search-prime serves as fallback)
+  if (mcp) {
+    const aiTools = mcp.getAITools();
+    const availableTools = mcp.listTools();
 
-  // Build toolList for system prompt from listTools (has human-readable names)
-  const toolList: string[] = availableTools.map(
-    (item) => `${item.name}: ${item.description || "No description"}`
-  );
-
-  // Build a lookup: namespacedKey -> { rawName, serverId } from listTools
-  const toolMeta = new Map<string, { rawName: string; serverId: string }>();
-  for (const item of availableTools) {
-    const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
-    const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
-    // getAITools uses key format: tool_{serverId}_${name}
-    const aiToolKey = `tool_${serverId.replace(/-/g, "")}_${rawName}`;
-    toolMeta.set(aiToolKey, { rawName, serverId });
-  }
-
-  // Wrap each AI tool's execute with our approval/retry/state-tracking logic
-  const wrappedTools: ToolSet = {};
-  for (const [key, aiTool] of Object.entries(aiTools)) {
-    const meta = toolMeta.get(key);
-    if (!meta) {
-      // Keep the tool as-is if we can't resolve metadata (shouldn't happen)
-      wrappedTools[key] = aiTool;
-      continue;
+    for (const item of availableTools) {
+      toolList.push(`${item.name}: ${item.description || "No description"}`);
     }
 
-    wrappedTools[key] = {
-      ...aiTool,
-      execute: async (args: Record<string, unknown>) => {
-        return executeToolCallInternal(
-          meta.rawName, meta.serverId, key, args,
-          { ...context, mcp },
-          emitProgress
-        );
+    // Build a lookup: namespacedKey -> { rawName, serverId } from listTools
+    const toolMeta = new Map<string, { rawName: string; serverId: string }>();
+    for (const item of availableTools) {
+      const rawName = item.name.includes(".") ? item.name.split(".").slice(1).join(".") : item.name;
+      const serverId = item.name.includes(".") ? item.name.split(".")[0] : item.serverId;
+      const aiToolKey = `tool_${serverId.replace(/-/g, "")}_${rawName}`;
+      toolMeta.set(aiToolKey, { rawName, serverId });
+    }
+
+    // Wrap each MCP tool's execute with our approval/retry/state-tracking logic
+    for (const [key, aiTool] of Object.entries(aiTools)) {
+      const meta = toolMeta.get(key);
+      if (!meta) {
+        tools[key] = aiTool;
+        continue;
       }
-    };
+
+      tools[key] = {
+        ...aiTool,
+        execute: async (args: Record<string, unknown>) => {
+          return executeToolCallInternal(
+            meta.rawName, meta.serverId, key, args,
+            { ...context, mcp },
+            emitProgress
+          );
+        }
+      };
+    }
   }
 
-  return { tools: wrappedTools, toolList };
+  return { tools, toolList };
 }
 
 /**

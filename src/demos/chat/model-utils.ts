@@ -10,7 +10,7 @@ export interface ChatMessageLike {
   parts: MessagePartLike[];
 }
 
-type ToolKind = "webSearchPrime" | "webReader" | "unknown";
+type ToolKind = "webSearch" | "webSearchPrime" | "webReader" | "unknown";
 
 interface ToolContext {
   alias?: string;
@@ -30,6 +30,18 @@ function collectToolIdentityNames(toolName: string, context?: ToolContext): stri
 
 export function resolveToolKind(toolName: string, context?: ToolContext): ToolKind {
   const names = collectToolIdentityNames(toolName, context);
+
+  // Built-in DuckDuckGo search
+  if (
+    names.some(
+      (name) =>
+        name === "builtinwebsearch" ||
+        name.includes("builtin_web_search") ||
+        name === "builtinwebsearch"
+    )
+  ) {
+    return "webSearch";
+  }
 
   if (
     names.some(
@@ -55,7 +67,7 @@ export function normalizeToolArguments(
 ): Record<string, unknown> {
   const toolKind = resolveToolKind(toolName, context);
 
-  if (toolKind === "webSearchPrime") {
+  if (toolKind === "webSearch" || toolKind === "webSearchPrime") {
     const queryFields = ["search_query", "searchQuery", "query", "q", "keyword", "keywords", "search"];
     let queryValue = "";
     for (const field of queryFields) {

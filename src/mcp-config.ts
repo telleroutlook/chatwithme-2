@@ -20,8 +20,8 @@ export const MCP_SERVERS: McpServerConfig[] = [
     url: "https://open.bigmodel.cn/api/mcp/web_search_prime/mcp",
     apiKey: "", // Will use env variable
     envKey: "BIGMODEL_API_KEY",
-    description: "搜索网络信息，返回网页标题、URL、摘要等",
-    active: true
+    description: "搜索网络信息，返回网页标题、URL、摘要等（备用，内置搜索优先）",
+    active: false
   },
   {
     name: "web-reader",
