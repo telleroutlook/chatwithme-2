@@ -41,7 +41,9 @@ export {
 // Model execution
 export {
   type ModelExecutionOptions,
+  type TextDeltaCallback,
   requestModelText,
+  streamModelTextToWriter,
   validateToolArguments
 } from "./model-execution";
 

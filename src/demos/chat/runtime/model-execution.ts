@@ -4,8 +4,8 @@
  * Handles:
  * - Model candidate selection logic
  * - Timeout handling
- * - Streaming with snippet emission
- * - requestModelText / streamModelText helpers
+ * - Streaming with snippet emission and direct UI writer piping
+ * - requestModelText / streamModelTextToWriter helpers
  */
 
 import {
@@ -40,13 +40,13 @@ export interface ModelExecutionOptions {
   streamEnabled: boolean;
 }
 
-// ============ Model Execution Functions ============
+/** Callback invoked for each text delta during streaming */
+export type TextDeltaCallback = (delta: string) => void;
 
-/**
- * Request model text with optional streaming support
- */
-export async function requestModelText(params: ModelExecutionOptions): Promise<string> {
-  const callOptions = {
+// ============ Shared Call Options Builder ============
+
+function buildCallOptions(params: ModelExecutionOptions) {
+  return {
     model: params.model,
     system: params.system,
     messages: params.messages,
@@ -59,13 +59,24 @@ export async function requestModelText(params: ModelExecutionOptions): Promise<s
       glm: {
         thinking: {
           type: params.thinkingType
-        }
+        },
+        tool_stream: true
       }
     }
   };
+}
+
+// ============ Model Execution Functions ============
+
+/**
+ * Request model text — returns the full response string.
+ * Used by @callable chat() and the empty-response fallback path.
+ */
+export async function requestModelText(params: ModelExecutionOptions): Promise<string> {
+  const callOptions = buildCallOptions(params);
 
   if (params.streamEnabled) {
-    return await streamModelText(callOptions, params.emitProgress);
+    return await streamModelTextCollect(callOptions, params.emitProgress);
   }
 
   const { text } = await generateText(callOptions);
@@ -73,23 +84,71 @@ export async function requestModelText(params: ModelExecutionOptions): Promise<s
 }
 
 /**
- * Stream model text with throttled snippet emission
+ * Stream model text and pipe each text delta to a callback in real time.
+ * Returns the full accumulated text when complete.
+ * This is the primary path for onChatMessage — it enables true end-to-end streaming.
  */
-async function streamModelText(
-  callOptions: {
-    model: LanguageModel;
-    system: string;
-    messages: ModelMessage[];
-    temperature: number;
-    tools?: ToolSet;
-    stopWhen: ReturnType<typeof stepCountIs>;
-    abortSignal?: AbortSignal;
-    maxOutputTokens?: number;
-    providerOptions: { glm: { thinking: { type: string } } };
-  },
+export async function streamModelTextToWriter(
+  params: ModelExecutionOptions,
+  onTextDelta: TextDeltaCallback
+): Promise<string> {
+  const callOptions = buildCallOptions(params);
+  let accumulatedText = "";
+  let lastEmitTime = 0;
+  let lastEmittedSnippet = "";
+
+  const result = streamText({
+    ...callOptions,
+    onChunk: ({ chunk }) => {
+      if (chunk.type === "text-delta") {
+        accumulatedText += chunk.text;
+        // Pipe every delta directly to the UI writer
+        onTextDelta(chunk.text);
+      }
+
+      // Also emit throttled progress snippets for the live feed
+      if (params.emitProgress) {
+        const now = Date.now();
+        const snippet = extractSnippet(accumulatedText);
+        if (
+          now - lastEmitTime >= SNIPPET_THROTTLE_MS &&
+          snippet.length >= SNIPPET_MIN_LENGTH_TO_EMIT &&
+          snippet !== lastEmittedSnippet
+        ) {
+          lastEmitTime = now;
+          lastEmittedSnippet = snippet;
+          params.emitProgress({
+            phase: "model",
+            message: "Generating response...",
+            status: "info",
+            snippet
+          });
+        }
+      }
+    }
+  });
+
+  // Wait for the stream to complete (handles multi-step tool calls)
+  const finalText = await result.text;
+
+  // If tool calls produced additional text beyond what was streamed via onChunk,
+  // emit the remainder. This happens when the model does tool calls and then
+  // generates a final response — streamText accumulates it all in result.text.
+  if (finalText.length > accumulatedText.length) {
+    const remainder = finalText.slice(accumulatedText.length);
+    onTextDelta(remainder);
+  }
+
+  return finalText;
+}
+
+/**
+ * Stream model text and collect into a string (for non-writer callers).
+ */
+async function streamModelTextCollect(
+  callOptions: ReturnType<typeof buildCallOptions>,
   emitProgress?: ProgressEmitter
 ): Promise<string> {
-  // Throttle state for snippet emission
   let lastEmittedSnippet = "";
   let lastEmitTime = 0;
   let accumulatedText = "";
@@ -97,7 +156,6 @@ async function streamModelText(
   const result = streamText({
     ...callOptions,
     onChunk: ({ chunk }) => {
-      // Accumulate text from text deltas
       if (chunk.type === "text-delta") {
         accumulatedText += chunk.text;
       }
@@ -105,7 +163,6 @@ async function streamModelText(
       const now = Date.now();
       const snippet = extractSnippet(accumulatedText);
 
-      // Throttle: skip if too soon, too short, or duplicate
       if (
         now - lastEmitTime < SNIPPET_THROTTLE_MS ||
         snippet.length < SNIPPET_MIN_LENGTH_TO_EMIT ||

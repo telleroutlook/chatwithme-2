@@ -675,8 +675,8 @@ export function buildMermaidPromptSection(knowledge: MermaidKnowledge | null): s
   }
   lines.push("");
 
-  // Show up to 3 example templates for the most relevant types
-  const shownCount = Math.min(diagramKeys.length, 3);
+  // Show up to 2 example templates for the most relevant types
+  const shownCount = Math.min(diagramKeys.length, 2);
   lines.push("Mermaid examples:");
   lines.push("");
 
@@ -730,8 +730,8 @@ export function buildEChartsPromptSection(knowledge: EChartsKnowledge | null): s
   }
   lines.push("");
 
-  // Show up to 3 spec examples for the most relevant types
-  const shownCount = Math.min(knowledge.chartTypes.length, 3);
+  // Show up to 2 spec examples for the most relevant types (compact JSON to save tokens)
+  const shownCount = Math.min(knowledge.chartTypes.length, 2);
   lines.push("ECharts examples:");
   lines.push("");
 
@@ -739,7 +739,7 @@ export function buildEChartsPromptSection(knowledge: EChartsKnowledge | null): s
     const chart = knowledge.chartTypes[i];
     lines.push(`**${chart.type} (${chart.name}):**`);
     lines.push("```echarts");
-    lines.push(JSON.stringify(chart.spec_example, null, 2));
+    lines.push(JSON.stringify(chart.spec_example));
     lines.push("```");
     lines.push("");
   }
@@ -786,8 +786,8 @@ export function buildVegaLitePromptSection(knowledge: VegaLiteKnowledge | null):
   }
   lines.push("");
 
-  // Show up to 3 spec examples for the most relevant types
-  const shownCount = Math.min(knowledge.chartTypes.length, 3);
+  // Show up to 2 spec examples for the most relevant types (compact JSON to save tokens)
+  const shownCount = Math.min(knowledge.chartTypes.length, 2);
   lines.push("Vega-Lite examples:");
   lines.push("");
 
@@ -795,7 +795,7 @@ export function buildVegaLitePromptSection(knowledge: VegaLiteKnowledge | null):
     const chart = knowledge.chartTypes[i];
     lines.push(`**${chart.type} (${chart.name}):**`);
     lines.push("```vega-lite");
-    lines.push(JSON.stringify(chart.spec_example, null, 2));
+    lines.push(JSON.stringify(chart.spec_example));
     lines.push("```");
     lines.push("");
   }

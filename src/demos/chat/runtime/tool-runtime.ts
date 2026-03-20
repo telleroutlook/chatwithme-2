@@ -157,6 +157,28 @@ export async function callMcpToolWithRetry(
   }
 }
 
+// ============ Cached Builtin Tools ============
+
+/** Singleton cache for builtin tool definitions (schema + raw execute). */
+let cachedBuiltinToolsRaw: ToolSet | null = null;
+
+function getBuiltinToolsRaw(): ToolSet {
+  if (!cachedBuiltinToolsRaw) {
+    cachedBuiltinToolsRaw = {
+      ...createWebSearchTool(),
+      ...createWebReaderTool(),
+      ...createDataAnalyzerTool()
+    };
+  }
+  return cachedBuiltinToolsRaw;
+}
+
+const BUILTIN_TOOL_LIST: string[] = [
+  `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`,
+  `${BUILTIN_WEB_READER_KEY}: Read and extract the main content from a web page URL. Returns the page title and clean markdown content.`,
+  `${BUILTIN_DATA_ANALYZER_KEY}: Analyze CSV or JSON tabular data — detect column types, compute statistics, and recommend chart types with pre-built specs. Use when user provides raw data or a table.`
+];
+
 // ============ Tool List Builder ============
 
 /**
@@ -174,17 +196,9 @@ export async function buildAiTools(
   tools: ToolSet;
   toolList: string[];
 }> {
-  // 1. Always inject built-in tools (no MCP dependency)
-  const builtinToolsRaw = {
-    ...createWebSearchTool(),
-    ...createWebReaderTool(),
-    ...createDataAnalyzerTool()
-  };
-  const toolList: string[] = [
-    `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`,
-    `${BUILTIN_WEB_READER_KEY}: Read and extract the main content from a web page URL. Returns the page title and clean markdown content.`,
-    `${BUILTIN_DATA_ANALYZER_KEY}: Analyze CSV or JSON tabular data — detect column types, compute statistics, and recommend chart types with pre-built specs. Use when user provides raw data or a table.`
-  ];
+  // 1. Always inject built-in tools (cached singleton — no re-creation per message)
+  const builtinToolsRaw = getBuiltinToolsRaw();
+  const toolList: string[] = [...BUILTIN_TOOL_LIST];
 
   // Wrap built-in tool execute with state tracking and progress emission
   const tools: ToolSet = {};

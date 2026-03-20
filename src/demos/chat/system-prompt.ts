@@ -65,11 +65,41 @@ export function buildSystemPromptWithKeywords(
     chartTypes: sortVegaLiteChartTypes(filteredVegaLiteKb.chartTypes, keywords.vegaLite),
   } : null;
 
+  // P1 optimization: limit to at most 2 engine knowledge sections.
+  // Only include engines that matched keywords; if none matched specifically,
+  // include ADC (default) + mermaid (most common structural).
+  const matched: Array<{ key: string; hasKeywords: boolean }> = [
+    { key: "adc", hasKeywords: keywords.adc.length > 0 },
+    { key: "echarts", hasKeywords: keywords.echarts.length > 0 },
+    { key: "mermaid", hasKeywords: keywords.mermaid.length > 0 },
+    { key: "vegaLite", hasKeywords: keywords.vegaLite.length > 0 },
+  ];
+  const keywordMatched = matched.filter(m => m.hasKeywords);
+
+  let selectedAdc = filteredAdc;
+  let selectedEcharts = filteredEcharts;
+  let selectedMermaid = filteredMermaid;
+  let selectedVegaLite = filteredVegaLite;
+
+  if (keywordMatched.length > 0) {
+    // Only include engines with keyword matches (max 2)
+    const selectedKeys = new Set(keywordMatched.slice(0, 2).map(m => m.key));
+    if (!selectedKeys.has("adc")) selectedAdc = null;
+    if (!selectedKeys.has("echarts")) selectedEcharts = null;
+    if (!selectedKeys.has("mermaid")) selectedMermaid = null;
+    if (!selectedKeys.has("vegaLite")) selectedVegaLite = null;
+  } else {
+    // No specific keyword match — include ADC (default data charts) only
+    selectedEcharts = null;
+    selectedVegaLite = null;
+    selectedMermaid = null;
+  }
+
   return buildPromptFromKnowledge(toolList, {
-    adc: filteredAdc,
-    mermaid: filteredMermaid,
-    echarts: filteredEcharts,
-    vegaLite: filteredVegaLite,
+    adc: selectedAdc,
+    mermaid: selectedMermaid,
+    echarts: selectedEcharts,
+    vegaLite: selectedVegaLite,
   });
 }
 

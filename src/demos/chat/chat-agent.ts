@@ -66,6 +66,7 @@ import {
   rejectToolCallState,
   // Model execution
   requestModelText,
+  streamModelTextToWriter,
   // Tool runtime
   isRetryableMcpConnectionError,
   buildAiTools,
@@ -481,17 +482,18 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
         writer.write({ type: "text-start", id: textId });
         try {
-          const finalResponse = await this.generateAssistantResponse(
+          const finalResponse = await this.streamAssistantResponse(
             latestUserText,
-            true,
+            writer,
+            textId,
             options?.abortSignal,
             emitProgress,
             requestTraceId
           );
-          const safeFinalResponse = finalResponse.trim()
-            ? finalResponse
-            : "抱歉，这次没有生成有效回复，请重试。";
-          writer.write({ type: "text-delta", id: textId, delta: safeFinalResponse });
+          const safeFinalResponse = finalResponse.trim();
+          if (!safeFinalResponse) {
+            writer.write({ type: "text-delta", id: textId, delta: "抱歉，这次没有生成有效回复，请重试。" });
+          }
           writer.write({ type: "text-end", id: textId });
           emitProgress({
             phase: "result",
@@ -530,13 +532,15 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     return createUIMessageStreamResponse({ stream });
   }
 
-  private async generateAssistantResponse(
+  /**
+   * Prepare context shared by both streaming and non-streaming generation paths.
+   */
+  private async prepareGenerationContext(
     message: string,
     userAlreadyInHistory: boolean,
-    abortSignal?: AbortSignal,
     emitProgress?: ProgressEmitter,
     requestTraceId?: string
-  ): Promise<string> {
+  ) {
     emitProgress?.({
       phase: "context",
       status: "start",
@@ -597,85 +601,56 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       status: "start",
       message: "Model is generating the response."
     });
+
     const temperature = getModelTemperature(this.env);
-    let finalResponse = await this.requestModelTextInternal({
-      model: glm(getModelId(this.env)),
-      system: systemPrompt,
-      messages,
-      tools,
-      temperature,
-      abortSignal,
-      emitProgress
-    });
+    const modelInstance = glm(getModelId(this.env));
 
-    if (finalResponse.trim().length === 0) {
-      // Diagnose why the response was empty to build a better fallback prompt
-      const hasToolResults = messages.some(
-        m => m.role === "tool" ||
-        (m.role === "assistant" && Array.isArray(m.content) &&
-         m.content.some(c => typeof c === "object" && c !== null && "type" in c && c.type === "tool-call"))
-      );
+    return { tools, systemPrompt, messages, candidateMessages, temperature, modelInstance, glm };
+  }
 
-      let fallbackAddendum: string;
-      if (hasToolResults) {
-        // Extract a summary of tool results to include in the fallback prompt
-        const toolSummaries: string[] = [];
-        for (const m of messages) {
-          if (m.role === "tool" && Array.isArray(m.content)) {
-            for (const part of m.content) {
-              if (typeof part === "object" && part !== null && "text" in part && typeof part.text === "string") {
-                toolSummaries.push(part.text.slice(0, 500));
-              }
-            }
-          }
-        }
-        const toolSummaryText = toolSummaries.length > 0
-          ? `\n\nHere is a summary of the tool results:\n${toolSummaries.slice(0, 3).join("\n---\n").slice(0, 2000)}`
-          : "";
-        fallbackAddendum = `\n\nIMPORTANT: Tool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls. The user asked: "${message.slice(0, 500)}"${toolSummaryText}`;
-      } else {
-        fallbackAddendum = `\n\nIMPORTANT: Your previous attempt produced no output. Please respond directly to the user's question with a complete answer. If you are uncertain, say so rather than remaining silent. The user asked: "${message.slice(0, 500)}"`;
-      }
+  /**
+   * Stream assistant response with real-time text deltas piped to the UI writer.
+   * Used by onChatMessage for true end-to-end streaming.
+   */
+  private async streamAssistantResponse(
+    message: string,
+    writer: UIMessageStreamWriter,
+    textId: string,
+    abortSignal?: AbortSignal,
+    emitProgress?: ProgressEmitter,
+    requestTraceId?: string
+  ): Promise<string> {
+    const ctx = await this.prepareGenerationContext(message, true, emitProgress, requestTraceId);
 
-      emitProgress?.({
-        phase: "model",
-        status: "info",
-        message: "Primary model response was empty. Retrying without tools."
-      });
-      this.appendRuntimeEvent({
-        level: "info",
-        source: "chat",
-        type: "generate_empty_retry",
-        message: `Primary model response was empty; fallback retry started (hasToolResults=${hasToolResults}).`
-      });
-
-      // Use more aggressive message pruning for fallback
-      const fallbackMessages = pruneMessages({
-        messages: candidateMessages,
-        toolCalls: "before-last-message",
-        reasoning: "before-last-message"
-      });
-
-      finalResponse = await this.requestModelTextInternal({
-        model: glm(getModelId(this.env)),
-        system: `${systemPrompt}${fallbackAddendum}`,
-        messages: fallbackMessages,
-        tools: {},
-        temperature: Math.max(0.2, temperature - 0.2),
+    // Stream text deltas directly to the UI writer
+    let finalResponse = await streamModelTextToWriter(
+      {
+        model: ctx.modelInstance,
+        system: ctx.systemPrompt,
+        messages: ctx.messages,
+        tools: ctx.tools,
+        temperature: ctx.temperature,
         abortSignal,
-        emitProgress
-      });
+        emitProgress,
+        maxOutputTokens: getMaxOutputTokens(this.env),
+        maxToolSteps: getMaxToolSteps(this.env),
+        thinkingType: getThinkingType(this.env),
+        streamEnabled: true
+      },
+      (delta) => writer.write({ type: "text-delta", id: textId, delta })
+    );
 
-      if (finalResponse.trim().length === 0) {
-        finalResponse = "工具调用后模型未生成有效回复，请重试。 / Empty model response after tool use — please retry.";
-        this.appendRuntimeEvent({
-          level: "error",
-          source: "chat",
-          type: "generate_empty_fallback",
-          message: "Model returned empty response after fallback retry."
-        });
+    // If streaming produced empty text, fall back to non-streaming retry
+    if (finalResponse.trim().length === 0) {
+      finalResponse = await this.retryEmptyResponse(
+        message, ctx, abortSignal, emitProgress
+      );
+      // Write fallback response as a single delta (it wasn't streamed)
+      if (finalResponse.trim().length > 0) {
+        writer.write({ type: "text-delta", id: textId, delta: finalResponse });
       }
     }
+
     emitProgress?.({
       phase: "thinking",
       status: "info",
@@ -688,6 +663,128 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       type: "generate_success",
       message: "Assistant response generation completed."
     });
+    return finalResponse;
+  }
+
+  /**
+   * Generate assistant response (non-streaming, returns full string).
+   * Used by @callable chat() and regenerateFrom().
+   */
+  private async generateAssistantResponse(
+    message: string,
+    userAlreadyInHistory: boolean,
+    abortSignal?: AbortSignal,
+    emitProgress?: ProgressEmitter,
+    requestTraceId?: string
+  ): Promise<string> {
+    const ctx = await this.prepareGenerationContext(
+      message, userAlreadyInHistory, emitProgress, requestTraceId
+    );
+
+    let finalResponse = await this.requestModelTextInternal({
+      model: ctx.modelInstance,
+      system: ctx.systemPrompt,
+      messages: ctx.messages,
+      tools: ctx.tools,
+      temperature: ctx.temperature,
+      abortSignal,
+      emitProgress
+    });
+
+    if (finalResponse.trim().length === 0) {
+      finalResponse = await this.retryEmptyResponse(
+        message, ctx, abortSignal, emitProgress
+      );
+    }
+
+    emitProgress?.({
+      phase: "thinking",
+      status: "info",
+      message: "Response generation completed.",
+      snippet: finalResponse.slice(0, 320)
+    });
+    this.appendRuntimeEvent({
+      level: "success",
+      source: "chat",
+      type: "generate_success",
+      message: "Assistant response generation completed."
+    });
+    return finalResponse;
+  }
+
+  /**
+   * Retry when model returns empty response — shared by both streaming and non-streaming paths.
+   */
+  private async retryEmptyResponse(
+    message: string,
+    ctx: Awaited<ReturnType<typeof ChatAgentV2.prototype.prepareGenerationContext>>,
+    abortSignal?: AbortSignal,
+    emitProgress?: ProgressEmitter
+  ): Promise<string> {
+    const hasToolResults = ctx.messages.some(
+      m => m.role === "tool" ||
+      (m.role === "assistant" && Array.isArray(m.content) &&
+       m.content.some(c => typeof c === "object" && c !== null && "type" in c && c.type === "tool-call"))
+    );
+
+    let fallbackAddendum: string;
+    if (hasToolResults) {
+      const toolSummaries: string[] = [];
+      for (const m of ctx.messages) {
+        if (m.role === "tool" && Array.isArray(m.content)) {
+          for (const part of m.content) {
+            if (typeof part === "object" && part !== null && "text" in part && typeof part.text === "string") {
+              toolSummaries.push(part.text.slice(0, 500));
+            }
+          }
+        }
+      }
+      const toolSummaryText = toolSummaries.length > 0
+        ? `\n\nHere is a summary of the tool results:\n${toolSummaries.slice(0, 3).join("\n---\n").slice(0, 2000)}`
+        : "";
+      fallbackAddendum = `\n\nIMPORTANT: Tool calls have already been executed and their results appear in the conversation. You MUST synthesize the tool output into a direct, complete answer for the user. Do not attempt any further tool calls. The user asked: "${message.slice(0, 500)}"${toolSummaryText}`;
+    } else {
+      fallbackAddendum = `\n\nIMPORTANT: Your previous attempt produced no output. Please respond directly to the user's question with a complete answer. If you are uncertain, say so rather than remaining silent. The user asked: "${message.slice(0, 500)}"`;
+    }
+
+    emitProgress?.({
+      phase: "model",
+      status: "info",
+      message: "Primary model response was empty. Retrying without tools."
+    });
+    this.appendRuntimeEvent({
+      level: "info",
+      source: "chat",
+      type: "generate_empty_retry",
+      message: `Primary model response was empty; fallback retry started (hasToolResults=${hasToolResults}).`
+    });
+
+    const fallbackMessages = pruneMessages({
+      messages: ctx.candidateMessages,
+      toolCalls: "before-last-message",
+      reasoning: "before-last-message"
+    });
+
+    let finalResponse = await this.requestModelTextInternal({
+      model: ctx.modelInstance,
+      system: `${ctx.systemPrompt}${fallbackAddendum}`,
+      messages: fallbackMessages,
+      tools: {},
+      temperature: Math.max(0.2, ctx.temperature - 0.2),
+      abortSignal,
+      emitProgress
+    });
+
+    if (finalResponse.trim().length === 0) {
+      finalResponse = "工具调用后模型未生成有效回复，请重试。 / Empty model response after tool use — please retry.";
+      this.appendRuntimeEvent({
+        level: "error",
+        source: "chat",
+        type: "generate_empty_fallback",
+        message: "Model returned empty response after fallback retry."
+      });
+    }
+
     return finalResponse;
   }
 

@@ -62,7 +62,7 @@
     "HOST": "chatwithme2mcp.lintao-mailbox.workers.dev",
     "CHAT_ENABLE_THINKING": "false",
     "CHAT_MODEL_THINKING": "disabled",
-    "CHAT_MODEL_STREAM": "false",
+    "CHAT_MODEL_STREAM": "true",
     "CHAT_MODEL_ID": "GLM-4.7",
     "CHAT_MODEL_MAX_TOKENS": "65536",
     "CHAT_TOOL_TIMEOUT_MS": "25000",
