@@ -390,6 +390,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       }));
     })();
 
+    // Assign before awaiting so any concurrent caller joins this promise
     this.mcpInitPromise = initPromise;
 
     try {

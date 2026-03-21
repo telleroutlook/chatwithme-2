@@ -178,6 +178,10 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
       let seenEventIds = new Set<string>();
       let lastStateVersion = -1;
       const deadline = Date.now() + maxSeconds * 1000;
+      // Bound the seen-IDs set to the last 500 entries to prevent unbounded growth
+      // in long-running streams. AgentRuntimeEvent ring buffer holds MAX_RUNTIME_EVENTS=120
+      // events, so 500 is well above any realistic burst.
+      const MAX_SEEN_IDS = 500;
 
       await write(sseEvent("open", { agentName, intervalMs, maxSeconds, ts: new Date().toISOString() }));
 
@@ -245,6 +249,11 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
             if (!seenEventIds.has(event.id)) {
               seenEventIds.add(event.id);
               await write(sseEvent("runtime_event", event));
+              // Evict oldest entries when the set exceeds the bound
+              if (seenEventIds.size > MAX_SEEN_IDS) {
+                const oldest = seenEventIds.values().next().value;
+                if (oldest !== undefined) seenEventIds.delete(oldest);
+              }
             }
           }
 

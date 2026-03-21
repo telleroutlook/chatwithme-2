@@ -16,11 +16,11 @@ const LazyCodeBlock = lazy(() =>
 function CodeBlockSkeleton() {
   return (
     <div className="p-4 space-y-2">
-      {[...Array(3)].map((_, i) => (
+      {(["85%", "70%", "60%"] as const).map((w, i) => (
         <div
           key={i}
           className="h-4 bg-muted/50 rounded animate-pulse"
-          style={{ width: `${60 + Math.random() * 30}%` }}
+          style={{ width: w }}
         />
       ))}
     </div>

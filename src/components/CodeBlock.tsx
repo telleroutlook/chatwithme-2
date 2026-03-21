@@ -52,6 +52,9 @@ function useIsDarkMode(): boolean {
   return isDark;
 }
 
+// Stable skeleton widths — avoids non-deterministic re-renders from Math.random()
+const SKELETON_WIDTHS = ["90%", "75%", "85%", "65%", "80%"] as const;
+
 // Loading skeleton for code block
 function CodeSkeleton({ lines = 5 }: { lines?: number }) {
   return (
@@ -60,7 +63,7 @@ function CodeSkeleton({ lines = 5 }: { lines?: number }) {
         <div
           key={i}
           className="h-4 bg-muted/50 rounded animate-pulse"
-          style={{ width: `${Math.random() * 40 + 60}%` }}
+          style={{ width: SKELETON_WIDTHS[i % SKELETON_WIDTHS.length] }}
         />
       ))}
     </div>

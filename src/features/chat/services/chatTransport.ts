@@ -344,7 +344,7 @@ export function createChatTransport({
           return candidate.success === true;
         },
         async () => {
-          const response = await callApi<{ stateVersion: number }>("/api/runtime/approvals/decision", {
+          const response = await callApi<{ stateVersion: number; success: boolean }>("/api/runtime/approvals/decision", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({

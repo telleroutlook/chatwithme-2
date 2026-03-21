@@ -108,7 +108,7 @@ export function queueApproval(
     ...state,
     runtime: {
       ...state.runtime,
-      approvals: [...state.runtime.approvals, nextApproval].slice(-120)
+      approvals: [...state.runtime.approvals, nextApproval].slice(-MAX_APPROVALS)
     }
   };
   return { approval: nextApproval, nextState };

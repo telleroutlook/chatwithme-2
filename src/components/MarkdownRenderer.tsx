@@ -54,11 +54,11 @@ function CodeBlockSkeleton() {
         <div className="h-5 w-14 bg-muted rounded animate-pulse" />
       </div>
       <div className="p-4 space-y-2 bg-surface-secondary">
-        {[...Array(3)].map((_, i) => (
+        {(["85%", "70%", "60%"] as const).map((w, i) => (
           <div
             key={i}
             className="h-4 bg-muted/50 rounded animate-pulse"
-            style={{ width: `${60 + Math.random() * 30}%` }}
+            style={{ width: w }}
           />
         ))}
       </div>
