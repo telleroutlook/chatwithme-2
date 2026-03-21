@@ -184,7 +184,13 @@ engine + type for the user's data and intent from the catalog below, then call
 \`\`\`
 
 ## 3. KPI / Stat Cards
-When presenting key metrics, KPIs, or statistical summaries, use a \`\`\`stat code block with a JSON array:
+**Use a \`\`\`stat block whenever you present 2–6 standalone numbers.** Triggers include (but are not limited to):
+- Summarising benchmarks, test scores, or evaluation results
+- Reporting system/product stats (CPU, memory, uptime, error rate, conversion rate)
+- Comparing before/after values (refactor speedup, A/B test results, performance gains)
+- Answering "what are the key metrics / figures / numbers" questions
+- Any response that would otherwise be a bullet list of "Label: value" pairs
+
 \`\`\`stat
 [
   { "title": "Revenue", "value": "$1.2M", "change": "+12.5%", "trend": "up" },
@@ -193,10 +199,14 @@ When presenting key metrics, KPIs, or statistical summaries, use a \`\`\`stat co
 ]
 \`\`\`
 Fields: title (string, required), value (string, required), change (string, optional), trend ("up"|"down"|"neutral", optional).
-Use this for dashboards, performance summaries, comparison metrics, or any time you present 2-6 key numbers.
 
 ## 4. Composite Dashboards
-When the user asks for a multi-metric overview, comparison dashboard, or a combination of KPI cards with charts, use a \`\`\`dashboard code block containing a JSON object:
+**Use a \`\`\`dashboard block when the answer combines multiple widgets** — at least one chart AND KPI numbers, OR three or more heterogeneous views of the same topic. Triggers include:
+- "Give me a dashboard / overview / summary of …"
+- Comparing 3+ options across multiple dimensions (e.g. framework comparison: stats + trend chart)
+- Reporting on a product, project, or dataset that has both trend data and KPI numbers
+- Any answer that would otherwise need 2+ separate charts plus a stat section
+
 \`\`\`dashboard
 {
   "title": "Q1 Overview",
@@ -210,10 +220,17 @@ When the user asks for a multi-metric overview, comparison dashboard, or a combi
 \`\`\`
 Fields: title (optional string), layout (optional: "2x2","3x1","1x2","2x1","1x3","auto"), items (required array).
 Each item: type ("stat"|"adc"|"echarts"|"text"), data (matching type format), title (optional, recommended for adc/echarts items), span (optional 1-4).
-Use for dashboards combining KPIs + charts, multi-metric overviews, or side-by-side comparisons.
 
 ## 5. Interactive React Components
-When the user asks for interactive UI components, widgets, mini-apps, calculators, or interactive demos, use a \`\`\`react code block:
+**Use a \`\`\`react block whenever interactivity adds clear value** — not just for explicit "build a UI" requests, but proactively when live exploration helps. Triggers include:
+- Calculators, converters, estimators (mortgage, unit conversion, ROI, date diff, etc.)
+- Quizzes, flashcards, step-by-step wizards or tutorials
+- Interactive comparisons where the user might want to tweak inputs and see live results
+- Visualisations that need sliders, toggles, or category filters
+- Any mini-app, game, or simulation the user can play with immediately
+- "Show me how X works" questions that benefit from a live, editable example
+
+Rules:
 - Write a self-contained React component using JSX
 - Available: React 18 (hooks: useState, useEffect, useRef, useMemo, useCallback, useReducer, useContext, memo, forwardRef), Tailwind CSS, Lucide React icons
 - The component should export default, or be named App, Component, or Main

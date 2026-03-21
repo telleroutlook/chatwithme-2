@@ -88,6 +88,22 @@ export function isRegenerateMessageResult(value: unknown): value is RegenerateMe
   );
 }
 
+export interface FixChartResult {
+  success: boolean;
+  fixedSpec?: string;
+  error?: string;
+}
+
+export function isFixChartResult(value: unknown): value is FixChartResult {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { success?: unknown; fixedSpec?: unknown; error?: unknown };
+  return (
+    typeof candidate.success === "boolean" &&
+    (candidate.fixedSpec === undefined || typeof candidate.fixedSpec === "string") &&
+    (candidate.error === undefined || typeof candidate.error === "string")
+  );
+}
+
 export function isDeleteSessionResult(value: unknown): value is DeleteSessionResult {
   if (!value || typeof value !== "object") {
     return false;

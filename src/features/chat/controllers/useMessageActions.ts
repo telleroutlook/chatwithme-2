@@ -4,7 +4,8 @@ import type { UIMessage } from "ai";
 import {
   isDeleteMessageResult,
   isEditMessageResult,
-  isRegenerateMessageResult
+  isRegenerateMessageResult,
+  isFixChartResult
 } from "../services/apiContracts";
 import {
   loadSessions,
@@ -17,6 +18,13 @@ import type { UiMessageKey } from "../../../i18n/ui";
 import type { TranslateParams } from "../../../hooks/useI18n";
 import type { LiveProgressEntry } from "../services/progress";
 
+export interface ChartFixContext {
+  engine: string;
+  chartType: string;
+  brokenSpec: string;
+  errorMessage?: string;
+}
+
 interface UseMessageActionsParams {
   userId: string;
   currentSessionId: string;
@@ -25,6 +33,7 @@ interface UseMessageActionsParams {
     deleteMessage: (messageId: string) => Promise<unknown>;
     editMessage: (messageId: string, content: string) => Promise<unknown>;
     regenerateMessage: (messageId: string) => Promise<unknown>;
+    fixChart: (messageId: string, engine: string, chartType: string, brokenSpec: string, errorMessage?: string) => Promise<unknown>;
     getHistory: () => Promise<Array<{ id?: string; role?: string; content?: string }>>;
   };
   chatMessages: UIMessage[];
@@ -42,6 +51,7 @@ export interface UseMessageActionsResult {
   handleDeleteMessage: (messageId: UIMessage["id"]) => Promise<void>;
   handleEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   handleRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
+  handleFixChart: (messageId: UIMessage["id"], ctx: ChartFixContext) => Promise<void>;
 }
 
 export function useMessageActions(
@@ -255,9 +265,59 @@ export function useMessageActions(
     ]
   );
 
+  const handleFixChart = useCallback(
+    async (messageId: UIMessage["id"], ctx: ChartFixContext) => {
+      if (!permissions.canEdit) {
+        addToast(t("readonly_action_blocked"), "info");
+        return;
+      }
+      trackChatEvent("chart_fix_attempt", { engine: ctx.engine, chartType: ctx.chartType });
+      try {
+        const result = await chatTransport.fixChart(
+          String(messageId),
+          ctx.engine,
+          ctx.chartType,
+          ctx.brokenSpec,
+          ctx.errorMessage
+        );
+        if (!isFixChartResult(result)) {
+          throw new Error("Invalid fixChart response");
+        }
+        if (!result.success || !result.fixedSpec) {
+          throw new Error(result.error || "Fix chart failed");
+        }
+        // Replace the broken spec inside the message text and update local state
+        setChatMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.id !== messageId || !Array.isArray(msg.parts)) return msg;
+            const nextParts = msg.parts.map((part) => {
+              if (part.type !== "text") return part;
+              const fencedFixed = "```" + ctx.engine + "\n" + result.fixedSpec + "\n```";
+              const escapedSpec = ctx.brokenSpec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const pattern = new RegExp("```" + ctx.engine + "\\s*\\n" + escapedSpec + "\\n?```", "s");
+              const replaced = (part.text as string).replace(pattern, fencedFixed);
+              const newText = replaced !== part.text ? replaced : `${part.text}\n\n${fencedFixed}`;
+              return { ...part, text: newText };
+            });
+            return { ...msg, parts: nextParts };
+          })
+        );
+        addToast("图表已修复", "success");
+      } catch (error) {
+        console.error("Failed to fix chart:", error);
+        addToast(
+          `图表修复失败：${error instanceof Error ? error.message : "未知错误"}`,
+          "error"
+        );
+      }
+    },
+    [addToast, chatTransport, permissions.canEdit, setChatMessages, t]
+  );
+
   return {
     handleDeleteMessage,
     handleEditMessage,
-    handleRegenerateMessage
+    handleRegenerateMessage,
+    handleFixChart
   };
 }

@@ -5,6 +5,7 @@ import type { UIMessage } from "ai";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { MessageSkeletonList } from "../skeletons";
 import { cn } from "../ui/utils";
+import type { ChartFixContext } from "../MarkdownRenderer";
 
 interface ChatMessageListProps {
   messages: UIMessage[];
@@ -21,6 +22,7 @@ interface ChatMessageListProps {
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
+  onFixChart?: (messageId: UIMessage["id"], ctx: ChartFixContext) => void;
   getMessageText: (message: UIMessage) => string;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
   /** Callback when the scroller element is ready */
@@ -29,15 +31,6 @@ interface ChatMessageListProps {
   bottomInset?: number;
 }
 
-/**
- * Virtualized message list using react-virtuoso
- *
- * Key features:
- * - Only renders visible messages (supports 1000+ messages)
- * - Auto-scrolls to bottom during streaming
- * - Smooth follow output behavior
- * - Keyboard-aware with bottom inset support
- */
 function ChatMessageListInner({
   messages,
   isStreaming,
@@ -49,6 +42,7 @@ function ChatMessageListInner({
   onDeleteMessage,
   onEditMessage,
   onRegenerateMessage,
+  onFixChart,
   getMessageText,
   t,
   onScrollerReady,
@@ -72,6 +66,7 @@ function ChatMessageListInner({
           onDelete={onDeleteMessage}
           onEdit={onEditMessage}
           onRegenerate={onRegenerateMessage}
+          onFixChart={onFixChart}
           getMessageText={getMessageText}
           t={t}
         />
@@ -86,6 +81,7 @@ function ChatMessageListInner({
       onDeleteMessage,
       onEditMessage,
       onRegenerateMessage,
+      onFixChart,
       getMessageText,
       t,
     ]

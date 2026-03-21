@@ -19,7 +19,8 @@ export type ChatEventName =
   | "chart_parse_success"
   | "chart_parse_failure"
   | "chart_render_success"
-  | "chart_render_failure";
+  | "chart_render_failure"
+  | "chart_fix_attempt";
 
 export function trackChatEvent(name: ChatEventName, payload: Record<string, unknown> = {}): void {
   trackChatBusEvent(name, payload);

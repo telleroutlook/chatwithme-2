@@ -23,7 +23,7 @@ type Engine = (typeof VALID_ENGINES)[number];
  */
 let cachedLookup: Map<string, Record<string, unknown>> | null = null;
 
-function buildLookup(): Map<string, Record<string, unknown>> {
+export function buildLookup(): Map<string, Record<string, unknown>> {
   if (cachedLookup) return cachedLookup;
 
   const kb = getChartKnowledge();

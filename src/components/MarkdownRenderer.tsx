@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, lazy, Suspense, type ReactNode, Children, isValidElement } from "react";
+import { memo, useMemo, useState, lazy, Suspense, type ReactNode, Children, isValidElement, useContext, createContext } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -38,6 +38,19 @@ import { sanitizeMermaidCode, validateMermaidCode } from "../utils/mermaidValida
 import { InteractiveTable } from "./InteractiveTable";
 import { isChartLanguage, detectChartTypeFromPartial, isJsonComplete } from "../utils/streamingChartDetector";
 import { ChartTypeSkeleton } from "./skeletons";
+
+export interface ChartFixContext {
+  engine: string;
+  chartType: string;
+  brokenSpec: string;
+  errorMessage?: string;
+}
+
+const ChartFixCallbackContext = createContext<((ctx: ChartFixContext) => void) | null>(null);
+
+function useChartFix() {
+  return useContext(ChartFixCallbackContext);
+}
 
 // Lazy load CodeBlock to avoid loading Shiki highlighter on initial page load
 // This reduces the initial bundle by ~800KB (vendor-highlight chunk)
@@ -88,16 +101,36 @@ interface MarkdownRendererProps {
   enableFootnotes?: boolean;
   streamCursor?: boolean;
   citations?: CitationCardItem[];
+  onFixChart?: (ctx: ChartFixContext) => void;
 }
 
 interface MarkdownPreviewRendererProps {
   code: string;
 }
 
-function InvalidChartSpec({ message, code }: { message: string; code: string }) {
+function InvalidChartSpec({ message, code, engine, chartType }: {
+  message: string;
+  code: string;
+  engine?: string;
+  chartType?: string;
+}) {
+  const onFix = useChartFix();
+  const canFix = Boolean(onFix && engine && chartType && code.trim());
+
   return (
     <div className="my-2 rounded-lg border app-border-danger-soft app-bg-danger-soft p-3 text-xs">
-      <span className="app-text-danger">{message}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="app-text-danger">{message}</span>
+        {canFix && (
+          <button
+            type="button"
+            className="shrink-0 inline-flex items-center justify-center rounded-lg border border-border bg-surface-elevated px-2 h-6 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            onClick={() => onFix!({ engine: engine!, chartType: chartType!, brokenSpec: code, errorMessage: message })}
+          >
+            修复图表
+          </button>
+        )}
+      </div>
       <details className="mt-2">
         <summary className="cursor-pointer text-foreground-muted">View original spec</summary>
         <pre className="mt-2 max-h-52 overflow-auto rounded bg-muted p-2 font-mono text-[11px] text-foreground">
@@ -350,6 +383,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   enableFootnotes = true,
   streamCursor = true,
   citations = [],
+  onFixChart
 }: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
     let normalized = (
@@ -370,6 +404,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   }, [content, enableAlerts, enableFootnotes]);
 
   return (
+    <ChartFixCallbackContext.Provider value={onFixChart ?? null}>
     <div className="markdown-content max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
@@ -487,12 +522,13 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
             // Ant Design Charts - lazy loaded
             if (language === "adc" || language === "ant-design-charts" || language === "antd-charts") {
               const result = parseAdcSpecFromCode(codeString);
+              const adcChartType = (result.ok && result.spec?.type) ? String(result.spec.type) : "chart";
 
               if (result.ok && result.spec) {
                 return (
                   <ErrorBoundary
                     level="chart"
-                    fallback={<InvalidChartSpec message="Invalid ADC spec" code={codeString} />}
+                    fallback={<InvalidChartSpec message="Invalid ADC spec" code={codeString} engine="adc" chartType={adcChartType} />}
                     onError={(error) =>
                       trackChatEvent("chart_render_failure", { engine: "adc", errorCode: error.message })
                     }
@@ -509,18 +545,21 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                     : result.error === "ADC_PARSE_EMPTY"
                     ? "Empty ADC spec"
                       : "Invalid ADC JSON";
-              return <InvalidChartSpec message={errorMessage} code={codeString} />;
+              return <InvalidChartSpec message={errorMessage} code={codeString} engine="adc" chartType={adcChartType} />;
             }
 
             // ECharts - lazy loaded
             if (language === "echarts" || language === "echart") {
               const ecResult = parseEChartsSpecFromCode(codeString);
+              const ecSpecAny = ecResult.ok ? (ecResult.spec as Record<string, unknown>) : null;
+              const ecSeriesArr = Array.isArray(ecSpecAny?.series) ? ecSpecAny.series as Array<Record<string, unknown>> : [];
+              const ecChartType = typeof ecSeriesArr[0]?.type === "string" ? ecSeriesArr[0].type : "chart";
 
               if (ecResult.ok) {
                 return (
                   <ErrorBoundary
                     level="chart"
-                    fallback={<InvalidChartSpec message="Invalid ECharts spec" code={codeString} />}
+                    fallback={<InvalidChartSpec message="Invalid ECharts spec" code={codeString} engine="echarts" chartType={ecChartType} />}
                     onError={(error) =>
                       trackChatEvent("chart_render_failure", { engine: "echarts", errorCode: error.message })
                     }
@@ -529,7 +568,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                   </ErrorBoundary>
                 );
               }
-              return <InvalidChartSpec message={ecResult.error} code={codeString} />;
+              return <InvalidChartSpec message={ecResult.error} code={codeString} engine="echarts" chartType="chart" />;
             }
 
             // Vega-Lite - lazy loaded
@@ -540,7 +579,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                 return (
                   <ErrorBoundary
                     level="chart"
-                    fallback={<InvalidChartSpec message="Invalid Vega-Lite spec" code={codeString} />}
+                    fallback={<InvalidChartSpec message="Invalid Vega-Lite spec" code={codeString} engine="vega-lite" chartType="chart" />}
                     onError={(error) =>
                       trackChatEvent("chart_render_failure", { engine: "vega-lite", errorCode: error.message })
                     }
@@ -549,7 +588,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                   </ErrorBoundary>
                 );
               }
-              return <InvalidChartSpec message={vlResult.error} code={codeString} />;
+              return <InvalidChartSpec message={vlResult.error} code={codeString} engine="vega-lite" chartType="chart" />;
             }
 
             // Stat cards (KPI metrics) - lazy loaded
@@ -559,7 +598,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                 return (
                   <ErrorBoundary
                     level="chart"
-                    fallback={<InvalidChartSpec message="Invalid stat card data" code={codeString} />}
+                    fallback={<InvalidChartSpec message="Invalid stat card data" code={codeString} engine="stat" chartType="stat" />}
                     onError={(error) =>
                       trackChatEvent("chart_render_failure", { engine: "stat", errorCode: error.message })
                     }
@@ -568,7 +607,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                   </ErrorBoundary>
                 );
               }
-              return <InvalidChartSpec message="Invalid stat card JSON" code={codeString} />;
+              return <InvalidChartSpec message="Invalid stat card JSON" code={codeString} engine="stat" chartType="stat" />;
             }
 
             // Dashboard (composite layout) - lazy loaded
@@ -578,7 +617,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                 return (
                   <ErrorBoundary
                     level="chart"
-                    fallback={<InvalidChartSpec message="Invalid dashboard spec" code={codeString} />}
+                    fallback={<InvalidChartSpec message="Invalid dashboard spec" code={codeString} engine="dashboard" chartType="dashboard" />}
                     onError={(error) =>
                       trackChatEvent("chart_render_failure", { engine: "dashboard", errorCode: error.message })
                     }
@@ -587,7 +626,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                   </ErrorBoundary>
                 );
               }
-              return <InvalidChartSpec message={dashResult.error} code={codeString} />;
+              return <InvalidChartSpec message={dashResult.error} code={codeString} engine="dashboard" chartType="dashboard" />;
             }
 
             // Excalidraw hand-drawn diagrams - lazy loaded
@@ -597,7 +636,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                 return (
                   <ErrorBoundary
                     level="chart"
-                    fallback={<InvalidChartSpec message="Invalid Excalidraw spec" code={codeString} />}
+                    fallback={<InvalidChartSpec message="Invalid Excalidraw spec" code={codeString} engine="excalidraw" chartType="excalidraw" />}
                     onError={(error) =>
                       trackChatEvent("chart_render_failure", { engine: "excalidraw", errorCode: error.message })
                     }
@@ -606,7 +645,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
                   </ErrorBoundary>
                 );
               }
-              return <InvalidChartSpec message={excalidrawResult.error} code={codeString} />;
+              return <InvalidChartSpec message={excalidrawResult.error} code={codeString} engine="excalidraw" chartType="excalidraw" />;
             }
 
             // React component sandbox - renders in a secure iframe
@@ -618,7 +657,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               return (
                 <ErrorBoundary
                   level="chart"
-                  fallback={<InvalidChartSpec message="React component render failed" code={codeString} />}
+                  fallback={<InvalidChartSpec message="React component render failed" code={codeString} engine="react" chartType="react" />}
                   onError={(error) =>
                     trackChatEvent("chart_render_failure", { engine: "react-sandbox", errorCode: error.message })
                   }
@@ -784,5 +823,6 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
       )}
       <CitationCards items={citations} />
     </div>
+    </ChartFixCallbackContext.Provider>
   );
 });

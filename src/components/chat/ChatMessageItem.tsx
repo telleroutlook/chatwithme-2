@@ -5,7 +5,7 @@ import { Dialog } from "../ui";
 import { cn } from "../ui/utils";
 import { MessageActions } from "../MessageActions";
 import { MessageSources } from "../MessageSources";
-import { MarkdownRenderer } from "../MarkdownRenderer";
+import { MarkdownRenderer, type ChartFixContext } from "../MarkdownRenderer";
 import { ToolCallCard, extractToolCalls } from "../ToolCallCard";
 import { trackChatEvent } from "../../features/chat/services/trackChatEvent";
 import { extractMessageSources } from "../../types/message-sources";
@@ -28,6 +28,7 @@ interface ChatMessageItemProps {
   onDelete: (messageId: UIMessage["id"]) => void;
   onEdit: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerate: (messageId: UIMessage["id"]) => Promise<void>;
+  onFixChart?: (messageId: UIMessage["id"], ctx: ChartFixContext) => void;
   getMessageText: (message: UIMessage) => string;
   t: (key: import("../../i18n/ui").UiMessageKey, vars?: Record<string, string>) => string;
 }
@@ -42,6 +43,7 @@ function ChatMessageItemInner({
   onDelete,
   onEdit,
   onRegenerate,
+  onFixChart,
   getMessageText,
   t
 }: ChatMessageItemProps) {
@@ -164,6 +166,7 @@ function ChatMessageItemInner({
             enableFootnotes={markdownPrefs?.enableFootnotes ?? true}
             streamCursor={markdownPrefs?.streamCursor ?? true}
             citations={citations}
+            onFixChart={onFixChart ? (ctx) => onFixChart(message.id, ctx) : undefined}
           />
         </div>
       )}
@@ -302,6 +305,7 @@ function areChatMessageItemPropsEqual(
   if (prevProps.markdownPrefs?.enableAlerts !== nextProps.markdownPrefs?.enableAlerts) return false;
   if (prevProps.markdownPrefs?.enableFootnotes !== nextProps.markdownPrefs?.enableFootnotes) return false;
   if (prevProps.markdownPrefs?.streamCursor !== nextProps.markdownPrefs?.streamCursor) return false;
+  if (prevProps.onFixChart !== nextProps.onFixChart) return false;
 
   const prevText = prevProps.getMessageText(prevProps.message);
   const nextText = nextProps.getMessageText(nextProps.message);

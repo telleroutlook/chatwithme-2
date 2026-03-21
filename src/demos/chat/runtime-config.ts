@@ -54,11 +54,19 @@ export function getModelTemperature(env: Env): number {
   return Number.isFinite(parsed) && parsed >= 0 && parsed <= 2 ? parsed : 0.5;
 }
 
-export function getMaxToolSteps(env: Env): number {
+export function getDeepResearchEnabled(env: Env): boolean {
+  return parseBooleanEnv(env.CHAT_DEEP_RESEARCH, false);
+}
+
+export function getMaxToolSteps(env: Env, stateDeepResearch?: boolean): number {
   const raw = env.CHAT_MAX_TOOL_STEPS;
-  if (!raw) return 4;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 10 ? parsed : 4;
+  if (raw) {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 20) return parsed;
+  }
+  // State (user toggle) takes priority over env var
+  const deepResearch = stateDeepResearch ?? getDeepResearchEnabled(env);
+  return deepResearch ? 8 : 4;
 }
 
 /**
