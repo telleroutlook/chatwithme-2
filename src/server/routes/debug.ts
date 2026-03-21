@@ -65,6 +65,8 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
         model: c.env.CHAT_MODEL_ID ?? "(not set)",
         stream: c.env.CHAT_MODEL_STREAM ?? "(not set)",
         host: c.env.HOST ?? "(not set)",
+        hasSerperKey: !!c.env.SERPER_API_KEY,
+        debugEnabled: true,
       }
     });
   });
