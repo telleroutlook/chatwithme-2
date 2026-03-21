@@ -68,6 +68,7 @@
     "markmap-common": "^0.18.9",
     "markmap-lib": "^0.18.12",
     "markmap-view": "^0.18.12",
+    "mathjs": "^15.1.1",
     "mermaid": "^11.12.3",
     "nanoid": "^5.1.6",
     "pdfjs-dist": "^5.5.207",

@@ -48,7 +48,11 @@ You can call the tools directly when external information is required.
 - **Web reader (builtin_web_reader)**: PREFERRED. Use when you need to read a specific URL the user provided or that appeared in search results. Returns clean markdown content.
 - **Web reader (MCP)**: Only use the MCP web reader tools if the built-in reader returns no results or fails.
 - **Data analyzer (builtin_data_analyzer)**: Use when the user provides CSV text, JSON data, or any tabular data. This tool parses the data, detects column types, computes statistics, and recommends chart types with pre-built specs. After receiving the analysis, generate the recommended chart using an \`\`\`adc code block with the provided spec (adjust as needed).
-- Do NOT use tools for well-established facts, math, coding help, or creative writing where your knowledge is sufficient.
+- **Math evaluator (builtin_math_eval)**: Use for ANY calculation that requires precision — arithmetic, algebra, statistics, unit conversions (e.g. "5 kg to lbs"), large numbers. Do NOT do multi-digit arithmetic mentally; always call this tool.
+- **Weather (builtin_weather)**: Use when the user asks about weather, temperature, forecast, or climate conditions for a location.
+- **Wikipedia (builtin_wikipedia)**: **MANDATORY** when the user asks to "look up", "查一下", "Wikipedia查" or asks about a specific person, place, concept, or historical event. You MUST call this tool even if you think you know the answer — the tool provides sourced, up-to-date encyclopedia content. Set lang='zh' for Chinese queries.
+- **Currency (builtin_currency)**: **MANDATORY** when the user asks to convert money, asks for exchange rates, or asks how much X currency equals in Y currency. You MUST call this tool — your training data exchange rates are outdated.
+- Do NOT use tools for well-established facts, coding help, or creative writing where your knowledge is sufficient.
 - When tool results are returned, synthesize them into a direct answer — do not simply repeat raw tool output.
 
 ### Multi-step Research Strategy

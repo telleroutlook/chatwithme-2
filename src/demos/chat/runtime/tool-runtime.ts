@@ -17,6 +17,10 @@ import { createWebSearchTool, BUILTIN_TOOL_KEY } from "../builtin-tools/web-sear
 import { createWebReaderTool, BUILTIN_WEB_READER_KEY } from "../builtin-tools/web-reader";
 import { createDataAnalyzerTool, BUILTIN_DATA_ANALYZER_KEY } from "../builtin-tools/data-analyzer";
 import { createChartTemplateTool, BUILTIN_CHART_TEMPLATE_KEY } from "../builtin-tools/chart-template";
+import { createMathEvalTool, BUILTIN_MATH_EVAL_KEY } from "../builtin-tools/math-eval";
+import { createWeatherTool, BUILTIN_WEATHER_KEY } from "../builtin-tools/weather";
+import { createWikipediaTool, BUILTIN_WIKIPEDIA_KEY } from "../builtin-tools/wikipedia";
+import { createCurrencyTool, BUILTIN_CURRENCY_KEY } from "../builtin-tools/currency";
 import {
   type ChatAgentState,
   type ToolRunRecord,
@@ -171,7 +175,11 @@ function getBuiltinToolsRaw(serperApiKey: string): ToolSet {
       ...createWebSearchTool(serperApiKey),
       ...createWebReaderTool(),
       ...createDataAnalyzerTool(),
-      ...createChartTemplateTool()
+      ...createChartTemplateTool(),
+      ...createMathEvalTool(),
+      ...createWeatherTool(),
+      ...createWikipediaTool(),
+      ...createCurrencyTool()
     };
   }
   return cachedBuiltinToolsRaw;
@@ -181,7 +189,11 @@ const BUILTIN_TOOL_LIST: string[] = [
   `${BUILTIN_TOOL_KEY}: Search the web. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`,
   `${BUILTIN_WEB_READER_KEY}: Read and extract the main content from a web page URL. Returns the page title and clean markdown content.`,
   `${BUILTIN_DATA_ANALYZER_KEY}: Analyze CSV or JSON tabular data — detect column types, compute statistics, and recommend chart types with pre-built specs. Use when user provides raw data or a table.`,
-  `${BUILTIN_CHART_TEMPLATE_KEY}: Get the exact format spec and example for a specific chart engine and type. Call this BEFORE generating any adc/echarts/vega-lite/mermaid code block.`
+  `${BUILTIN_CHART_TEMPLATE_KEY}: Get the exact format spec and example for a specific chart engine and type. Call this BEFORE generating any adc/echarts/vega-lite/mermaid code block.`,
+  `${BUILTIN_MATH_EVAL_KEY}: Evaluate mathematical expressions with full precision (arithmetic, algebra, unit conversions, statistics). Use instead of mental math.`,
+  `${BUILTIN_WEATHER_KEY}: Get current weather and 5-day forecast for any city worldwide. Real-time data, no API key needed.`,
+  `${BUILTIN_WIKIPEDIA_KEY}: Look up encyclopedic information from Wikipedia. Supports multiple languages (en, zh, ja, etc.).`,
+  `${BUILTIN_CURRENCY_KEY}: Convert between 166 currencies using real-time exchange rates.`
 ];
 
 // ============ Tool List Builder ============
