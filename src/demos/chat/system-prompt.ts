@@ -43,7 +43,7 @@ ${toolList.length > 0 ? toolList.map((line) => `- ${line}`).join("\n") : "No too
 You can call the tools directly when external information is required.
 
 ### When to Use Tools
-- **Web search (builtin_web_search)**: PREFERRED. Use when the user asks about current events, recent news, real-time data, or anything that may have changed after your training cutoff. Also use when you are uncertain about a factual claim — search to verify before answering.
+- **Web search (builtin_web_search)**: **MANDATORY** when the user asks about current events, news, recent developments, real-time data, or anything that may have changed after your training cutoff. You MUST call this tool — do NOT refuse by saying you cannot access the internet.
 - **Web search (MCP)**: Only use the MCP search tools if the built-in search returns no results or fails.
 - **Web reader (builtin_web_reader)**: PREFERRED. Use when you need to read a specific URL the user provided or that appeared in search results. Returns clean markdown content.
 - **Web reader (MCP)**: Only use the MCP web reader tools if the built-in reader returns no results or fails.

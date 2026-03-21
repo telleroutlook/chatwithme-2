@@ -8,6 +8,7 @@ declare namespace Cloudflare {
   interface Env {
     HOST: string;
     BIGMODEL_API_KEY: string;
+    SERPER_API_KEY: string;
     CHAT_ENABLE_THINKING?: string;
     CHAT_MODEL_THINKING?: string;
     CHAT_MODEL_STREAM?: string;

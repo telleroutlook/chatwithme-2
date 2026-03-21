@@ -160,13 +160,15 @@ export async function callMcpToolWithRetry(
 
 // ============ Cached Builtin Tools ============
 
-/** Singleton cache for builtin tool definitions (schema + raw execute). */
+/** Singleton cache: keyed by apiKey to handle env changes across DO restarts. */
+let cachedApiKey: string | null = null;
 let cachedBuiltinToolsRaw: ToolSet | null = null;
 
-function getBuiltinToolsRaw(): ToolSet {
-  if (!cachedBuiltinToolsRaw) {
+function getBuiltinToolsRaw(serperApiKey: string): ToolSet {
+  if (!cachedBuiltinToolsRaw || cachedApiKey !== serperApiKey) {
+    cachedApiKey = serperApiKey;
     cachedBuiltinToolsRaw = {
-      ...createWebSearchTool(),
+      ...createWebSearchTool(serperApiKey),
       ...createWebReaderTool(),
       ...createDataAnalyzerTool(),
       ...createChartTemplateTool()
@@ -176,7 +178,7 @@ function getBuiltinToolsRaw(): ToolSet {
 }
 
 const BUILTIN_TOOL_LIST: string[] = [
-  `${BUILTIN_TOOL_KEY}: Search the web using DuckDuckGo. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`,
+  `${BUILTIN_TOOL_KEY}: Search the web. Returns titles, URLs, and snippets. Use for current events, fact-checking, or up-to-date information.`,
   `${BUILTIN_WEB_READER_KEY}: Read and extract the main content from a web page URL. Returns the page title and clean markdown content.`,
   `${BUILTIN_DATA_ANALYZER_KEY}: Analyze CSV or JSON tabular data — detect column types, compute statistics, and recommend chart types with pre-built specs. Use when user provides raw data or a table.`,
   `${BUILTIN_CHART_TEMPLATE_KEY}: Get the exact format spec and example for a specific chart engine and type. Call this BEFORE generating any adc/echarts/vega-lite/mermaid code block.`
@@ -194,13 +196,14 @@ const BUILTIN_TOOL_LIST: string[] = [
 export async function buildAiTools(
   mcp: ToolExecutionContext["mcp"],
   context: Omit<ToolExecutionContext, "mcp">,
+  serperApiKey: string,
   emitProgress?: ProgressEmitter
 ): Promise<{
   tools: ToolSet;
   toolList: string[];
 }> {
-  // 1. Always inject built-in tools (cached singleton — no re-creation per message)
-  const builtinToolsRaw = getBuiltinToolsRaw();
+  // 1. Always inject built-in tools (cached singleton — recreated only if apiKey changes)
+  const builtinToolsRaw = getBuiltinToolsRaw(serperApiKey);
   const toolList: string[] = [...BUILTIN_TOOL_LIST];
 
   // Wrap built-in tool execute with state tracking and progress emission

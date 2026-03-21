@@ -103,18 +103,73 @@ These become top-level fields in the HTTP request body:
 
 ---
 
-## 5. DuckDuckGo search returns empty from Cloudflare Workers
+## 5. `builtin_web_search` backend history — why DDG and BigModel were dropped
 
-**Severity**: Medium — search tool returns no results
+**Severity**: High — wrong backend causes the model to falsely claim "I cannot access the internet"
 
-DuckDuckGo's HTML endpoint (`html.duckduckgo.com/html/`) frequently returns HTTP 202 (bot detection) when called from Cloudflare Workers IP ranges. This causes `builtin_web_search` to return "No search results found."
+### The full failure chain
 
-**Impact**: The model may retry searching multiple times with different queries, exhausting `maxToolSteps` without ever getting useful results. It then falls back to answering from its own knowledge.
+When the search backend returns empty or errors, the symptom is NOT a search error — it looks like the model has no internet access:
 
-**Mitigations**:
-- The search tool returns a helpful error message that tells the model to try rephrasing or answer from knowledge
-- The `retryEmptyResponse` path handles the case where all tool steps were exhausted
-- Consider adding a fallback search provider (e.g., MCP web-search-prime) that uses a different endpoint
+1. Model calls `builtin_web_search` ✓
+2. Backend returns empty / error (silently)
+3. Model retries until `maxToolSteps=4` exhausted (every step: `finish_reason=tool-calls`)
+4. `result.text = ""` → `retryEmptyResponse()` fires (see pitfall #2)
+5. Retry uses `tools: {}` + `stripToolSections()` — no tools available
+6. Model answers from training knowledge: **"我无法访问互联网"** / **"I cannot browse the internet"**
+
+**The root cause is the backend failure, not the model.**
+
+### Backend history
+
+| Backend | Status | Reason dropped |
+|---|---|---|
+| DuckDuckGo HTML (`html.duckduckgo.com/html/`) | **DROPPED** | Permanently returns HTTP 202 (bot detection) for all Cloudflare Worker datacenter IPs. No bypass exists. |
+| BigModel `web_search_prime` MCP | **DROPPED** | Requires stateful 2-step protocol (`initialize` → `tools/call`). Content filter code `1301` blocks all news queries ("今日新闻", "latest news 2026", "today news"). Systematic, not transient. |
+| **Serper.dev** (`google.serper.dev/search`) | **CURRENT** | Single `POST` with `X-API-KEY` header, Google results, no bot detection, no content filtering. 2500 free queries/month. |
+
+### Current implementation
+
+```ts
+// src/demos/chat/builtin-tools/web-search.ts
+const SERPER_URL = "https://google.serper.dev/search";
+
+export async function searchSerper(query: string, apiKey: string): Promise<SearchResult[]> {
+  const resp = await fetch(SERPER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-API-KEY": apiKey },
+    body: JSON.stringify({ q: query, num: 5 }),
+  });
+  if (!resp.ok) throw new Error(`Serper search failed: HTTP ${resp.status}`);
+  const data = await resp.json();
+  return (data.organic ?? []).slice(0, 5).map((item) => ({
+    title: item.title ?? "", url: item.link ?? "", snippet: item.snippet ?? "",
+  }));
+}
+```
+
+API key stored as Cloudflare secret: `wrangler secret put SERPER_API_KEY`
+Env binding declared in `env.d.ts` → passed to `buildAiTools(mcp, context, env.SERPER_API_KEY)`.
+
+### System prompt requirement
+
+GLM-4.7 requires **MANDATORY** instruction strength (not "PREFERRED") to reliably call tools for news queries:
+
+```
+"- **Web search (builtin_web_search)**: **MANDATORY** when the user asks about current events,
+news, recent developments, real-time data, or anything that may have changed after your training
+cutoff. You MUST call this tool — do NOT refuse by saying you cannot access the internet."
+```
+
+Using "PREFERRED" causes GLM-4.7 to skip tool calls for organic "搜索今日新闻" requests.
+
+### Replacing the backend in the future
+
+1. Update `src/demos/chat/builtin-tools/web-search.ts` with the new fetch logic
+2. Add the new API key as a Cloudflare secret (`wrangler secret put NEW_KEY`)
+3. Declare it in `env.d.ts` and pass it through `chat-agent.ts` → `buildAiTools()`
+4. Test with: ask "搜索今日新闻" — if AI uses the tool and returns actual news, it works
+5. Update this entry
 
 ---
 
@@ -134,7 +189,7 @@ Due to `zod` v3 vs v4 conflict between packages, `npm install` must always use `
 
 ---
 
-## 5. Client/Server Message ID Mismatch — regenerate/edit/delete fail
+## 8. Client/Server Message ID Mismatch — regenerate/edit/delete fail
 
 **Severity**: High — "Message not found" on retry of the first message
 
@@ -161,4 +216,5 @@ When tool calls are not working in production:
 4. **Check tool execution**: Does `execute` receive the correct `args`?
 5. **Check step count**: Is `maxToolSteps` sufficient? Are all steps `tool-calls` with no `stop`?
 6. **Check retry path**: Does `retryEmptyResponse` strip tool sections from system prompt?
-7. **Check search results**: Is DuckDuckGo returning 202 / empty from Workers?
+7. **Check search backend**: Is Serper.dev returning results? Test with `curl -X POST https://google.serper.dev/search -H "X-API-KEY: $SERPER_API_KEY" -H "Content-Type: application/json" -d '{"q":"test","num":3}'`
+8. **Check system prompt strength**: Does it say **MANDATORY** (not "PREFERRED") for tool-call triggers?
