@@ -102,7 +102,7 @@ Tool 调用 (AI 按需，仅图表请求时触发)
 **Vega-Lite (3 types)** — 仅 ADC 做不到的统计/学术场景：
 - boxplot, facet, layer
 
-**Mermaid (8 types)** — 结构/关系图：
+**Mermaid (10 types)** — 结构/关系图：
 - flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, timeline, gitGraph, quadrantChart, kanban
 
 **其他引擎 (无需模板)**：
