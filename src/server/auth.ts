@@ -128,7 +128,8 @@ export async function resolveAuthContext(request: Request, options: ResolveAuthO
 
   if (looksLikeJwt(token) && options.jwtSecret) {
     const payload = await verifyJwt(token, options.jwtSecret);
-    if (payload?.sub) {
+    // Require exp claim — tokens without expiry are rejected
+    if (payload?.sub && payload.exp) {
       return {
         userId: payload.sub,
         authMode: "authenticated",

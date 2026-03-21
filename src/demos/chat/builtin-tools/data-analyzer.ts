@@ -173,7 +173,12 @@ function detectColumnType(
   const nonEmpty = values.filter((v) => v.trim() !== "");
   if (nonEmpty.length === 0) return "text";
 
-  const numericCount = nonEmpty.filter((v) => !isNaN(Number(v))).length;
+  // Exclude empty strings (Number("") === 0, a false positive) and Infinity/"Infinity"/"NaN" strings
+  const numericCount = nonEmpty.filter((v) => {
+    if (v.trim() === "") return false;
+    const n = Number(v);
+    return !isNaN(n) && isFinite(n);
+  }).length;
   if (numericCount / nonEmpty.length > 0.8) return "numeric";
 
   const dateCount = nonEmpty.filter((v) => {

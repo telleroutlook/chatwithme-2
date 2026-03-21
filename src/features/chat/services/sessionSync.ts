@@ -38,9 +38,15 @@ export function mergeSessionsWithServer(
       continue;
     }
 
+    // Remote shows 0 messages but local has content — could be a legitimate
+    // server-side deletion or a transient sync issue. Only drop after 5
+    // consecutive mismatches (not 3) to reduce risk of losing valid sessions.
+    // Note: do NOT auto-drop sessions that were recently active (within 1 hour).
     if (remote.messageCount === 0 && (local.messageCount > 0 || local.lastMessage.trim().length > 0)) {
       const nextMismatch = (local.mismatchCount ?? 0) + 1;
-      if (nextMismatch >= 3) {
+      const recentlyActive = local.timestamp &&
+        (Date.now() - new Date(local.timestamp).getTime()) < 60 * 60 * 1000;
+      if (nextMismatch >= 5 && !recentlyActive) {
         continue;
       }
       merged.push({

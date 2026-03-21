@@ -19,19 +19,35 @@ import { errorJson, successJson, unknownErrorMessage } from "../http";
 type AppBindings = { Bindings: Env; Variables: { requestId: string } };
 
 /**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  // Always compare full length of the longer string to avoid length leakage
+  const maxLen = Math.max(aBytes.length, bBytes.length);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < maxLen; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  }
+  return diff === 0;
+}
+
+/**
  * Verify debug token from Authorization header or ?token= query param.
+ * Uses constant-time comparison to prevent timing attacks.
  */
 function verifyDebugToken(request: Request, debugToken: string): boolean {
   const url = new URL(request.url);
 
   const authHeader = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7).trim() === debugToken;
+    return timingSafeEqual(authHeader.slice(7).trim(), debugToken);
   }
 
   const tokenParam = url.searchParams.get("token");
   if (tokenParam) {
-    return tokenParam.trim() === debugToken;
+    return timingSafeEqual(tokenParam.trim(), debugToken);
   }
 
   return false;
@@ -163,7 +179,12 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
       300
     );
 
-    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>(
+      undefined,
+      // Apply backpressure: limit queued bytes to ~64KB to prevent memory exhaustion
+      // from slow clients holding long-lived SSE connections.
+      new ByteLengthQueuingStrategy({ highWaterMark: 65536 })
+    );
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
 
@@ -298,6 +319,17 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
     const userIdParam = c.req.query("userId");
     const limitParam = c.req.query("limit");
     const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 500) : 50;
+
+    // Validate userId format to prevent querying arbitrary users.
+    // Only allow known userId patterns: hex IDs (authenticated) or "user-XXXXXXXX" (guest).
+    if (userIdParam) {
+      const validUserId = /^[0-9a-f]{16}$/.test(userIdParam) ||
+        /^user-[0-9a-f]{8}$/.test(userIdParam) ||
+        /^anonymous$/.test(userIdParam);
+      if (!validUserId) {
+        return errorJson(c, 400, "INVALID_USER_ID", "Invalid userId format");
+      }
+    }
 
     try {
       let rows: { user_id: string; session_id: string; updated_at: string }[];

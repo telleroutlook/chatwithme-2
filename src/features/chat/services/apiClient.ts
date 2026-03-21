@@ -40,9 +40,19 @@ export async function callApi<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
+  // Apply a default 30s timeout to all API calls to prevent indefinitely hanging requests.
+  // Callers can override by passing their own AbortSignal via init.signal.
+  const timeoutSignal = AbortSignal.timeout(30_000);
+  const signal = init?.signal
+    ? (AbortSignal as unknown as { any: (signals: AbortSignal[]) => AbortSignal }).any
+      ? (AbortSignal as unknown as { any: (signals: AbortSignal[]) => AbortSignal }).any([init.signal, timeoutSignal])
+      : init.signal
+    : timeoutSignal;
+
   const response = await fetch(input, {
     ...init,
     headers,
+    signal,
   });
   const payload = (await response.json()) as unknown;
 

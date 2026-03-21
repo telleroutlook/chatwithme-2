@@ -135,8 +135,8 @@ export async function verifyJwt(
     const payloadStr = new TextDecoder().decode(payloadBytes);
     const payload = JSON.parse(payloadStr) as JwtPayload;
 
-    // Check expiration
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    // Check expiration — reject tokens that are missing the exp claim entirely
+    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) {
       return null;
     }
 

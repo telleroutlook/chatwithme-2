@@ -54,14 +54,15 @@ describe("mergeSessionsWithServer", () => {
     });
   });
 
-  it("auto-prunes session after repeated remote misses (3+)", () => {
-    const merged = mergeSessionsWithServer([localSession({ mismatchCount: 2 })], [], NOW);
+  it("auto-prunes session after repeated remote misses (5+)", () => {
+    const merged = mergeSessionsWithServer([localSession({ mismatchCount: 4 })], [], NOW);
     expect(merged).toHaveLength(0);
   });
 
   it("auto-prunes session when remote payload is empty after repeated misses", () => {
     const merged = mergeSessionsWithServer(
-      [localSession({ mismatchCount: 2, messageCount: 2, lastMessage: "non-empty" })],
+      // Use an old timestamp (>1h ago) so recentlyActive check does not protect it
+      [localSession({ mismatchCount: 4, messageCount: 2, lastMessage: "non-empty", timestamp: "2026-02-28T00:00:00.000Z" })],
       [remoteSession({ messageCount: 0, lastMessage: "" })],
       NOW
     );

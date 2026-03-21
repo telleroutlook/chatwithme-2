@@ -33,15 +33,30 @@ const app = new Hono<{ Bindings: Env; Variables: ServerVariables }>();
 // ============ CORS Configuration ============
 
 /**
- * Get allowed CORS origins from environment
- * - If ALLOWED_ORIGINS is set, use that (comma-separated)
- * - Otherwise, allow common local origins for development
+ * Detect whether this is a production deployment.
+ * Heuristic: presence of a non-localhost HOST env var.
+ */
+function isProduction(env: Env): boolean {
+  const host = env.HOST ?? "";
+  return host.length > 0 && !host.includes("localhost") && !host.includes("127.0.0.1");
+}
+
+/**
+ * Get allowed CORS origins from environment.
+ * - If ALLOWED_ORIGINS is set, use that (comma-separated).
+ * - In production without ALLOWED_ORIGINS, log a warning and deny all cross-origin requests.
+ * - In development (no HOST or localhost HOST), allow common local origins.
  */
 const getAllowedOrigins = (env: Env): string[] => {
   if (env.ALLOWED_ORIGINS) {
     return env.ALLOWED_ORIGINS.split(',')
       .map((o) => o.trim())
       .filter(Boolean);
+  }
+  if (isProduction(env)) {
+    // Fail-safe: deny all cross-origin requests in production when ALLOWED_ORIGINS is not set.
+    console.warn("[cors] ALLOWED_ORIGINS not set in production — all cross-origin requests will be denied. Set ALLOWED_ORIGINS to fix this.");
+    return [];
   }
   // Dev default: allow common local origins
   return [

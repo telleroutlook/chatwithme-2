@@ -31,7 +31,53 @@ interface JinaReaderResult {
  * server-side, returning LLM-friendly markdown. The target site sees
  * Jina's headless browser, not our Worker.
  */
+/**
+ * Block private/internal IP ranges to prevent SSRF attacks.
+ * Rejects loopback, link-local, private RFC-1918 ranges, and metadata endpoints.
+ */
+function assertPublicUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`Invalid URL: ${rawUrl}`);
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Reject non-http(s) schemes
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`URL scheme not allowed: ${parsed.protocol}`);
+  }
+
+  // Block loopback
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+    throw new Error("Requests to loopback addresses are not allowed");
+  }
+
+  // Block link-local (169.254.x.x) — AWS/GCP metadata endpoints
+  if (/^169\.254\./.test(hostname)) {
+    throw new Error("Requests to link-local addresses are not allowed");
+  }
+
+  // Block private RFC-1918 ranges
+  if (
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+    /^192\.168\./.test(hostname)
+  ) {
+    throw new Error("Requests to private network addresses are not allowed");
+  }
+
+  // Block common internal hostnames
+  if (hostname === "metadata.google.internal" || hostname.endsWith(".internal") || hostname.endsWith(".local")) {
+    throw new Error("Requests to internal hostnames are not allowed");
+  }
+}
+
 export async function readUrlViaJina(targetUrl: string): Promise<JinaReaderResult> {
+  assertPublicUrl(targetUrl);
+
   const jinaUrl = `${JINA_READER_BASE}${targetUrl}`;
 
   const controller = new AbortController();
@@ -137,6 +183,7 @@ export function createWebReaderTool(): ToolSet {
           return `Error: Invalid URL "${url}". URL must start with http:// or https://.`;
         }
         try {
+          // assertPublicUrl is called inside readUrlViaJina — SSRF protection
           const result = await readUrlViaJina(url);
           return formatResult(result);
         } catch (err) {

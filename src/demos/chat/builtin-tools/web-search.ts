@@ -39,20 +39,30 @@ interface SerperResponse {
  * Single HTTP POST — no session, no bot detection, no content filtering.
  */
 export async function searchSerper(query: string, apiKey: string): Promise<SearchResult[]> {
-  const resp = await fetch(SERPER_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-KEY": apiKey,
-    },
-    body: JSON.stringify({ q: query, num: MAX_RESULTS }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+
+  let resp: Response;
+  try {
+    resp = await fetch(SERPER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": apiKey,
+      },
+      body: JSON.stringify({ q: query, num: MAX_RESULTS }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!resp.ok) {
     throw new Error(`Serper search failed: HTTP ${resp.status}`);
   }
 
   const data = await resp.json() as SerperResponse;
+
   return (data.organic ?? []).slice(0, MAX_RESULTS).map((item) => ({
     title: item.title ?? "",
     url: item.link ?? "",

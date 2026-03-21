@@ -51,9 +51,20 @@ export function createMathEvalTool(): ToolSet {
         if (!expression?.trim()) {
           return "Error: No expression provided.";
         }
+        // Reject expressions that are excessively long (potential DoS)
+        if (expression.length > 2000) {
+          return "Error: Expression too long (max 2000 characters).";
+        }
         try {
           const evaluate = await getMathEvaluate();
-          const result = evaluate(expression.trim());
+          // Wrap in a timeout to prevent CPU-exhausting expressions (e.g. 2^999999)
+          const TIMEOUT_MS = 5000;
+          const result = await Promise.race([
+            Promise.resolve().then(() => evaluate(expression.trim())),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Evaluation timed out (expression too complex)")), TIMEOUT_MS)
+            ),
+          ]);
           return `${expression.trim()} = ${formatResult(result)}`;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

@@ -371,7 +371,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     }
 
     const initPromise = (async () => {
-      await Promise.all(activeServers.map(async (config) => {
+      // Use allSettled so a single failing server doesn't block all others
+      const results = await Promise.allSettled(activeServers.map(async (config) => {
         emitProgress?.({
           phase: "context",
           status: "info",
@@ -388,7 +389,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
           snippet: result.error?.slice(0, 240),
           groupKey: mcpProgressGroupKey || "context:mcp-init"
         });
+        return result;
       }));
+      // Log any unexpected rejections (activateServer itself shouldn't throw, but be safe)
+      for (const r of results) {
+        if (r.status === "rejected") {
+          console.error("[mcp_init] Unexpected server activation rejection:", r.reason);
+        }
+      }
     })();
 
     // Assign before awaiting so any concurrent caller joins this promise

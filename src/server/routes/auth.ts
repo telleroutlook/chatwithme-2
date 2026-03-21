@@ -22,6 +22,59 @@ type AppBindings = { Bindings: Env; Variables: { requestId: string } };
 // D1Database type alias for better readability
 type D1Database = Env["DB"];
 
+// ============ In-Memory Rate Limiter ============
+//
+// Simple sliding-window rate limiter stored in Worker memory.
+// LIMITATION: Cloudflare Workers may run multiple isolates — this counter
+// is not shared across isolates. Each Worker instance maintains its own counter.
+// For production-grade, cross-isolate rate limiting, configure Cloudflare Rate
+// Limiting rules in the dashboard (Account > Security > Rate Limiting).
+// This in-memory guard still provides protection within a single isolate burst.
+
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+
+const loginAttempts = new Map<string, RateLimitEntry>();
+const registerAttempts = new Map<string, RateLimitEntry>();
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const LOGIN_MAX_ATTEMPTS = 10;
+const REGISTER_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const REGISTER_MAX_ATTEMPTS = 5;
+
+function checkRateLimit(
+  map: Map<string, RateLimitEntry>,
+  key: string,
+  windowMs: number,
+  maxAttempts: number
+): { allowed: boolean; retryAfterSeconds: number } {
+  const now = Date.now();
+  const entry = map.get(key);
+
+  if (!entry || now - entry.windowStart > windowMs) {
+    map.set(key, { count: 1, windowStart: now });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  if (entry.count >= maxAttempts) {
+    const retryAfterMs = windowMs - (now - entry.windowStart);
+    return { allowed: false, retryAfterSeconds: Math.ceil(retryAfterMs / 1000) };
+  }
+
+  entry.count++;
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get("CF-Connecting-IP") ??
+    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ??
+    "unknown"
+  );
+}
+
 // ============ Schemas ============
 
 const registerSchema = z.object({
@@ -185,6 +238,13 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
    */
   app.post("/api/auth/register", validateJson(registerSchema), async (c) => {
     try {
+      // Rate limit: max 5 registrations per IP per hour
+      const ip = getClientIp(c.req.raw);
+      const rl = checkRateLimit(registerAttempts, ip, REGISTER_WINDOW_MS, REGISTER_MAX_ATTEMPTS);
+      if (!rl.allowed) {
+        return errorJson(c, 429, "RATE_LIMITED", `Too many registration attempts. Try again in ${rl.retryAfterSeconds} seconds.`);
+      }
+
       const body = c.req.valid("json") as z.infer<typeof registerSchema>;
       const db = c.env.DB;
 
@@ -235,6 +295,13 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
    */
   app.post("/api/auth/login", validateJson(loginSchema), async (c) => {
     try {
+      // Rate limit: max 10 login attempts per IP per 15 minutes
+      const ip = getClientIp(c.req.raw);
+      const rl = checkRateLimit(loginAttempts, `login:${ip}`, LOGIN_WINDOW_MS, LOGIN_MAX_ATTEMPTS);
+      if (!rl.allowed) {
+        return errorJson(c, 429, "RATE_LIMITED", `Too many login attempts. Try again in ${rl.retryAfterSeconds} seconds.`);
+      }
+
       const body = c.req.valid("json") as z.infer<typeof loginSchema>;
       const db = c.env.DB;
 

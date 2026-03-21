@@ -82,6 +82,7 @@ function readAsText(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onabort = () => reject(new Error("File read was aborted"));
     reader.readAsText(file, "utf-8");
   });
 }
@@ -94,6 +95,7 @@ function readAsArrayBuffer(file: File): Promise<ArrayBuffer> {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
     reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onabort = () => reject(new Error("File read was aborted"));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -120,15 +122,21 @@ async function parseExcel(file: File): Promise<string> {
 /**
  * Parse a PDF file into text.
  */
+// Tracks whether workerSrc has already been set to prevent concurrent overwrites
+let pdfjsWorkerInitialized = false;
+
 async function parsePdf(file: File): Promise<string> {
   const buffer = await readAsArrayBuffer(file);
   const pdfjs = await import("pdfjs-dist");
 
-  // Use the bundled worker
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.min.mjs",
-    import.meta.url
-  ).toString();
+  // Set workerSrc only once — concurrent calls would otherwise overwrite each other
+  if (!pdfjsWorkerInitialized) {
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url
+    ).toString();
+    pdfjsWorkerInitialized = true;
+  }
 
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
   const pages: string[] = [];

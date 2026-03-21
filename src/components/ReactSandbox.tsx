@@ -92,7 +92,13 @@ export const ReactSandbox = memo(function ReactSandbox({ code }: ReactSandboxPro
   // Stable message handler — reads expanded from ref to avoid re-registering
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (iframeRef.current && event.source === iframeRef.current.contentWindow) {
+      // Validate both source and origin to prevent spoofed messages from other frames/origins.
+      // Sandboxed iframes with no allow-same-origin have a null origin — that is expected here.
+      if (
+        iframeRef.current &&
+        event.source === iframeRef.current.contentWindow &&
+        (event.origin === "null" || event.origin === window.location.origin)
+      ) {
         const data = event.data;
         if (data && typeof data === "object") {
           if (data.type === "resize" && typeof data.height === "number") {
