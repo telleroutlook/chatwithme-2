@@ -16,6 +16,7 @@ import { registerHealthRoutes } from "./server/routes/health";
 import { registerAgentsRoutes } from "./server/routes/agents";
 import { registerAuthRoutes } from "./server/routes/auth";
 import { registerChatSyncRoutes } from "./server/routes/chat-sync";
+import { registerDebugRoutes } from "./server/routes/debug";
 
 // Exports required by Cloudflare Workers / agents framework
 export { ChatAgentV2 };
@@ -88,6 +89,7 @@ registerChatRoutes(app);
 registerMcpRoutes(app);
 registerRuntimeRoutes(app);
 registerHealthRoutes(app);
+registerDebugRoutes(app);
 registerAgentsRoutes(app);
 
 // ============ Error Handler ============

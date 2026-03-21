@@ -735,3 +735,60 @@ The Visual Excellence Execution Plan (`docs/visual-excellence-execution-plan.md`
 
 **Files changed**: `src/demos/chat/runtime/chat-methods.ts`, `docs/developer-pitfalls.md`
 
+---
+
+## Appendix: Production Debugging Infrastructure (2026-03-21)
+
+### Motivation
+
+Production issues (WebSocket errors, GLM anomalies, empty responses) were hard to diagnose because there was no external visibility into Durable Object state. This work adds three layers of observability.
+
+### Changes
+
+**Plan B — Structured JSON logs** (`src/demos/chat/runtime/model-execution.ts`, `src/demos/chat/chat-agent.ts`)
+
+Key structured log events emitted via `console.log(JSON.stringify({...}))` — visible in `wrangler tail --format=json` under `logs[].message[]`:
+
+| event | source | fields |
+|---|---|---|
+| `ws_connect` | chat-agent | agentName |
+| `ws_close` | chat-agent | agentName, code, reason, wasClean |
+| `ws_error` | chat-agent | agentName, error |
+| `chat_message_received` | chat-agent | agentName, path (ws\|callable), traceId, messageChars, historyLength |
+| `chat_message_done` | chat-agent | agentName, path, traceId, durationMs, responseChars, empty |
+| `chat_message_error` | chat-agent | agentName, traceId, durationMs, error |
+| `model_request` | model-execution | agentName, path, durationMs, responseChars/finalChars, empty |
+| `thinking_tags_stripped` | model-execution | agentName, path, before, after |
+
+**Plan A — Debug REST API** (`src/server/routes/debug.ts`, registered in `src/server.ts`)
+
+Protected by `DEBUG_TOKEN` secret. Full workflow documented in `docs/developer-pitfalls.md` §"Production Debugging Workflow".
+
+| endpoint | purpose |
+|---|---|
+| `GET /api/debug/ping` | connectivity + env vars |
+| `GET /api/debug/session/:agentName/state` | DO runtime snapshot |
+| `GET /api/debug/session/:agentName/info` | comprehensive: messages + snippets + MCP + snapshot |
+| `GET /api/debug/session/:agentName/history` | message history (limit param) |
+| `GET /api/debug/session/:agentName/stream` | SSE real-time event stream |
+| `GET /api/debug/sessions` | list from D1 (authenticated users only) |
+
+**Plan C — SSE real-time stream** (part of debug.ts above)
+
+Polls the DO's `getRuntimeSnapshot()` every `interval` ms (default 1 s) and pushes new `AgentRuntimeEvent` entries as SSE events. Terminates after `maxSeconds` (default 120, max 300). Closes early after 5 consecutive DO errors.
+
+**New `@callable getDebugInfo()`** (`src/demos/chat/chat-agent.ts`)
+
+Returns agentName, messageCount, lastUserMessage snippet, lastAssistantSnippet, MCP server status, and full runtime snapshot in one RPC call. Used by `/api/debug/session/:agentName/info`.
+
+**Bug fixes found during production testing**:
+
+1. `</think>` tag leak — GLM emits bare `</think>` even with `thinking:disabled`. Fixed by `stripThinkingTags()` in `model-execution.ts` applied to all response paths.
+2. `@callable chat()` timeout — no AbortSignal → DO ran 130 s → `outcome:canceled`. Fixed: 55 s `AbortController` in `chat()`, configurable via `CHAT_MODEL_TIMEOUT_MS`.
+
+**New env vars**:
+- `DEBUG_TOKEN` (secret) — required to access `/api/debug/*`; set via `wrangler secret put DEBUG_TOKEN`
+- `CHAT_MODEL_TIMEOUT_MS` (optional var) — AbortController timeout for `chat()` callable, default 55000
+
+**Files changed**: `src/server/routes/debug.ts` (new), `src/server.ts`, `src/demos/chat/chat-agent.ts`, `src/demos/chat/runtime/model-execution.ts`, `src/demos/chat/runtime-config.ts`, `env.d.ts`, `.dev.vars`, `docs/developer-pitfalls.md`
+

@@ -25,6 +25,10 @@ declare namespace Cloudflare {
     DB: D1Database;
     // JWT secret for authentication tokens
     AUTH_JWT_SECRET: string;
+    // Debug token for /api/debug/* endpoints (optional; if unset, debug routes return 404)
+    DEBUG_TOKEN?: string;
+    // Model request timeout in ms for the @callable chat() path (default 55000)
+    CHAT_MODEL_TIMEOUT_MS?: string;
     ChatAgentV2: DurableObjectNamespace<import("./src/demos/chat/chat-agent").ChatAgentV2>;
   }
 }

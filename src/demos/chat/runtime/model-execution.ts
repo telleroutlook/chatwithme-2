@@ -24,6 +24,12 @@ import {
 import { resolveToolKind } from "../model-utils";
 import type { ProgressEmitter } from "./state-runtime";
 
+// ============ Structured Logging ============
+
+function slog(event: string, data: Record<string, unknown>): void {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...data }));
+}
+
 // ============ Model Execution Options ============
 
 export interface ModelExecutionOptions {
@@ -38,6 +44,8 @@ export interface ModelExecutionOptions {
   maxToolSteps?: number;
   thinkingType: "enabled" | "disabled";
   streamEnabled: boolean;
+  /** Optional: agent name for structured logging */
+  agentName?: string;
 }
 
 /** Callback invoked for each text delta during streaming */
@@ -91,6 +99,20 @@ function maybeEmitSnippet(
   return { lastEmitTime, lastEmittedSnippet };
 }
 
+// ============ Response Sanitization ============
+
+/**
+ * Strip residual <think>...</think> blocks that GLM may leak even when
+ * thinking is disabled. Also strips lone </think> closing tags.
+ */
+function stripThinkingTags(text: string): string {
+  // Remove complete <think>...</think> blocks (including multiline)
+  let result = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Remove any remaining lone </think> or <think> tags
+  result = result.replace(/<\/?think>/gi, "");
+  return result.trim();
+}
+
 // ============ Model Execution Functions ============
 
 /**
@@ -99,13 +121,29 @@ function maybeEmitSnippet(
  */
 export async function requestModelText(params: ModelExecutionOptions): Promise<string> {
   const callOptions = buildCallOptions(params);
+  const t0 = Date.now();
 
+  let text: string;
   if (params.streamEnabled) {
-    return await streamModelTextCollect(callOptions, params.emitProgress);
+    text = await streamModelTextCollect(callOptions, params.emitProgress);
+  } else {
+    const result = await generateText(callOptions);
+    text = result.text;
   }
 
-  const { text } = await generateText(callOptions);
-  return text;
+  const sanitized = stripThinkingTags(text);
+  if (sanitized !== text) {
+    slog("thinking_tags_stripped", { agentName: params.agentName, before: text.length, after: sanitized.length });
+  }
+
+  slog("model_request", {
+    path: "non-streaming",
+    agentName: params.agentName,
+    durationMs: Date.now() - t0,
+    responseChars: sanitized.length,
+    empty: sanitized.trim().length === 0
+  });
+  return sanitized;
 }
 
 /**
@@ -121,6 +159,7 @@ export async function streamModelTextToWriter(
   let accumulatedText = "";
   let lastEmitTime = 0;
   let lastEmittedSnippet = "";
+  const t0 = Date.now();
 
   const result = streamText({
     ...callOptions,
@@ -151,7 +190,32 @@ export async function streamModelTextToWriter(
     onTextDelta(remainder);
   }
 
-  return finalText;
+  // Strip any leaked <think>...</think> tags from the accumulated output.
+  // GLM may emit these even with thinking:disabled. Because the tags could
+  // span multiple chunks we sanitize the full string after streaming.
+  // If stripping removed content we already wrote to the UI, we can't
+  // "unsend" it — but we return the sanitized text so it's stored correctly
+  // in the message history and the empty-check triggers properly.
+  const sanitized = stripThinkingTags(finalText);
+  if (sanitized !== finalText) {
+    slog("thinking_tags_stripped", {
+      agentName: params.agentName,
+      path: "streaming",
+      before: finalText.length,
+      after: sanitized.length
+    });
+  }
+
+  slog("model_request", {
+    path: "streaming",
+    agentName: params.agentName,
+    durationMs: Date.now() - t0,
+    streamedChars: accumulatedText.length,
+    finalChars: sanitized.length,
+    empty: sanitized.trim().length === 0
+  });
+
+  return sanitized;
 }
 
 /**

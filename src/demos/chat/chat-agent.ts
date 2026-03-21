@@ -35,7 +35,8 @@ import {
   getToolMaxAttempts,
   getToolTimeoutMs,
   getModelTemperature,
-  getMaxToolSteps
+  getMaxToolSteps,
+  getModelTimeoutMs
 } from "./runtime-config";
 import { buildSystemPrompt, stripToolSections } from "./system-prompt";
 import {
@@ -237,6 +238,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
   onConnect(_connection: Connection, _ctx: ConnectionContext) {
     cancelIdleSchedules(this as never);
+    console.log(JSON.stringify({ ts: new Date().toISOString(), event: "ws_connect", agentName: this.name }));
   }
 
   shouldConnectionBeReadonly(_connection: Connection, ctx: ConnectionContext): boolean {
@@ -247,6 +249,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   onError(connectionOrError: Connection | unknown, maybeError?: unknown) {
     const error = maybeError === undefined ? connectionOrError : maybeError;
     const message = error instanceof Error ? error.message : String(error);
+    console.log(JSON.stringify({ ts: new Date().toISOString(), event: "ws_error", agentName: this.name, error: message }));
     this.updateLastError(message);
     this.appendRuntimeEvent({
       level: "error",
@@ -258,6 +261,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
   }
 
   onClose(_connection: Connection, code?: number, reason?: string, wasClean?: boolean) {
+    console.log(JSON.stringify({ ts: new Date().toISOString(), event: "ws_close", agentName: this.name, code, reason, wasClean: Boolean(wasClean) }));
     this.appendRuntimeEvent({
       level: "info",
       source: "system",
@@ -410,6 +414,13 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       }
     }
     const latestUserText = latestUserMessage ? getMessageText(latestUserMessage.parts) : "";
+    console.log(JSON.stringify({
+      ts: new Date().toISOString(),
+      event: "chat_message_received",
+      agentName: this.name,
+      messageChars: latestUserText.length,
+      historyLength: msgs.length
+    }));
 
     if (!latestUserText.trim()) {
       const emptyId = crypto.randomUUID();
@@ -450,6 +461,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         options?.abortSignal?.addEventListener("abort", abortCleanup, { once: true });
 
         writer.write({ type: "text-start", id: textId });
+        const t0 = Date.now();
         try {
           const finalResponse = await this.streamAssistantResponse(
             latestUserText,
@@ -464,6 +476,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
             writer.write({ type: "text-delta", id: textId, delta: "抱歉，这次没有生成有效回复，请重试。" });
           }
           writer.write({ type: "text-end", id: textId });
+          console.log(JSON.stringify({ ts: new Date().toISOString(), event: "chat_message_done", agentName: this.name, traceId: requestTraceId, durationMs: Date.now() - t0, responseChars: finalResponse.length, empty: !safeFinalResponse }));
           emitProgress({
             phase: "result",
             status: "success",
@@ -471,6 +484,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Unknown generation error";
+          console.log(JSON.stringify({ ts: new Date().toISOString(), event: "chat_message_error", agentName: this.name, traceId: requestTraceId, durationMs: Date.now() - t0, error: message }));
           this.updateLastError(message);
           this.appendRuntimeEvent({
             level: "error",
@@ -607,7 +621,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         maxOutputTokens: getMaxOutputTokens(this.env),
         maxToolSteps: getMaxToolSteps(this.env),
         thinkingType: getThinkingType(this.env),
-        streamEnabled: true
+        streamEnabled: true,
+        agentName: this.name
       },
       (delta) => {
         streamedLength += delta.length;
@@ -659,6 +674,17 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     emitProgress?: ProgressEmitter,
     requestTraceId?: string
   ): Promise<string> {
+    const t0 = Date.now();
+    console.log(JSON.stringify({
+      ts: new Date().toISOString(),
+      event: "chat_message_received",
+      agentName: this.name,
+      path: "callable",
+      traceId: requestTraceId,
+      messageChars: message.length,
+      historyLength: Array.isArray(this.messages) ? this.messages.length : 0
+    }));
+
     const ctx = await this.prepareGenerationContext(
       message, userAlreadyInHistory, emitProgress, requestTraceId
     );
@@ -674,7 +700,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       maxOutputTokens: getMaxOutputTokens(this.env),
       maxToolSteps: getMaxToolSteps(this.env),
       thinkingType: getThinkingType(this.env),
-      streamEnabled: getModelStreamEnabled(this.env)
+      streamEnabled: getModelStreamEnabled(this.env),
+      agentName: this.name
     });
 
     if (finalResponse.trim().length === 0) {
@@ -682,6 +709,17 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         message, ctx, abortSignal, emitProgress
       );
     }
+
+    console.log(JSON.stringify({
+      ts: new Date().toISOString(),
+      event: "chat_message_done",
+      agentName: this.name,
+      path: "callable",
+      traceId: requestTraceId,
+      durationMs: Date.now() - t0,
+      responseChars: finalResponse.length,
+      empty: finalResponse.trim().length === 0
+    }));
 
     emitProgress?.({
       phase: "thinking",
@@ -766,7 +804,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       maxOutputTokens: getMaxOutputTokens(this.env),
       maxToolSteps: getMaxToolSteps(this.env),
       thinkingType: getThinkingType(this.env),
-      streamEnabled: getModelStreamEnabled(this.env)
+      streamEnabled: getModelStreamEnabled(this.env),
+      agentName: this.name
     });
 
     if (finalResponse.trim().length === 0) {
@@ -786,7 +825,15 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
 
   @callable({ description: "Send a chat message and get AI response with tool execution" })
   async chat(message: string): Promise<string> {
-    const finalResponse = await this.generateAssistantResponse(message, false);
+    const timeoutMs = getModelTimeoutMs(this.env);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(new Error(`Model request timeout after ${timeoutMs}ms`)), timeoutMs);
+    let finalResponse: string;
+    try {
+      finalResponse = await this.generateAssistantResponse(message, false, controller.signal);
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const timestamp = Date.now();
     const currentMessages = Array.isArray(this.messages) ? this.messages : [];
@@ -1036,5 +1083,52 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     }
     const readonly = this.isConnectionReadonly(connection);
     return { canEdit: !readonly, readonly };
+  }
+
+  // ============ Debug Info ============
+
+  @callable({ description: "Get comprehensive debug information for this agent instance" })
+  async getDebugInfo(): Promise<{
+    agentName: string;
+    messageCount: number;
+    lastUserMessage: string;
+    lastAssistantSnippet: string;
+    mcpServers: Array<{ name: string; connected: boolean; error?: string }>;
+    snapshot: Awaited<ReturnType<typeof getRuntimeSnapshot>>;
+  }> {
+    const prunedState = pruneApprovalState(this.state);
+    this.updateState(prunedState);
+    const snapshot = getRuntimeSnapshot(prunedState);
+
+    const msgs = Array.isArray(this.messages) ? this.messages : [];
+    let lastUserMessage = "";
+    let lastAssistantSnippet = "";
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (!lastAssistantSnippet && m.role === "assistant") {
+        lastAssistantSnippet = getMessageText(m.parts).slice(0, 200);
+      }
+      if (!lastUserMessage && m.role === "user") {
+        lastUserMessage = getMessageText(m.parts).slice(0, 200);
+      }
+      if (lastUserMessage && lastAssistantSnippet) break;
+    }
+
+    const mcpServers = Object.entries(prunedState.mcp.preconfiguredServers).map(
+      ([name, entry]) => ({
+        name,
+        connected: entry.connected,
+        ...(entry.error ? { error: entry.error } : {})
+      })
+    );
+
+    return {
+      agentName: this.name,
+      messageCount: msgs.length,
+      lastUserMessage,
+      lastAssistantSnippet,
+      mcpServers,
+      snapshot
+    };
   }
 }

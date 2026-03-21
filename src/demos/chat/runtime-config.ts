@@ -60,3 +60,15 @@ export function getMaxToolSteps(env: Env): number {
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 1 && parsed <= 10 ? parsed : 4;
 }
+
+/**
+ * Timeout (ms) for the full model request in the @callable chat() path.
+ * Prevents DO from hanging indefinitely when the GLM API is slow.
+ * Default: 55000ms (just under Cloudflare's 60s subrequest limit).
+ */
+export function getModelTimeoutMs(env: Env): number {
+  const raw = env.CHAT_MODEL_TIMEOUT_MS;
+  if (!raw) return 55000;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 55000;
+}
