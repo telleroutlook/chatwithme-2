@@ -78,7 +78,8 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
     try {
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const snapshot = await agent.getRuntimeSnapshot();
-      return successJson(c, { agentName, snapshot });
+      const drResult = await agent.getDeepResearch() as { deepResearch: boolean };
+      return successJson(c, { agentName, snapshot, deepResearch: drResult?.deepResearch ?? false });
     } catch (error) {
       return errorJson(c, 500, "DEBUG_STATE_ERROR", unknownErrorMessage(error));
     }

@@ -39,6 +39,7 @@ import {
   getModelTimeoutMs
 } from "./runtime-config";
 import { buildSystemPrompt, stripToolSections } from "./system-prompt";
+import { buildLookup as buildChartTemplateLookup } from "./builtin-tools/chart-template";
 import {
   // Types
   type McpServerConnectionState,
@@ -699,7 +700,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       abortSignal,
       emitProgress,
       maxOutputTokens: getMaxOutputTokens(this.env),
-      maxToolSteps: getMaxToolSteps(this.env),
+      maxToolSteps: getMaxToolSteps(this.env, this.state.deepResearch),
       thinkingType: getThinkingType(this.env),
       streamEnabled: getModelStreamEnabled(this.env),
       agentName: this.name
@@ -803,7 +804,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       abortSignal,
       emitProgress,
       maxOutputTokens: getMaxOutputTokens(this.env),
-      maxToolSteps: getMaxToolSteps(this.env),
+      maxToolSteps: getMaxToolSteps(this.env, this.state.deepResearch),
       thinkingType: getThinkingType(this.env),
       streamEnabled: getModelStreamEnabled(this.env),
       agentName: this.name
@@ -939,6 +940,68 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       this.messages,
       this.persistMessages.bind(this) as Parameters<typeof editUserMessageImpl>[3]
     );
+  }
+
+  @callable({ description: "Fix a broken chart spec given the engine, type, broken spec, and render error" })
+  async fixChart(
+    engine: string,
+    chartType: string,
+    brokenSpec: string,
+    errorMessage?: string
+  ): Promise<{ success: boolean; fixedSpec?: string; error?: string }> {
+    // Fetch the precise format spec from the knowledge base (same data builtin_chart_template uses)
+    const lookup = buildChartTemplateLookup();
+    const templateKey = `${engine}:${chartType}`;
+    const template = lookup.get(templateKey);
+
+    const templateSection = template
+      ? `\n\nOfficial format specification for ${engine} ${chartType}:\n${JSON.stringify(template, null, 2).slice(0, 3000)}`
+      : "";
+    const errorHint = errorMessage ? `\nRender error: ${errorMessage}` : "";
+
+    const fixPrompt = `You are a chart spec repair assistant. Fix the following broken ${engine} ${chartType} spec so it renders correctly.${errorHint}${templateSection}
+
+Rules:
+- Return ONLY the corrected JSON spec — no markdown fences, no explanation.
+- Keep the same chart type (${chartType}) and engine (${engine}).
+- Follow the official format specification above exactly if provided.
+- Do NOT set color, backgroundColor, or font colors — the renderer handles theming.
+- Ensure all numeric values are JSON numbers (not strings).
+- The output must be valid RFC 8259 JSON with no comments or trailing commas.
+
+Broken spec:
+${brokenSpec.slice(0, 6000)}`;
+
+    try {
+      const glm = createOpenAICompatible({
+        name: "glm",
+        apiKey: this.env.BIGMODEL_API_KEY,
+        baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
+      });
+      const result = await requestModelText({
+        model: glm(getModelId(this.env)),
+        system: "You are a JSON chart spec repair tool. Output only valid JSON, nothing else.",
+        messages: [{ role: "user", content: [{ type: "text", text: fixPrompt }] }],
+        tools: {},
+        temperature: 0.1,
+        maxOutputTokens: getMaxOutputTokens(this.env),
+        maxToolSteps: 1,
+        thinkingType: "disabled",
+        streamEnabled: false,
+        agentName: this.name
+      });
+
+      const fixedSpec = result.trim();
+      if (!fixedSpec) {
+        return { success: false, error: "Model returned empty response" };
+      }
+      // Validate it's JSON
+      JSON.parse(fixedSpec);
+      return { success: true, fixedSpec };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, error: message };
+    }
   }
 
   @callable({ description: "Regenerate assistant response starting from a specific message" })
@@ -1084,6 +1147,18 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     }
     const readonly = this.isConnectionReadonly(connection);
     return { canEdit: !readonly, readonly };
+  }
+
+  @callable({ description: "Toggle deep research mode (8 tool steps) on or off" })
+  toggleDeepResearch(): { deepResearch: boolean } {
+    const next = !this.state.deepResearch;
+    this.updateState({ ...this.state, deepResearch: next });
+    return { deepResearch: next };
+  }
+
+  @callable({ description: "Get current deep research mode state" })
+  getDeepResearch(): { deepResearch: boolean } {
+    return { deepResearch: this.state.deepResearch ?? false };
   }
 
   // ============ Debug Info ============

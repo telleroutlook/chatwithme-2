@@ -49,6 +49,13 @@ export function readPendingApprovalsFromState(state: unknown): RuntimeApprovalIt
     .filter((item) => item.status === "pending");
 }
 
+export function readDeepResearchFromState(state: unknown): boolean | null {
+  if (!state || typeof state !== "object") return null;
+  const candidate = state as { deepResearch?: unknown };
+  if (typeof candidate.deepResearch !== "boolean") return null;
+  return candidate.deepResearch;
+}
+
 export function isReadonlyModeQueryEnabled(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("mode") === "view";

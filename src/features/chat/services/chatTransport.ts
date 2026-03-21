@@ -4,6 +4,7 @@ import type {
   DeleteMessageResult,
   EditMessageResult,
   RegenerateMessageResult,
+  FixChartResult,
   ToggleServerResult
 } from "./apiContracts";
 
@@ -51,9 +52,12 @@ export interface ChatTransport {
   deleteMessage: (messageId: string) => Promise<DeleteMessageResult>;
   editMessage: (messageId: string, content: string) => Promise<EditMessageResult>;
   regenerateMessage: (messageId: string) => Promise<RegenerateMessageResult>;
+  fixChart: (messageId: string, engine: string, chartType: string, brokenSpec: string, errorMessage?: string) => Promise<FixChartResult>;
   toggleServer: (name: string) => Promise<ToggleServerResult>;
   listApprovals: () => Promise<unknown[]>;
   decideApproval: (approvalId: string, decision: "approve" | "reject", reason?: string) => Promise<boolean>;
+  getDeepResearch: () => Promise<boolean>;
+  toggleDeepResearch: () => Promise<boolean>;
 }
 
 interface ChatTransportParams {
@@ -293,6 +297,22 @@ export function createChatTransport({
       return result;
     },
 
+    async fixChart(messageId: string, engine: string, chartType: string, brokenSpec: string, errorMessage?: string) {
+      const requestId = generateRequestId();
+      return await withAgentFallback(
+        async () => (await agent.call("fixChart", [engine, chartType, brokenSpec, errorMessage])) as FixChartResult,
+        async () => {
+          const response = await callApi<FixChartResult>("/api/chat/fix-chart", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ sessionId, messageId, engine, chartType, brokenSpec, errorMessage })
+          });
+          return { success: response.success, fixedSpec: response.fixedSpec, error: response.error } as FixChartResult;
+        },
+        { requestId, sessionId, method: "fixChart" }
+      );
+    },
+
     async toggleServer(name: string) {
       const requestId = generateRequestId();
       return await withAgentFallback(
@@ -358,6 +378,16 @@ export function createChatTransport({
         },
         { requestId, sessionId, method: "decideApproval" }
       );
+    },
+
+    async getDeepResearch() {
+      const result = await agent.call("getDeepResearch", []) as { deepResearch: boolean };
+      return result?.deepResearch ?? false;
+    },
+
+    async toggleDeepResearch() {
+      const result = await agent.call("toggleDeepResearch", []) as { deepResearch: boolean };
+      return result?.deepResearch ?? false;
     }
   };
 }

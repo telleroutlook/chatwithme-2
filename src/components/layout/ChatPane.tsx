@@ -10,6 +10,7 @@ import { useVirtualViewport } from "../../hooks/useVirtualViewport";
 import { cn } from "../ui/utils";
 import type { UiMessageKey } from "../../i18n/ui";
 import { formatFileForMessage, type ParsedFile } from "../../utils/fileParser";
+import type { ChartFixContext } from "../MarkdownRenderer";
 
 interface ProgressEntry {
   id: string;
@@ -52,6 +53,9 @@ interface ChatPaneProps {
   onDeleteMessage: (messageId: UIMessage["id"]) => void;
   onEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   onRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
+  onFixChart?: (messageId: UIMessage["id"], ctx: ChartFixContext) => void;
+  deepResearch?: boolean;
+  onToggleDeepResearch?: () => Promise<void>;
   t: (key: UiMessageKey, vars?: Record<string, string>) => string;
   getMessageText: (message: UIMessage) => string;
   exportCaptureRef?: MutableRefObject<HTMLElement | null>;
@@ -75,6 +79,9 @@ export function ChatPane({
   onDeleteMessage,
   onEditMessage,
   onRegenerateMessage,
+  onFixChart,
+  deepResearch = false,
+  onToggleDeepResearch,
   t,
   getMessageText,
   exportCaptureRef
@@ -233,6 +240,7 @@ export function ChatPane({
             onDeleteMessage={onDeleteMessage}
             onEditMessage={onEditMessage}
             onRegenerateMessage={onRegenerateMessage}
+            onFixChart={onFixChart}
             getMessageText={getMessageText}
             t={t}
             onScrollerReady={handleScrollerReady}
@@ -383,6 +391,40 @@ export function ChatPane({
               }
               attachedFiles={attachedFiles}
               onFilesChange={setAttachedFiles}
+              bottomAddons={
+                onToggleDeepResearch ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onToggleDeepResearch}
+                      disabled={isStreaming}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                        deepResearch
+                          ? "border-blue-500/60 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          : "border-border bg-transparent text-foreground-muted hover:border-border-hover hover:text-foreground",
+                        isStreaming && "cursor-not-allowed opacity-50"
+                      )}
+                      aria-pressed={deepResearch}
+                      title={deepResearch ? "Deep research on (8 steps) — click to disable" : "Deep research off (4 steps) — click to enable"}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        className="shrink-0"
+                        aria-hidden="true"
+                      >
+                        <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M10 10L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        <path d="M6.5 4v2.5H9" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Deep research{deepResearch ? " · on" : ""}
+                    </button>
+                  </div>
+                ) : undefined
+              }
             />
           </div>
         </div>

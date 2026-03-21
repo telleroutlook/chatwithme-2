@@ -78,6 +78,7 @@ export interface ToolApprovalRequest {
 
 export interface ChatAgentState {
   mcp: McpServerConnectionState;
+  deepResearch?: boolean;
   runtime: {
     toolRuns: ToolRunRecord[];
     lastError?: string;

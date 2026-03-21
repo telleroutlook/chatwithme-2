@@ -12,7 +12,9 @@ import {
   deleteSessionQuerySchema,
   deleteMessageQuerySchema,
   editBodySchema,
-  regenerateBodySchema
+  regenerateBodySchema,
+  fixChartBodySchema,
+  requiredSessionBodySchema
 } from "../../schema/api";
 import { errorJson, successJson, unknownErrorMessage } from "../http";
 import { resolveAuthContext, buildAgentName, logAuthContext, type AuthContext } from "../auth";
@@ -277,6 +279,76 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
       }, authCtx));
     } catch (error) {
       return errorJson(c, 500, "CHAT_REGENERATE_FAILED", unknownErrorMessage(error));
+    }
+  });
+
+  app.post("/api/chat/fix-chart", validateJson(fixChartBodySchema), async (c) => {
+    try {
+      const body = c.req.valid("json") as z.infer<typeof fixChartBodySchema>;
+      const sessionId = resolveSessionId(body);
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+
+      logAuthContext(c.get("requestId"), authCtx, "/api/chat/fix-chart");
+
+      const agentName = buildAgentName(authCtx.userId, sessionId);
+      const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
+      const result = await agent.fixChart(
+        body.engine,
+        body.chartType,
+        body.brokenSpec,
+        body.errorMessage
+      );
+
+      if (!result.success) {
+        return errorJson(c, 400, "CHART_FIX_FAILED", result.error || "Fix failed");
+      }
+
+      return successJson(c, buildResponse(c, {
+        fixedSpec: result.fixedSpec,
+        sessionId
+      }, authCtx));
+    } catch (error) {
+      return errorJson(c, 500, "CHART_FIX_FAILED", unknownErrorMessage(error));
+    }
+  });
+
+  app.post("/api/chat/deep-research/toggle", validateJson(requiredSessionBodySchema), async (c) => {
+    try {
+      const body = c.req.valid("json") as z.infer<typeof requiredSessionBodySchema>;
+      const sessionId = resolveSessionId(body);
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+
+      logAuthContext(c.get("requestId"), authCtx, "/api/chat/deep-research/toggle");
+
+      const agentName = buildAgentName(authCtx.userId, sessionId);
+      const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
+      const result = await agent.toggleDeepResearch() as { deepResearch: boolean };
+
+      return successJson(c, buildResponse(c, {
+        deepResearch: result?.deepResearch ?? false,
+        sessionId
+      }, authCtx));
+    } catch (error) {
+      return errorJson(c, 500, "DEEP_RESEARCH_TOGGLE_FAILED", unknownErrorMessage(error));
+    }
+  });
+
+  app.get("/api/chat/deep-research", validateQuery(chatHistoryQuerySchema), async (c) => {
+    try {
+      const query = c.req.valid("query") as z.infer<typeof chatHistoryQuerySchema>;
+      const sessionId = resolveSessionId(query);
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+
+      const agentName = buildAgentName(authCtx.userId, sessionId);
+      const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
+      const result = await agent.getDeepResearch() as { deepResearch: boolean };
+
+      return successJson(c, buildResponse(c, {
+        deepResearch: result?.deepResearch ?? false,
+        sessionId
+      }, authCtx));
+    } catch (error) {
+      return errorJson(c, 500, "DEEP_RESEARCH_GET_FAILED", unknownErrorMessage(error));
     }
   });
 }

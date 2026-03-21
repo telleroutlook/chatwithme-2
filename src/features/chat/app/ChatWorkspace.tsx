@@ -23,6 +23,7 @@ import type { UiLang, UiMessageKey } from "../../../i18n/ui";
 import type { TranslateParams } from "../../../hooks/useI18n";
 import type { EventLogEntry } from "../hooks/useEventLog";
 import type { SessionSyncReason } from "../services/sessionSync";
+import type { ChartFixContext } from "../../../components/MarkdownRenderer";
 
 interface ChatWorkspaceProps {
   // Mobile state
@@ -59,8 +60,11 @@ interface ChatWorkspaceProps {
   handleDeleteMessage: (messageId: UIMessage["id"]) => Promise<void>;
   handleEditMessage: (messageId: UIMessage["id"], content: string) => Promise<void>;
   handleRegenerateMessage: (messageId: UIMessage["id"]) => Promise<void>;
+  handleFixChart: (messageId: UIMessage["id"], ctx: ChartFixContext) => Promise<void>;
   handleExportMarkdown: () => void;
   handleExportPdf: () => Promise<void>;
+  deepResearch: boolean;
+  onToggleDeepResearch: () => Promise<void>;
 
   // Approval context
   approvalContextValue: {
@@ -108,8 +112,11 @@ export function ChatWorkspace({
   handleDeleteMessage,
   handleEditMessage,
   handleRegenerateMessage,
+  handleFixChart,
   handleExportMarkdown,
   handleExportPdf,
+  deepResearch,
+  onToggleDeepResearch,
   approvalContextValue,
   preconfiguredServers,
   lang,
@@ -229,6 +236,9 @@ export function ChatWorkspace({
                   onDeleteMessage={handleDeleteMessage}
                   onEditMessage={handleEditMessage}
                   onRegenerateMessage={handleRegenerateMessage}
+                  onFixChart={handleFixChart}
+                  deepResearch={deepResearch}
+                  onToggleDeepResearch={onToggleDeepResearch}
                   t={t}
                   getMessageText={getMessageText}
                   exportCaptureRef={exportCaptureRef}

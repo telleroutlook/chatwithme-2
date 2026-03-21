@@ -52,6 +52,7 @@ import { AuthProvider } from "./features/chat/context/AuthContext";
 import {
   readPreconfiguredServersFromState,
   readPendingApprovalsFromState,
+  readDeepResearchFromState,
   isReadonlyModeQueryEnabled,
   type RuntimeApprovalItem
 } from "./features/chat/services/clientHelpers";
@@ -95,6 +96,7 @@ function App() {
   >({});
   const [pendingApprovals, setPendingApprovals] = useState<RuntimeApprovalItem[]>([]);
   const [approvingApprovalId, setApprovingApprovalId] = useState<string | null>(null);
+  const [deepResearch, setDeepResearch] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { addEvent: addEventLog } = useEventLog();
 
@@ -270,6 +272,10 @@ function App() {
       const approvals = readPendingApprovalsFromState(nextState);
       if (approvals) {
         setPendingApprovals(approvals);
+      }
+      const dr = readDeepResearchFromState(nextState);
+      if (dr !== null) {
+        setDeepResearch(dr);
       }
     }, []),
     onOpen: useCallback(() => {
@@ -550,6 +556,15 @@ function App() {
     t
   });
 
+  const handleToggleDeepResearch = useCallback(async () => {
+    try {
+      const next = await chatTransport.toggleDeepResearch();
+      setDeepResearch(next);
+    } catch (error) {
+      console.error("Failed to toggle deep research:", error);
+    }
+  }, [chatTransport]);
+
   // ============ Computed Values ============
 
   const approvalContextValue = useMemo(
@@ -599,8 +614,11 @@ function App() {
       handleDeleteMessage={messageActions.handleDeleteMessage}
       handleEditMessage={messageActions.handleEditMessage}
       handleRegenerateMessage={messageActions.handleRegenerateMessage}
+      handleFixChart={messageActions.handleFixChart}
       handleExportMarkdown={exportActions.handleExportMarkdown}
       handleExportPdf={exportActions.handleExportPdf}
+      deepResearch={deepResearch}
+      onToggleDeepResearch={handleToggleDeepResearch}
       approvalContextValue={approvalContextValue}
       preconfiguredServers={preconfiguredServers}
       lang={lang}

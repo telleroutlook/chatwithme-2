@@ -20,6 +20,14 @@ export const editBodySchema = requiredSessionBodySchema.extend({
   content: z.string().trim().min(1, "content is required").max(32000, "content too long")
 });
 
+export const fixChartBodySchema = requiredSessionBodySchema.extend({
+  messageId: z.string().trim().min(1, "messageId is required"),
+  engine: z.string().trim().min(1, "engine is required").max(32),
+  chartType: z.string().trim().min(1, "chartType is required").max(64),
+  brokenSpec: z.string().trim().min(1, "brokenSpec is required").max(16000),
+  errorMessage: z.string().trim().max(1000).optional()
+});
+
 export const regenerateBodySchema = requiredSessionBodySchema.extend({
   messageId: z.string().trim().min(1, "messageId is required")
 });
@@ -55,6 +63,7 @@ export const deleteMessageQuerySchema = chatHistoryQuerySchema.extend({
 export type ChatBody = z.infer<typeof chatBodySchema>;
 export type EditBody = z.infer<typeof editBodySchema>;
 export type RegenerateBody = z.infer<typeof regenerateBodySchema>;
+export type FixChartBody = z.infer<typeof fixChartBodySchema>;
 export type McpServerBody = z.infer<typeof mcpServerBodySchema>;
 export type ChatHistoryQuery = z.infer<typeof chatHistoryQuerySchema>;
 export type ChatSessionsQuery = z.infer<typeof chatSessionsQuerySchema>;

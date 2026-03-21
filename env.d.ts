@@ -18,6 +18,8 @@ declare namespace Cloudflare {
     CHAT_TOOL_MAX_ATTEMPTS?: string;
     CHAT_MODEL_TEMPERATURE?: string;
     CHAT_MAX_TOOL_STEPS?: string;
+    // Enable deep research mode (8 tool steps instead of standard 4)
+    CHAT_DEEP_RESEARCH?: string;
     AGENT_IDLE_TIMEOUT_SECONDS?: string;
     CHAT_CHART_PRIMARY?: string;
     ALLOWED_ORIGINS?: string;
