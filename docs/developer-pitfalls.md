@@ -359,3 +359,36 @@ curl "$BASE/api/debug/sessions?userId=user-abc12345&token=$TOKEN" | python3 -m j
    ```
 8. **Check system prompt strength**: Does it say **MANDATORY** (not "PREFERRED") for tool-call triggers?
 9. **Check GLM rate limit**: Multiple simultaneous failures = rate limit. Wait 60 s, retry once.
+
+---
+
+## 12. `deleteMessage` must use direct SQL + `persistMessages` (not persistMessages alone)
+
+**Severity**: High — delete appears to succeed but the message remains in history
+
+The `deleteMessage` callable uses two steps:
+1. `this.sql` tagged template to DELETE the row from `cf_ai_chat_agent_messages` by the **in-memory ID** (which is the DB-reconciled ID after `_loadMessagesFromDb`)
+2. `persistMessages(filteredMessages)` to update the in-memory state and broadcast to connected clients
+
+**Why not `persistMessages` alone?** The base class `persistMessages` only **upserts** rows (INSERT ON CONFLICT UPDATE). It never deletes rows unless the private `{ _deleteStaleRows: true }` option is passed, which also requires specific preconditions. Without the SQL DELETE, calling `persistMessages([filtered list])` has no effect on the deleted row's DB row — it stays in the database and reappears after the next `_loadMessagesFromDb`.
+
+**Why not SQL DELETE alone?** Without calling `persistMessages`, `this.messages` (the in-memory array) remains stale and doesn't broadcast the change to connected WebSocket clients.
+
+**Correct pattern**:
+```ts
+// 1. Find message in-memory (DO's this.messages reflects DB state)
+const memIndex = msgArray.findIndex((m) => m.id === messageId);
+if (memIndex < 0) return { success: true, deleted: false };
+const resolvedId = msgArray[memIndex].id!;
+
+// 2. Delete from DB (this.sql is synchronous, returns rows array — empty for DELETE)
+this.sql`delete from cf_ai_chat_agent_messages where id = ${resolvedId}`;
+
+// 3. Sync in-memory state + broadcast to WebSocket clients
+const nextMessages = msgArray.filter((_, i) => i !== memIndex);
+await this.persistMessages(nextMessages);
+```
+
+**Key**: `this.sql` returns `T[]` (array of rows), NOT `{ meta: { changes } }` — that's a D1 concept, not DO SQLite.
+
+---

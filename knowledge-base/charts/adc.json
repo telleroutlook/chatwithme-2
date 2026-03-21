@@ -18,7 +18,8 @@
     "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes",
     "CRITICAL: ALL numeric values must be actual JSON numbers, NOT strings. WRONG: \"value\": \"~1.1%\". CORRECT: \"value\": 1.1",
     "CRITICAL: yField must be a JSON string. WRONG: \"yField\": {\"field\": \"value\"}. CORRECT: \"yField\": \"value\"",
-    "Do not use v1 legacy properties: columnStyle (use style), barStyle (use style), seriesField (use colorField), geometryOptions (removed in v2)"
+    "Do not use v1 legacy properties: columnStyle (use style), barStyle (use style), seriesField (use colorField), geometryOptions (removed in v2)",
+    "ALWAYS include a top-level \"title\" field: e.g. \"title\": \"图表标题\" — required for all ADC charts"
   ],
   "typeWhitelist": [
     "line",
@@ -42,7 +43,7 @@
         "xField",
         "yField"
       ],
-      "example": "{\"type\":\"line\",\"data\":[{\"month\":\"Jan\",\"value\":35,\"category\":\"Series A\"},{\"month\":\"Feb\",\"value\":46,\"category\":\"Series A\"},{\"month\":\"Mar\",\"value\":51,\"category\":\"Series A\"},{\"month\":\"Apr\",\"value\":60,\"category\":\"Series A\"},{\"month\":\"Jan\",\"value\":28,\"category\":\"Series B\"},{\"month\":\"Feb\",\"value\":38,\"category\":\"Series B\"},{\"month\":\"Mar\",\"value\":43,\"category\":\"Series B\"},{\"month\":\"Apr\",\"value\":55,\"category\":\"Series B\"}],\"xField\":\"month\",\"yField\":\"value\",\"colorField\":\"category\",\"style\":{\"lineWidth\":2.5},\"point\":{\"shapeField\":\"circle\",\"sizeField\":3},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"line\",\"data\":[{\"month\":\"Jan\",\"value\":35,\"category\":\"Series A\"},{\"month\":\"Feb\",\"value\":46,\"category\":\"Series A\"},{\"month\":\"Mar\",\"value\":51,\"category\":\"Series A\"},{\"month\":\"Apr\",\"value\":60,\"category\":\"Series A\"},{\"month\":\"Jan\",\"value\":28,\"category\":\"Series B\"},{\"month\":\"Feb\",\"value\":38,\"category\":\"Series B\"},{\"month\":\"Mar\",\"value\":43,\"category\":\"Series B\"},{\"month\":\"Apr\",\"value\":55,\"category\":\"Series B\"}],\"xField\":\"month\",\"yField\":\"value\",\"colorField\":\"category\",\"style\":{\"lineWidth\":2.5},\"point\":{\"shapeField\":\"circle\",\"sizeField\":3},\"interaction\":{\"tooltip\":true},\"title\":\"示例line图表\"}",
       "commonErrors": [
         "Using callback functions in field mappings",
         "Missing required xField or yField",
@@ -57,7 +58,7 @@
         "xField",
         "yField"
       ],
-      "example": "{\"type\":\"column\",\"data\":[{\"quarter\":\"Q1\",\"revenue\":120,\"department\":\"Sales\"},{\"quarter\":\"Q2\",\"revenue\":180,\"department\":\"Sales\"},{\"quarter\":\"Q3\",\"revenue\":150,\"department\":\"Sales\"},{\"quarter\":\"Q4\",\"revenue\":200,\"department\":\"Sales\"},{\"quarter\":\"Q1\",\"revenue\":90,\"department\":\"Marketing\"},{\"quarter\":\"Q2\",\"revenue\":130,\"department\":\"Marketing\"},{\"quarter\":\"Q3\",\"revenue\":110,\"department\":\"Marketing\"},{\"quarter\":\"Q4\",\"revenue\":160,\"department\":\"Marketing\"}],\"xField\":\"quarter\",\"yField\":\"revenue\",\"colorField\":\"department\",\"group\":true,\"style\":{\"radiusTopLeft\":4,\"radiusTopRight\":4},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"column\",\"data\":[{\"quarter\":\"Q1\",\"revenue\":120,\"department\":\"Sales\"},{\"quarter\":\"Q2\",\"revenue\":180,\"department\":\"Sales\"},{\"quarter\":\"Q3\",\"revenue\":150,\"department\":\"Sales\"},{\"quarter\":\"Q4\",\"revenue\":200,\"department\":\"Sales\"},{\"quarter\":\"Q1\",\"revenue\":90,\"department\":\"Marketing\"},{\"quarter\":\"Q2\",\"revenue\":130,\"department\":\"Marketing\"},{\"quarter\":\"Q3\",\"revenue\":110,\"department\":\"Marketing\"},{\"quarter\":\"Q4\",\"revenue\":160,\"department\":\"Marketing\"}],\"xField\":\"quarter\",\"yField\":\"revenue\",\"colorField\":\"department\",\"group\":true,\"style\":{\"radiusTopLeft\":4,\"radiusTopRight\":4},\"interaction\":{\"tooltip\":true},\"title\":\"示例column图表\"}",
       "commonErrors": [
         "Confusing column (vertical) with bar (horizontal)",
         "Missing required fields",
@@ -72,7 +73,7 @@
         "xField",
         "yField"
       ],
-      "example": "{\"type\":\"bar\",\"data\":[{\"country\":\"China\",\"population\":1412},{\"country\":\"India\",\"population\":1408},{\"country\":\"USA\",\"population\":333},{\"country\":\"Indonesia\",\"population\":277},{\"country\":\"Brazil\",\"population\":216}],\"xField\":\"population\",\"yField\":\"country\",\"colorField\":\"country\",\"label\":{\"text\":\"population\",\"style\":{\"fontSize\":11}},\"style\":{\"radiusTopLeft\":4,\"radiusTopRight\":4},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"bar\",\"data\":[{\"country\":\"China\",\"population\":1412},{\"country\":\"India\",\"population\":1408},{\"country\":\"USA\",\"population\":333},{\"country\":\"Indonesia\",\"population\":277},{\"country\":\"Brazil\",\"population\":216}],\"xField\":\"population\",\"yField\":\"country\",\"colorField\":\"country\",\"label\":{\"text\":\"population\",\"style\":{\"fontSize\":11}},\"style\":{\"radiusTopLeft\":4,\"radiusTopRight\":4},\"interaction\":{\"tooltip\":true},\"title\":\"示例bar图表\"}",
       "commonErrors": [
         "Swapping xField and yField (bar is horizontal: xField is the value, yField is the category)",
         "Using callbacks for field values"
@@ -86,7 +87,7 @@
         "xField",
         "yField"
       ],
-      "example": "{\"type\":\"area\",\"data\":[{\"date\":\"2024-01\",\"value\":100,\"type\":\"Downloads\"},{\"date\":\"2024-02\",\"value\":150,\"type\":\"Downloads\"},{\"date\":\"2024-03\",\"value\":180,\"type\":\"Downloads\"},{\"date\":\"2024-04\",\"value\":220,\"type\":\"Downloads\"},{\"date\":\"2024-01\",\"value\":60,\"type\":\"Views\"},{\"date\":\"2024-02\",\"value\":90,\"type\":\"Views\"},{\"date\":\"2024-03\",\"value\":120,\"type\":\"Views\"},{\"date\":\"2024-04\",\"value\":160,\"type\":\"Views\"}],\"xField\":\"date\",\"yField\":\"value\",\"colorField\":\"type\",\"stack\":true,\"style\":{\"fillOpacity\":0.55},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"area\",\"data\":[{\"date\":\"2024-01\",\"value\":100,\"type\":\"Downloads\"},{\"date\":\"2024-02\",\"value\":150,\"type\":\"Downloads\"},{\"date\":\"2024-03\",\"value\":180,\"type\":\"Downloads\"},{\"date\":\"2024-04\",\"value\":220,\"type\":\"Downloads\"},{\"date\":\"2024-01\",\"value\":60,\"type\":\"Views\"},{\"date\":\"2024-02\",\"value\":90,\"type\":\"Views\"},{\"date\":\"2024-03\",\"value\":120,\"type\":\"Views\"},{\"date\":\"2024-04\",\"value\":160,\"type\":\"Views\"}],\"xField\":\"date\",\"yField\":\"value\",\"colorField\":\"type\",\"stack\":true,\"style\":{\"fillOpacity\":0.55},\"interaction\":{\"tooltip\":true},\"title\":\"示例area图表\"}",
       "commonErrors": [
         "Same as line chart errors",
         "Not stacking multiple series properly"
@@ -100,7 +101,7 @@
         "angleField",
         "colorField"
       ],
-      "example": "{\"type\":\"pie\",\"data\":[{\"category\":\"Direct\",\"value\":335},{\"category\":\"Email\",\"value\":210},{\"category\":\"Social\",\"value\":274},{\"category\":\"Search\",\"value\":235},{\"category\":\"Referral\",\"value\":180}],\"angleField\":\"value\",\"colorField\":\"category\",\"innerRadius\":0.55,\"label\":{\"text\":\"value\",\"style\":{\"fontSize\":11}},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"pie\",\"data\":[{\"category\":\"Direct\",\"value\":335},{\"category\":\"Email\",\"value\":210},{\"category\":\"Social\",\"value\":274},{\"category\":\"Search\",\"value\":235},{\"category\":\"Referral\",\"value\":180}],\"angleField\":\"value\",\"colorField\":\"category\",\"innerRadius\":0.55,\"label\":{\"text\":\"value\",\"style\":{\"fontSize\":11}},\"interaction\":{\"tooltip\":true},\"title\":\"示例pie图表\"}",
       "commonErrors": [
         "Using xField/yField instead of angleField/colorField",
         "Not providing colorField for legend"
@@ -114,7 +115,7 @@
         "xField",
         "yField"
       ],
-      "example": "{\"type\":\"rose\",\"data\":[{\"category\":\"January\",\"value\":40},{\"category\":\"February\",\"value\":25},{\"category\":\"March\",\"value\":55},{\"category\":\"April\",\"value\":35},{\"category\":\"May\",\"value\":60}],\"xField\":\"category\",\"yField\":\"value\",\"colorField\":\"category\",\"label\":{\"text\":\"value\",\"style\":{\"fontSize\":11}},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"rose\",\"data\":[{\"category\":\"January\",\"value\":40},{\"category\":\"February\",\"value\":25},{\"category\":\"March\",\"value\":55},{\"category\":\"April\",\"value\":35},{\"category\":\"May\",\"value\":60}],\"xField\":\"category\",\"yField\":\"value\",\"colorField\":\"category\",\"label\":{\"text\":\"value\",\"style\":{\"fontSize\":11}},\"interaction\":{\"tooltip\":true},\"title\":\"示例rose图表\"}",
       "commonErrors": [
         "Using angleField/colorField like pie — rose uses xField/yField",
         "Not providing colorField for legend coloring"
@@ -128,7 +129,7 @@
         "xField",
         "yField"
       ],
-      "example": "{\"type\":\"scatter\",\"data\":[{\"height\":170,\"weight\":65,\"gender\":\"Male\"},{\"height\":165,\"weight\":55,\"gender\":\"Female\"},{\"height\":180,\"weight\":80,\"gender\":\"Male\"},{\"height\":160,\"weight\":50,\"gender\":\"Female\"},{\"height\":175,\"weight\":72,\"gender\":\"Male\"},{\"height\":168,\"weight\":58,\"gender\":\"Female\"}],\"xField\":\"height\",\"yField\":\"weight\",\"colorField\":\"gender\",\"sizeField\":5,\"style\":{\"fillOpacity\":0.7},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"scatter\",\"data\":[{\"height\":170,\"weight\":65,\"gender\":\"Male\"},{\"height\":165,\"weight\":55,\"gender\":\"Female\"},{\"height\":180,\"weight\":80,\"gender\":\"Male\"},{\"height\":160,\"weight\":50,\"gender\":\"Female\"},{\"height\":175,\"weight\":72,\"gender\":\"Male\"},{\"height\":168,\"weight\":58,\"gender\":\"Female\"}],\"xField\":\"height\",\"yField\":\"weight\",\"colorField\":\"gender\",\"sizeField\":5,\"style\":{\"fillOpacity\":0.7},\"interaction\":{\"tooltip\":true},\"title\":\"示例scatter图表\"}",
       "commonErrors": [
         "Missing colorField for category distinction",
         "Data points not in array"
@@ -142,7 +143,7 @@
         "xField",
         "yField"
       ],
-      "example": "{\"type\":\"radar\",\"data\":[{\"dimension\":\"Speed\",\"score\":90,\"product\":\"Product A\"},{\"dimension\":\"Reliability\",\"score\":75,\"product\":\"Product A\"},{\"dimension\":\"Design\",\"score\":85,\"product\":\"Product A\"},{\"dimension\":\"Price\",\"score\":60,\"product\":\"Product A\"},{\"dimension\":\"Features\",\"score\":80,\"product\":\"Product A\"},{\"dimension\":\"Speed\",\"score\":70,\"product\":\"Product B\"},{\"dimension\":\"Reliability\",\"score\":90,\"product\":\"Product B\"},{\"dimension\":\"Design\",\"score\":65,\"product\":\"Product B\"},{\"dimension\":\"Price\",\"score\":85,\"product\":\"Product B\"},{\"dimension\":\"Features\",\"score\":75,\"product\":\"Product B\"}],\"xField\":\"dimension\",\"yField\":\"score\",\"colorField\":\"product\",\"area\":{\"style\":{\"fillOpacity\":0.25}},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"radar\",\"data\":[{\"dimension\":\"Speed\",\"score\":90,\"product\":\"Product A\"},{\"dimension\":\"Reliability\",\"score\":75,\"product\":\"Product A\"},{\"dimension\":\"Design\",\"score\":85,\"product\":\"Product A\"},{\"dimension\":\"Price\",\"score\":60,\"product\":\"Product A\"},{\"dimension\":\"Features\",\"score\":80,\"product\":\"Product A\"},{\"dimension\":\"Speed\",\"score\":70,\"product\":\"Product B\"},{\"dimension\":\"Reliability\",\"score\":90,\"product\":\"Product B\"},{\"dimension\":\"Design\",\"score\":65,\"product\":\"Product B\"},{\"dimension\":\"Price\",\"score\":85,\"product\":\"Product B\"},{\"dimension\":\"Features\",\"score\":75,\"product\":\"Product B\"}],\"xField\":\"dimension\",\"yField\":\"score\",\"colorField\":\"product\",\"area\":{\"style\":{\"fillOpacity\":0.25}},\"interaction\":{\"tooltip\":true},\"title\":\"示例radar图表\"}",
       "commonErrors": [
         "Wrong field names for radar dimensions",
         "Not normalizing values to similar scale",
@@ -159,7 +160,7 @@
         "yField",
         "colorField"
       ],
-      "example": "{\"type\":\"heatmap\",\"data\":[{\"day\":\"Mon\",\"hour\":\"9am\",\"value\":10},{\"day\":\"Mon\",\"hour\":\"12pm\",\"value\":25},{\"day\":\"Mon\",\"hour\":\"3pm\",\"value\":18},{\"day\":\"Tue\",\"hour\":\"9am\",\"value\":15},{\"day\":\"Tue\",\"hour\":\"12pm\",\"value\":30},{\"day\":\"Tue\",\"hour\":\"3pm\",\"value\":22},{\"day\":\"Wed\",\"hour\":\"9am\",\"value\":8},{\"day\":\"Wed\",\"hour\":\"12pm\",\"value\":28},{\"day\":\"Wed\",\"hour\":\"3pm\",\"value\":16}],\"xField\":\"day\",\"yField\":\"hour\",\"colorField\":\"value\",\"label\":{\"text\":\"value\",\"style\":{\"fontSize\":10}},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"heatmap\",\"data\":[{\"day\":\"Mon\",\"hour\":\"9am\",\"value\":10},{\"day\":\"Mon\",\"hour\":\"12pm\",\"value\":25},{\"day\":\"Mon\",\"hour\":\"3pm\",\"value\":18},{\"day\":\"Tue\",\"hour\":\"9am\",\"value\":15},{\"day\":\"Tue\",\"hour\":\"12pm\",\"value\":30},{\"day\":\"Tue\",\"hour\":\"3pm\",\"value\":22},{\"day\":\"Wed\",\"hour\":\"9am\",\"value\":8},{\"day\":\"Wed\",\"hour\":\"12pm\",\"value\":28},{\"day\":\"Wed\",\"hour\":\"3pm\",\"value\":16}],\"xField\":\"day\",\"yField\":\"hour\",\"colorField\":\"value\",\"label\":{\"text\":\"value\",\"style\":{\"fontSize\":10}},\"interaction\":{\"tooltip\":true},\"title\":\"示例heatmap图表\"}",
       "commonErrors": [
         "Missing colorField for intensity",
         "Not providing proper grid data structure"
@@ -171,7 +172,7 @@
       "requiredFields": [
         "data"
       ],
-      "example": "{\"type\":\"funnel\",\"data\":[{\"stage\":\"Visitors\",\"count\":10000},{\"stage\":\"Leads\",\"count\":5000},{\"stage\":\"Prospects\",\"count\":2500},{\"stage\":\"Negotiations\",\"count\":1200},{\"stage\":\"Closed Deals\",\"count\":600}],\"xField\":\"stage\",\"yField\":\"count\",\"label\":{\"text\":\"count\",\"style\":{\"fontSize\":11}},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"funnel\",\"data\":[{\"stage\":\"Visitors\",\"count\":10000},{\"stage\":\"Leads\",\"count\":5000},{\"stage\":\"Prospects\",\"count\":2500},{\"stage\":\"Negotiations\",\"count\":1200},{\"stage\":\"Closed Deals\",\"count\":600}],\"xField\":\"stage\",\"yField\":\"count\",\"label\":{\"text\":\"count\",\"style\":{\"fontSize\":11}},\"interaction\":{\"tooltip\":true},\"title\":\"示例funnel图表\"}",
       "commonErrors": [
         "Data not sorted by funnel order (largest to smallest)",
         "Missing value field for stage size"
@@ -184,7 +185,7 @@
         "data",
         "binField"
       ],
-      "example": "{\"type\":\"histogram\",\"data\":[{\"value\":15},{\"value\":22},{\"value\":28},{\"value\":35},{\"value\":42},{\"value\":48},{\"value\":55},{\"value\":62},{\"value\":38},{\"value\":45},{\"value\":30},{\"value\":25},{\"value\":50},{\"value\":58},{\"value\":33}],\"binField\":\"value\",\"style\":{\"radiusTopLeft\":2,\"radiusTopRight\":2},\"interaction\":{\"tooltip\":true}}",
+      "example": "{\"type\":\"histogram\",\"data\":[{\"value\":15},{\"value\":22},{\"value\":28},{\"value\":35},{\"value\":42},{\"value\":48},{\"value\":55},{\"value\":62},{\"value\":38},{\"value\":45},{\"value\":30},{\"value\":25},{\"value\":50},{\"value\":58},{\"value\":33}],\"binField\":\"value\",\"style\":{\"radiusTopLeft\":2,\"radiusTopRight\":2},\"interaction\":{\"tooltip\":true},\"title\":\"示例histogram图表\"}",
       "commonErrors": [
         "Using xField instead of binField",
         "Not providing raw data for binning"
@@ -203,10 +204,10 @@
         "Using long format with single yField + colorField — WRONG for dualAxes. DualAxes needs WIDE format with yField as array of TWO field names",
         "WRONG: data=[{x:'A',metric:'Revenue',value:100},{x:'A',metric:'Growth',value:0.1}], yField:'value', colorField:'metric' — this is a grouped column pattern, NOT dualAxes",
         "CORRECT: data=[{x:'A',revenue:100,growthRate:0.1}], yField:['revenue','growthRate'] — each row has BOTH metrics as separate fields",
-        "Using geometryOptions (v1 legacy, removed in v2)",
+        "Using geometryOptions or setting color on per-series config — WRONG. DualAxes v2 does NOT support geometryOptions. Do not add color, lineStyle, or geometry settings per-series. The renderer handles styling automatically.",
         "Mixing incompatible chart types"
       ],
-      "tips": "DualAxes is the ONLY chart type where yField is an array. Use exactly TWO field names in yField array. Data must be WIDE format: each row contains both metrics as separate fields. Do NOT use colorField or group with dualAxes. Provide a flat dataset with both metrics per row."
+      "tips": "DualAxes is the ONLY chart type where yField is an array. Use exactly TWO field names in yField array. Data must be WIDE format: each row contains both metrics as separate fields. Do NOT use colorField or group with dualAxes. Provide a flat dataset with both metrics per row. Do NOT use geometryOptions — it is a v1 API and causes render errors. Do NOT set color on individual series configs."
     }
   ]
 }

@@ -12,7 +12,8 @@
     "Use encoding channels (x, y, color, size, etc.) with field, type, and optionally aggregate",
     "Valid type values: \"quantitative\", \"nominal\", \"ordinal\", \"temporal\"",
     "Do not set the $schema field -- the renderer adds it automatically",
-    "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes"
+    "Do not set color/backgroundColor/textStyle.color -- the renderer applies theme-aware styles automatically for both light and dark modes",
+    "ALWAYS include a top-level \"title\" field: e.g. \"title\": \"图表标题\" — required for all vega-lite charts"
   ],
   "typeWhitelist": [
     "boxplot",
@@ -24,29 +25,116 @@
       "type": "boxplot",
       "name": "Box Plot / 箱线图",
       "description": "Statistical distribution summary: median, quartiles, outliers across categories.",
-      "keywords": ["boxplot", "box plot", "distribution", "箱线", "分布", "统计", "中位数"],
+      "keywords": [
+        "boxplot",
+        "box plot",
+        "distribution",
+        "箱线",
+        "分布",
+        "统计",
+        "中位数"
+      ],
       "spec_example": {
         "mark": "boxplot",
         "data": {
           "values": [
-            {"group": "A", "value": 12}, {"group": "A", "value": 15},
-            {"group": "A", "value": 18}, {"group": "A", "value": 22},
-            {"group": "A", "value": 25}, {"group": "A", "value": 30},
-            {"group": "A", "value": 45},
-            {"group": "B", "value": 20}, {"group": "B", "value": 24},
-            {"group": "B", "value": 28}, {"group": "B", "value": 32},
-            {"group": "B", "value": 35}, {"group": "B", "value": 38},
-            {"group": "B", "value": 55},
-            {"group": "C", "value": 5}, {"group": "C", "value": 10},
-            {"group": "C", "value": 14}, {"group": "C", "value": 16},
-            {"group": "C", "value": 20}, {"group": "C", "value": 22},
-            {"group": "C", "value": 40}
+            {
+              "group": "A",
+              "value": 12
+            },
+            {
+              "group": "A",
+              "value": 15
+            },
+            {
+              "group": "A",
+              "value": 18
+            },
+            {
+              "group": "A",
+              "value": 22
+            },
+            {
+              "group": "A",
+              "value": 25
+            },
+            {
+              "group": "A",
+              "value": 30
+            },
+            {
+              "group": "A",
+              "value": 45
+            },
+            {
+              "group": "B",
+              "value": 20
+            },
+            {
+              "group": "B",
+              "value": 24
+            },
+            {
+              "group": "B",
+              "value": 28
+            },
+            {
+              "group": "B",
+              "value": 32
+            },
+            {
+              "group": "B",
+              "value": 35
+            },
+            {
+              "group": "B",
+              "value": 38
+            },
+            {
+              "group": "B",
+              "value": 55
+            },
+            {
+              "group": "C",
+              "value": 5
+            },
+            {
+              "group": "C",
+              "value": 10
+            },
+            {
+              "group": "C",
+              "value": 14
+            },
+            {
+              "group": "C",
+              "value": 16
+            },
+            {
+              "group": "C",
+              "value": 20
+            },
+            {
+              "group": "C",
+              "value": 22
+            },
+            {
+              "group": "C",
+              "value": 40
+            }
           ]
         },
         "encoding": {
-          "x": {"field": "group", "type": "nominal"},
-          "y": {"field": "value", "type": "quantitative"}
-        }
+          "x": {
+            "field": "group",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "value",
+            "type": "quantitative"
+          }
+        },
+        "title": "示例boxplot图表"
       },
       "notes": "Provide raw data points -- Vega-Lite computes quartiles automatically. Mark type \"boxplot\" is a composite mark."
     },
@@ -54,40 +142,88 @@
       "type": "layer",
       "name": "Multi-Layer Composition / 多层组合",
       "description": "Overlay multiple marks (line+point, bar+text, area+rule) in a single chart.",
-      "keywords": ["layer", "overlay", "composite", "multi-layer", "组合", "叠加", "多层"],
+      "keywords": [
+        "layer",
+        "overlay",
+        "composite",
+        "multi-layer",
+        "组合",
+        "叠加",
+        "多层"
+      ],
       "spec_example": {
         "layer": [
           {
-            "mark": {"type": "area", "opacity": 0.3},
+            "mark": {
+              "type": "area",
+              "opacity": 0.3
+            },
             "encoding": {
-              "x": {"field": "date", "type": "ordinal"},
-              "y": {"field": "value", "type": "quantitative"}
+              "x": {
+                "field": "date",
+                "type": "ordinal"
+              },
+              "y": {
+                "field": "value",
+                "type": "quantitative"
+              }
             }
           },
           {
-            "mark": {"type": "line", "point": true},
+            "mark": {
+              "type": "line",
+              "point": true
+            },
             "encoding": {
-              "x": {"field": "date", "type": "ordinal"},
-              "y": {"field": "value", "type": "quantitative"}
+              "x": {
+                "field": "date",
+                "type": "ordinal"
+              },
+              "y": {
+                "field": "value",
+                "type": "quantitative"
+              }
             }
           },
           {
             "mark": "rule",
             "encoding": {
-              "y": {"datum": 50},
-              "strokeDash": {"value": [4, 4]},
-              "color": {"value": "red"}
+              "y": {
+                "datum": 50
+              },
+              "strokeDash": {
+                "value": [
+                  4,
+                  4
+                ]
+              },
+              "color": {
+                "value": "red"
+              }
             }
           }
         ],
         "data": {
           "values": [
-            {"date": "Q1", "value": 35},
-            {"date": "Q2", "value": 52},
-            {"date": "Q3", "value": 48},
-            {"date": "Q4", "value": 65}
+            {
+              "date": "Q1",
+              "value": 35
+            },
+            {
+              "date": "Q2",
+              "value": 52
+            },
+            {
+              "date": "Q3",
+              "value": 48
+            },
+            {
+              "date": "Q4",
+              "value": 65
+            }
           ]
-        }
+        },
+        "title": "示例layer图表"
       },
       "notes": "Place shared data at the top level. Each layer object has its own mark and encoding. Use rule mark for reference lines."
     },
@@ -95,24 +231,96 @@
       "type": "facet",
       "name": "Small Multiples / Facet / 分面图",
       "description": "Split one chart into a grid of sub-charts by a categorical variable for comparison.",
-      "keywords": ["facet", "small multiples", "trellis", "分面", "小多图", "对比"],
+      "keywords": [
+        "facet",
+        "small multiples",
+        "trellis",
+        "分面",
+        "小多图",
+        "对比"
+      ],
       "spec_example": {
         "mark": "point",
         "data": {
           "values": [
-            {"x": 1, "y": 2, "cat": "A"}, {"x": 2, "y": 3, "cat": "A"},
-            {"x": 3, "y": 5, "cat": "A"}, {"x": 4, "y": 4, "cat": "A"},
-            {"x": 1, "y": 3, "cat": "B"}, {"x": 2, "y": 5, "cat": "B"},
-            {"x": 3, "y": 4, "cat": "B"}, {"x": 4, "y": 6, "cat": "B"},
-            {"x": 1, "y": 1, "cat": "C"}, {"x": 2, "y": 4, "cat": "C"},
-            {"x": 3, "y": 3, "cat": "C"}, {"x": 4, "y": 5, "cat": "C"}
+            {
+              "x": 1,
+              "y": 2,
+              "cat": "A"
+            },
+            {
+              "x": 2,
+              "y": 3,
+              "cat": "A"
+            },
+            {
+              "x": 3,
+              "y": 5,
+              "cat": "A"
+            },
+            {
+              "x": 4,
+              "y": 4,
+              "cat": "A"
+            },
+            {
+              "x": 1,
+              "y": 3,
+              "cat": "B"
+            },
+            {
+              "x": 2,
+              "y": 5,
+              "cat": "B"
+            },
+            {
+              "x": 3,
+              "y": 4,
+              "cat": "B"
+            },
+            {
+              "x": 4,
+              "y": 6,
+              "cat": "B"
+            },
+            {
+              "x": 1,
+              "y": 1,
+              "cat": "C"
+            },
+            {
+              "x": 2,
+              "y": 4,
+              "cat": "C"
+            },
+            {
+              "x": 3,
+              "y": 3,
+              "cat": "C"
+            },
+            {
+              "x": 4,
+              "y": 5,
+              "cat": "C"
+            }
           ]
         },
         "encoding": {
-          "x": {"field": "x", "type": "quantitative"},
-          "y": {"field": "y", "type": "quantitative"},
-          "facet": {"field": "cat", "type": "nominal", "columns": 3}
-        }
+          "x": {
+            "field": "x",
+            "type": "quantitative"
+          },
+          "y": {
+            "field": "y",
+            "type": "quantitative"
+          },
+          "facet": {
+            "field": "cat",
+            "type": "nominal",
+            "columns": 3
+          }
+        },
+        "title": "示例facet图表"
       },
       "notes": "Use encoding.facet to split by a field. Set columns to control grid layout. Can also use row/column encoding for 2D grids."
     }

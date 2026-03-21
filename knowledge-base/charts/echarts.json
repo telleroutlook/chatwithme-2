@@ -14,7 +14,8 @@
     "Do not set color arrays — the renderer applies a curated palette automatically",
     "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
     "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer",
-    "xAxis.data must be an array of strings, NOT a comma-separated string"
+    "xAxis.data must be an array of strings, NOT a comma-separated string",
+    "ALWAYS include a top-level \"title\" object: e.g. \"title\": {\"text\": \"图表标题\"} — required for all echarts charts"
   ],
   "typeWhitelist": [
     "map",
@@ -34,31 +35,86 @@
       "type": "sankey",
       "name": "Sankey Diagram / 桑基图",
       "description": "Flow/allocation visualization: budgets, energy flow, user journeys, supply chains",
-      "keywords": ["sankey", "flow", "alluvial", "桑基", "流向"],
+      "keywords": [
+        "sankey",
+        "flow",
+        "alluvial",
+        "桑基",
+        "流向"
+      ],
       "spec_example": {
-        "tooltip": { "trigger": "item" },
-        "series": [{
-          "type": "sankey",
-          "layout": "none",
-          "emphasis": { "focus": "adjacency" },
-          "data": [
-            { "name": "Budget" },
-            { "name": "Engineering" },
-            { "name": "Marketing" },
-            { "name": "Sales" },
-            { "name": "Product A" },
-            { "name": "Product B" }
-          ],
-          "links": [
-            { "source": "Budget", "target": "Engineering", "value": 40 },
-            { "source": "Budget", "target": "Marketing", "value": 30 },
-            { "source": "Budget", "target": "Sales", "value": 30 },
-            { "source": "Engineering", "target": "Product A", "value": 25 },
-            { "source": "Engineering", "target": "Product B", "value": 15 },
-            { "source": "Marketing", "target": "Product A", "value": 20 },
-            { "source": "Marketing", "target": "Product B", "value": 10 }
-          ]
-        }]
+        "tooltip": {
+          "trigger": "item"
+        },
+        "series": [
+          {
+            "type": "sankey",
+            "layout": "none",
+            "emphasis": {
+              "focus": "adjacency"
+            },
+            "data": [
+              {
+                "name": "Budget"
+              },
+              {
+                "name": "Engineering"
+              },
+              {
+                "name": "Marketing"
+              },
+              {
+                "name": "Sales"
+              },
+              {
+                "name": "Product A"
+              },
+              {
+                "name": "Product B"
+              }
+            ],
+            "links": [
+              {
+                "source": "Budget",
+                "target": "Engineering",
+                "value": 40
+              },
+              {
+                "source": "Budget",
+                "target": "Marketing",
+                "value": 30
+              },
+              {
+                "source": "Budget",
+                "target": "Sales",
+                "value": 30
+              },
+              {
+                "source": "Engineering",
+                "target": "Product A",
+                "value": 25
+              },
+              {
+                "source": "Engineering",
+                "target": "Product B",
+                "value": 15
+              },
+              {
+                "source": "Marketing",
+                "target": "Product A",
+                "value": 20
+              },
+              {
+                "source": "Marketing",
+                "target": "Product B",
+                "value": 10
+              }
+            ]
+          }
+        ],
+        "title": {
+          "text": "示例sankey图表"
+        }
       },
       "notes": "series[].data is an array of {name} nodes. series[].links has {source, target, value}. Link source/target must match node names exactly."
     },
@@ -66,29 +122,85 @@
       "type": "tree",
       "name": "Tree / 树图",
       "description": "Hierarchical tree structures: org charts, file trees, decision trees",
-      "keywords": ["tree", "hierarchy", "org chart", "树图", "层级", "组织架构"],
+      "keywords": [
+        "tree",
+        "hierarchy",
+        "org chart",
+        "树图",
+        "层级",
+        "组织架构"
+      ],
       "spec_example": {
-        "tooltip": { "trigger": "item" },
-        "series": [{
-          "type": "tree",
-          "data": [{
-            "name": "CEO",
-            "children": [
-              { "name": "CTO", "children": [{ "name": "Dev Lead" }, { "name": "QA Lead" }] },
-              { "name": "CFO", "children": [{ "name": "Accounting" }, { "name": "Finance" }] },
-              { "name": "COO", "children": [{ "name": "Operations" }, { "name": "HR" }] }
-            ]
-          }],
-          "top": "5%",
-          "left": "10%",
-          "bottom": "5%",
-          "right": "10%",
-          "symbolSize": 8,
-          "label": { "position": "left", "verticalAlign": "middle", "align": "right", "fontSize": 12 },
-          "leaves": { "label": { "position": "right", "align": "left" } },
-          "expandAndCollapse": true,
-          "animationDuration": 550
-        }]
+        "tooltip": {
+          "trigger": "item"
+        },
+        "series": [
+          {
+            "type": "tree",
+            "data": [
+              {
+                "name": "CEO",
+                "children": [
+                  {
+                    "name": "CTO",
+                    "children": [
+                      {
+                        "name": "Dev Lead"
+                      },
+                      {
+                        "name": "QA Lead"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "CFO",
+                    "children": [
+                      {
+                        "name": "Accounting"
+                      },
+                      {
+                        "name": "Finance"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "COO",
+                    "children": [
+                      {
+                        "name": "Operations"
+                      },
+                      {
+                        "name": "HR"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "top": "5%",
+            "left": "10%",
+            "bottom": "5%",
+            "right": "10%",
+            "symbolSize": 8,
+            "label": {
+              "position": "left",
+              "verticalAlign": "middle",
+              "align": "right",
+              "fontSize": 12
+            },
+            "leaves": {
+              "label": {
+                "position": "right",
+                "align": "left"
+              }
+            },
+            "expandAndCollapse": true,
+            "animationDuration": 550
+          }
+        ],
+        "title": {
+          "text": "示例tree图表"
+        }
       },
       "notes": "Data uses nested {name, children:[...]} structure. Set layout margins (top/left/bottom/right) for proper spacing."
     },
@@ -96,27 +208,70 @@
       "type": "treemap",
       "name": "Treemap / 矩形树图",
       "description": "Proportional hierarchical data: disk usage, market cap, budget breakdown",
-      "keywords": ["treemap", "矩形树图", "占比", "空间"],
+      "keywords": [
+        "treemap",
+        "矩形树图",
+        "占比",
+        "空间"
+      ],
       "spec_example": {
-        "tooltip": { "trigger": "item" },
-        "series": [{
-          "type": "treemap",
-          "data": [
-            { "name": "Tech", "value": 100, "children": [
-              { "name": "Frontend", "value": 45 },
-              { "name": "Backend", "value": 35 },
-              { "name": "DevOps", "value": 20 }
-            ]},
-            { "name": "Business", "value": 80, "children": [
-              { "name": "Sales", "value": 40 },
-              { "name": "Marketing", "value": 25 },
-              { "name": "Support", "value": 15 }
-            ]}
-          ],
-          "leafDepth": 1,
-          "label": { "show": true },
-          "upperLabel": { "show": true, "height": 30 }
-        }]
+        "tooltip": {
+          "trigger": "item"
+        },
+        "series": [
+          {
+            "type": "treemap",
+            "data": [
+              {
+                "name": "Tech",
+                "value": 100,
+                "children": [
+                  {
+                    "name": "Frontend",
+                    "value": 45
+                  },
+                  {
+                    "name": "Backend",
+                    "value": 35
+                  },
+                  {
+                    "name": "DevOps",
+                    "value": 20
+                  }
+                ]
+              },
+              {
+                "name": "Business",
+                "value": 80,
+                "children": [
+                  {
+                    "name": "Sales",
+                    "value": 40
+                  },
+                  {
+                    "name": "Marketing",
+                    "value": 25
+                  },
+                  {
+                    "name": "Support",
+                    "value": 15
+                  }
+                ]
+              }
+            ],
+            "leafDepth": 1,
+            "label": {
+              "show": true
+            },
+            "upperLabel": {
+              "show": true,
+              "height": 30
+            }
+          }
+        ],
+        "title": {
+          "text": "示例treemap图表"
+        }
       },
       "notes": "Leaf nodes must have a value field. Set leafDepth for drill-down levels. Use upperLabel for parent category headers."
     },
@@ -124,30 +279,79 @@
       "type": "sunburst",
       "name": "Sunburst / 旭日图",
       "description": "Multi-level proportional data: revenue by region/product, nested category breakdowns",
-      "keywords": ["sunburst", "旭日", "层级占比"],
+      "keywords": [
+        "sunburst",
+        "旭日",
+        "层级占比"
+      ],
       "spec_example": {
-        "tooltip": { "trigger": "item" },
-        "series": [{
-          "type": "sunburst",
-          "data": [
-            { "name": "Asia", "children": [
-              { "name": "China", "value": 50 },
-              { "name": "Japan", "value": 30 },
-              { "name": "India", "value": 25 }
-            ]},
-            { "name": "Europe", "children": [
-              { "name": "Germany", "value": 28 },
-              { "name": "France", "value": 22 },
-              { "name": "UK", "value": 20 }
-            ]},
-            { "name": "Americas", "children": [
-              { "name": "USA", "value": 45 },
-              { "name": "Brazil", "value": 18 }
-            ]}
-          ],
-          "radius": ["15%", "80%"],
-          "label": { "rotate": "radial" }
-        }]
+        "tooltip": {
+          "trigger": "item"
+        },
+        "series": [
+          {
+            "type": "sunburst",
+            "data": [
+              {
+                "name": "Asia",
+                "children": [
+                  {
+                    "name": "China",
+                    "value": 50
+                  },
+                  {
+                    "name": "Japan",
+                    "value": 30
+                  },
+                  {
+                    "name": "India",
+                    "value": 25
+                  }
+                ]
+              },
+              {
+                "name": "Europe",
+                "children": [
+                  {
+                    "name": "Germany",
+                    "value": 28
+                  },
+                  {
+                    "name": "France",
+                    "value": 22
+                  },
+                  {
+                    "name": "UK",
+                    "value": 20
+                  }
+                ]
+              },
+              {
+                "name": "Americas",
+                "children": [
+                  {
+                    "name": "USA",
+                    "value": 45
+                  },
+                  {
+                    "name": "Brazil",
+                    "value": 18
+                  }
+                ]
+              }
+            ],
+            "radius": [
+              "15%",
+              "80%"
+            ],
+            "label": {
+              "rotate": "radial"
+            }
+          }
+        ],
+        "title": {
+          "text": "示例sunburst图表"
+        }
       },
       "notes": "Leaf nodes must have value. Set radius [inner, outer] for sizing. Use label.rotate:'radial' for readability."
     },
@@ -155,21 +359,71 @@
       "type": "candlestick",
       "name": "Candlestick / K线图",
       "description": "Stock/financial K-line charts, OHLC data visualization",
-      "keywords": ["candlestick", "K线", "股票", "OHLC", "kline"],
+      "keywords": [
+        "candlestick",
+        "K线",
+        "股票",
+        "OHLC",
+        "kline"
+      ],
       "spec_example": {
-        "xAxis": { "type": "category", "data": ["Mon", "Tue", "Wed", "Thu", "Fri"] },
-        "yAxis": { "type": "value", "scale": true },
-        "tooltip": { "trigger": "axis" },
-        "series": [{
-          "type": "candlestick",
+        "xAxis": {
+          "type": "category",
           "data": [
-            [20, 34, 10, 38],
-            [40, 35, 30, 50],
-            [31, 38, 33, 44],
-            [38, 15, 5, 42],
-            [25, 36, 20, 38]
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri"
           ]
-        }]
+        },
+        "yAxis": {
+          "type": "value",
+          "scale": true
+        },
+        "tooltip": {
+          "trigger": "axis"
+        },
+        "series": [
+          {
+            "type": "candlestick",
+            "data": [
+              [
+                20,
+                34,
+                10,
+                38
+              ],
+              [
+                40,
+                35,
+                30,
+                50
+              ],
+              [
+                31,
+                38,
+                33,
+                44
+              ],
+              [
+                38,
+                15,
+                5,
+                42
+              ],
+              [
+                25,
+                36,
+                20,
+                38
+              ]
+            ]
+          }
+        ],
+        "title": {
+          "text": "示例candlestick图表"
+        }
       },
       "notes": "Each data item is [open, close, lowest, highest]. Always set yAxis.scale:true for proper range. Use category xAxis for date labels."
     },
@@ -177,16 +431,42 @@
       "type": "gauge",
       "name": "Advanced Gauge / 高级仪表盘",
       "description": "Advanced gauges with progress bars, custom ranges, multi-pointer dashboards",
-      "keywords": ["gauge", "仪表盘", "进度", "dashboard gauge"],
+      "keywords": [
+        "gauge",
+        "仪表盘",
+        "进度",
+        "dashboard gauge"
+      ],
       "spec_example": {
-        "series": [{
-          "type": "gauge",
-          "data": [{ "name": "Completion", "value": 72.5 }],
-          "detail": { "formatter": "{value}%" },
-          "axisLine": { "lineStyle": { "width": 15 } },
-          "progress": { "show": true, "width": 15 },
-          "pointer": { "show": true }
-        }]
+        "series": [
+          {
+            "type": "gauge",
+            "data": [
+              {
+                "name": "Completion",
+                "value": 72.5
+              }
+            ],
+            "detail": {
+              "formatter": "{value}%"
+            },
+            "axisLine": {
+              "lineStyle": {
+                "width": 15
+              }
+            },
+            "progress": {
+              "show": true,
+              "width": 15
+            },
+            "pointer": {
+              "show": true
+            }
+          }
+        ],
+        "title": {
+          "text": "示例gauge图表"
+        }
       },
       "notes": "Data is array of {name, value}. Default range is 0-100; set min/max for custom ranges. Use progress.show for modern gauge style."
     },
@@ -194,21 +474,92 @@
       "type": "themeRiver",
       "name": "Theme River / 主题河流",
       "description": "Trends of multiple categories over time as stacked streams",
-      "keywords": ["themeRiver", "river", "stream", "主题河流", "河流图"],
+      "keywords": [
+        "themeRiver",
+        "river",
+        "stream",
+        "主题河流",
+        "河流图"
+      ],
       "spec_example": {
-        "tooltip": { "trigger": "axis" },
-        "singleAxis": { "type": "time", "top": 50, "bottom": 50 },
-        "series": [{
-          "type": "themeRiver",
-          "data": [
-            ["2020-01", 10, "Product A"], ["2020-04", 15, "Product A"],
-            ["2020-07", 22, "Product A"], ["2020-10", 18, "Product A"],
-            ["2020-01", 8, "Product B"], ["2020-04", 12, "Product B"],
-            ["2020-07", 16, "Product B"], ["2020-10", 20, "Product B"],
-            ["2020-01", 5, "Product C"], ["2020-04", 9, "Product C"],
-            ["2020-07", 11, "Product C"], ["2020-10", 14, "Product C"]
-          ]
-        }]
+        "tooltip": {
+          "trigger": "axis"
+        },
+        "singleAxis": {
+          "type": "time",
+          "top": 50,
+          "bottom": 50
+        },
+        "series": [
+          {
+            "type": "themeRiver",
+            "data": [
+              [
+                "2020-01",
+                10,
+                "Product A"
+              ],
+              [
+                "2020-04",
+                15,
+                "Product A"
+              ],
+              [
+                "2020-07",
+                22,
+                "Product A"
+              ],
+              [
+                "2020-10",
+                18,
+                "Product A"
+              ],
+              [
+                "2020-01",
+                8,
+                "Product B"
+              ],
+              [
+                "2020-04",
+                12,
+                "Product B"
+              ],
+              [
+                "2020-07",
+                16,
+                "Product B"
+              ],
+              [
+                "2020-10",
+                20,
+                "Product B"
+              ],
+              [
+                "2020-01",
+                5,
+                "Product C"
+              ],
+              [
+                "2020-04",
+                9,
+                "Product C"
+              ],
+              [
+                "2020-07",
+                11,
+                "Product C"
+              ],
+              [
+                "2020-10",
+                14,
+                "Product C"
+              ]
+            ]
+          }
+        ],
+        "title": {
+          "text": "示例themeRiver图表"
+        }
       },
       "notes": "Data is array of [date, value, categoryName] triples. Requires singleAxis config. Ensure consistent date points across all categories."
     },
@@ -216,29 +567,70 @@
       "type": "map",
       "name": "Geographic Map / 地图",
       "description": "Geographic choropleth maps for regional data visualization",
-      "keywords": ["map", "地图", "china map", "world map", "geographic", "choropleth", "区域"],
+      "keywords": [
+        "map",
+        "地图",
+        "china map",
+        "world map",
+        "geographic",
+        "choropleth",
+        "区域"
+      ],
       "spec_example": {
-        "tooltip": { "trigger": "item" },
+        "tooltip": {
+          "trigger": "item"
+        },
         "visualMap": {
-          "min": 0, "max": 1000,
-          "left": "left", "top": "bottom",
-          "text": ["High", "Low"],
+          "min": 0,
+          "max": 1000,
+          "left": "left",
+          "top": "bottom",
+          "text": [
+            "High",
+            "Low"
+          ],
           "calculable": true
         },
-        "series": [{
-          "type": "map",
-          "map": "china",
-          "roam": true,
-          "label": { "show": true, "fontSize": 10 },
-          "data": [
-            { "name": "北京", "value": 850 },
-            { "name": "上海", "value": 920 },
-            { "name": "广东", "value": 780 },
-            { "name": "浙江", "value": 650 },
-            { "name": "江苏", "value": 700 },
-            { "name": "四川", "value": 420 }
-          ]
-        }]
+        "series": [
+          {
+            "type": "map",
+            "map": "china",
+            "roam": true,
+            "label": {
+              "show": true,
+              "fontSize": 10
+            },
+            "data": [
+              {
+                "name": "北京",
+                "value": 850
+              },
+              {
+                "name": "上海",
+                "value": 920
+              },
+              {
+                "name": "广东",
+                "value": 780
+              },
+              {
+                "name": "浙江",
+                "value": 650
+              },
+              {
+                "name": "江苏",
+                "value": 700
+              },
+              {
+                "name": "四川",
+                "value": 420
+              }
+            ]
+          }
+        ],
+        "title": {
+          "text": "示例map图表"
+        }
       },
       "notes": "Only 'china' and 'world' maps are registered. For china map, use Chinese province names (e.g., '北京', '上海'). Always include visualMap for choropleth coloring."
     },
@@ -246,24 +638,62 @@
       "type": "wordCloud",
       "name": "Word Cloud / 词云",
       "description": "Word frequency visualization where size represents importance or frequency",
-      "keywords": ["wordcloud", "word cloud", "tag cloud", "词云", "标签云", "文字云"],
+      "keywords": [
+        "wordcloud",
+        "word cloud",
+        "tag cloud",
+        "词云",
+        "标签云",
+        "文字云"
+      ],
       "spec_example": {
-        "tooltip": { "show": true },
-        "series": [{
-          "type": "wordCloud",
-          "shape": "circle",
-          "sizeRange": [14, 60],
-          "rotationRange": [-45, 45],
-          "gridSize": 8,
-          "data": [
-            { "name": "Technology", "value": 1000 },
-            { "name": "Innovation", "value": 800 },
-            { "name": "Design", "value": 600 },
-            { "name": "Strategy", "value": 500 },
-            { "name": "Growth", "value": 400 },
-            { "name": "Data", "value": 350 }
-          ]
-        }]
+        "tooltip": {
+          "show": true
+        },
+        "series": [
+          {
+            "type": "wordCloud",
+            "shape": "circle",
+            "sizeRange": [
+              14,
+              60
+            ],
+            "rotationRange": [
+              -45,
+              45
+            ],
+            "gridSize": 8,
+            "data": [
+              {
+                "name": "Technology",
+                "value": 1000
+              },
+              {
+                "name": "Innovation",
+                "value": 800
+              },
+              {
+                "name": "Design",
+                "value": 600
+              },
+              {
+                "name": "Strategy",
+                "value": 500
+              },
+              {
+                "name": "Growth",
+                "value": 400
+              },
+              {
+                "name": "Data",
+                "value": 350
+              }
+            ]
+          }
+        ],
+        "title": {
+          "text": "示例wordCloud图表"
+        }
       },
       "notes": "REQUIRES echarts-wordcloud extension. shape: 'circle', 'cardioid', 'diamond', 'triangle', 'star'. sizeRange controls [min, max] font size."
     },
@@ -271,22 +701,96 @@
       "type": "bar3D",
       "name": "3D Bar Chart / 3D柱状图",
       "description": "Three-dimensional bar chart for spatial data or multi-dimension comparison",
-      "keywords": ["bar3d", "3d bar", "3D柱状图", "三维柱状图"],
+      "keywords": [
+        "bar3d",
+        "3d bar",
+        "3D柱状图",
+        "三维柱状图"
+      ],
       "spec_example": {
         "tooltip": {},
-        "xAxis3D": { "type": "category", "data": ["A", "B", "C"] },
-        "yAxis3D": { "type": "category", "data": ["Q1", "Q2", "Q3"] },
-        "zAxis3D": { "type": "value" },
-        "grid3D": { "boxWidth": 100, "boxDepth": 80, "viewControl": { "autoRotate": true } },
-        "series": [{
-          "type": "bar3D",
-          "shading": "lambert",
+        "xAxis3D": {
+          "type": "category",
           "data": [
-            [0, 0, 50], [0, 1, 80], [0, 2, 60],
-            [1, 0, 70], [1, 1, 90], [1, 2, 55],
-            [2, 0, 40], [2, 1, 65], [2, 2, 85]
+            "A",
+            "B",
+            "C"
           ]
-        }]
+        },
+        "yAxis3D": {
+          "type": "category",
+          "data": [
+            "Q1",
+            "Q2",
+            "Q3"
+          ]
+        },
+        "zAxis3D": {
+          "type": "value"
+        },
+        "grid3D": {
+          "boxWidth": 100,
+          "boxDepth": 80,
+          "viewControl": {
+            "autoRotate": true
+          }
+        },
+        "series": [
+          {
+            "type": "bar3D",
+            "shading": "lambert",
+            "data": [
+              [
+                0,
+                0,
+                50
+              ],
+              [
+                0,
+                1,
+                80
+              ],
+              [
+                0,
+                2,
+                60
+              ],
+              [
+                1,
+                0,
+                70
+              ],
+              [
+                1,
+                1,
+                90
+              ],
+              [
+                1,
+                2,
+                55
+              ],
+              [
+                2,
+                0,
+                40
+              ],
+              [
+                2,
+                1,
+                65
+              ],
+              [
+                2,
+                2,
+                85
+              ]
+            ]
+          }
+        ],
+        "title": {
+          "text": "示例bar3D图表"
+        }
       },
       "notes": "REQUIRES echarts-gl extension. Data format: [xIndex, yIndex, value]. Use grid3D.viewControl.autoRotate for rotation effect."
     },
@@ -294,21 +798,69 @@
       "type": "scatter3D",
       "name": "3D Scatter Chart / 3D散点图",
       "description": "Three-dimensional scatter plot for 3-variable spatial data",
-      "keywords": ["scatter3d", "3d scatter", "3D散点图", "三维散点图"],
+      "keywords": [
+        "scatter3d",
+        "3d scatter",
+        "3D散点图",
+        "三维散点图"
+      ],
       "spec_example": {
         "tooltip": {},
-        "xAxis3D": { "type": "value" },
-        "yAxis3D": { "type": "value" },
-        "zAxis3D": { "type": "value" },
-        "grid3D": { "viewControl": { "autoRotate": true } },
-        "series": [{
-          "type": "scatter3D",
-          "symbolSize": 8,
-          "data": [
-            [10, 20, 30], [15, 25, 35], [20, 10, 40],
-            [25, 30, 20], [30, 15, 50], [35, 25, 25]
-          ]
-        }]
+        "xAxis3D": {
+          "type": "value"
+        },
+        "yAxis3D": {
+          "type": "value"
+        },
+        "zAxis3D": {
+          "type": "value"
+        },
+        "grid3D": {
+          "viewControl": {
+            "autoRotate": true
+          }
+        },
+        "series": [
+          {
+            "type": "scatter3D",
+            "symbolSize": 8,
+            "data": [
+              [
+                10,
+                20,
+                30
+              ],
+              [
+                15,
+                25,
+                35
+              ],
+              [
+                20,
+                10,
+                40
+              ],
+              [
+                25,
+                30,
+                20
+              ],
+              [
+                30,
+                15,
+                50
+              ],
+              [
+                35,
+                25,
+                25
+              ]
+            ]
+          }
+        ],
+        "title": {
+          "text": "示例scatter3D图表"
+        }
       },
       "notes": "REQUIRES echarts-gl extension. Data format: [x, y, z]. Use symbolSize for point size."
     }

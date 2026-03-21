@@ -32,10 +32,8 @@ interface ChatMessage {
   parts: MessagePart[];
 }
 
-type SqlResult = Record<string, unknown>[];
-type SqlFunction = (strings: TemplateStringsArray, ...values: unknown[]) => SqlResult | Promise<SqlResult>;
+type SqlDeleteFunction = (strings: TemplateStringsArray, ...values: unknown[]) => unknown;
 type PersistMessagesFunction = (messages: ChatMessage[]) => Promise<void>;
-type SetMessagesFunction = (messages: ChatMessage[]) => void;
 
 // ============ ID Resolution ============
 
@@ -118,9 +116,9 @@ export async function clearChat(
  */
 export async function deleteMessage(
   messageId: string,
-  sql: SqlFunction,
+  sqlDelete: SqlDeleteFunction,
   currentMessages: unknown,
-  setMessages: SetMessagesFunction
+  persistMessages: PersistMessagesFunction
 ): Promise<{ success: boolean; deleted: boolean; error?: string }> {
   if (!messageId) {
     return { success: false, deleted: false, error: "Message ID is required" };
@@ -129,20 +127,30 @@ export async function deleteMessage(
   try {
     const msgArray = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
 
-    // Resolve: try exact ID in memory, then fall back to raw messageId
+    // Find the message in the in-memory array (which reflects DB state after last persist).
+    // The in-memory ID is the authoritative server ID after base-class reconciliation.
     const memIndex = msgArray.findIndex((m) => m.id === messageId);
-    const resolvedId = memIndex >= 0 ? msgArray[memIndex].id! : messageId;
+    if (memIndex < 0) {
+      // Message not found in memory — nothing to delete.
+      return { success: true, deleted: false };
+    }
+    const resolvedId = msgArray[memIndex].id!;
 
-    const result = (await sql`
+    // Delete directly from the SQLite table by the resolved ID.
+    // this.sql is synchronous in the DO runtime and returns an array of rows.
+    // For DELETE statements the array is always empty — use memIndex as the
+    // success indicator instead of relying on a non-existent meta.changes.
+    sqlDelete`
       delete from cf_ai_chat_agent_messages
       where id = ${resolvedId}
-    `) as unknown as { meta?: { changes?: number } };
+    `;
 
-    const deleted = (result?.meta?.changes ?? 0) > 0;
+    // Sync the in-memory state via persistMessages so this.messages is updated
+    // and connected WebSocket clients receive the updated message list.
+    const nextMessages = msgArray.filter((_, i) => i !== memIndex);
+    await persistMessages(nextMessages);
 
-    setMessages(msgArray.filter((message) => message.id !== resolvedId));
-
-    return { success: true, deleted };
+    return { success: true, deleted: true };
   } catch (e) {
     const error = e instanceof Error ? e.message : "Unknown error";
     console.error("Error deleting message:", e);

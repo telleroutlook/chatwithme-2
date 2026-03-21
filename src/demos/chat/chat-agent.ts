@@ -923,7 +923,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       messageId,
       this.sql.bind(this) as Parameters<typeof deleteMessageImpl>[1],
       this.messages,
-      (msgs) => { this.messages = msgs as typeof this.messages; }
+      this.persistMessages.bind(this) as Parameters<typeof deleteMessageImpl>[3]
     );
   }
 
