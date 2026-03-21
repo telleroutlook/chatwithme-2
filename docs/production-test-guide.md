@@ -446,7 +446,76 @@ assert nums, "换算结果不在合理范围内"
 
 ---
 
-### Step 16 — Debug Session 状态验收
+### Step 16 — 英语词典（builtin_dictionary）
+
+**目的**: 验证 `builtin_dictionary` 工具调用 Free Dictionary API（无 Key），返回词义、音标、词性和例句。
+
+**测试 Prompt**:
+```
+What does the word 'ephemeral' mean? Give me its definition, part of speech, and an example sentence.
+```
+
+**预期结果**:
+- 回复包含词义（lasting a short time / 短暂的）
+- 包含词性（adjective）
+- 包含例句
+- Debug API 的 toolRuns 中出现 `builtin_dictionary`，状态为 `success`
+
+**说明**: 使用 `https://api.dictionaryapi.dev/api/v2/entries/en/{word}`，完全免费无需 Key，仅支持英文单词。返回最多 3 个词性、每词性 2 条定义 + 同义词。
+
+---
+
+### Step 17 — 时区/日期计算（builtin_datetime）
+
+**目的**: 验证 `builtin_datetime` 工具（纯 JS，零网络请求）的时区转换和日期差计算能力。
+
+**测试 Prompt**:
+```
+北京时间2025年3月15日下午3点，对应纽约是几点？另外计算2025-01-01到2026-01-01之间有多少天。
+```
+
+**预期结果**:
+- 时区转换：北京 15:00 → 纽约 02:00（UTC-5）或 03:00（夏令时 UTC-4），即凌晨 2-3 点
+- 日期差：365 天（2025 年不是闰年）
+- Debug API 的 toolRuns 中出现 `builtin_datetime`，状态为 `success`
+
+**操作列表**:
+
+| operation | 用途 | 必填参数 |
+|-----------|------|----------|
+| `now` | 查当前各时区时间 | 可选 `to_timezone` |
+| `convert` | 某时间转换到目标时区 | `datetime`, `from_timezone`, `to_timezone` |
+| `add` | 日期加减 | `datetime`, `amount`, `unit` |
+| `diff` | 两日期之差 | `datetime`, `datetime2` |
+
+**说明**: 使用 `Intl.DateTimeFormat` + 标准 JS Date，Cloudflare Workers 原生支持。延迟 < 1ms，不消耗任何外部 API 额度。
+
+---
+
+### Step 18 — GitHub 仓库查询（builtin_github）
+
+**目的**: 验证 `builtin_github` 工具调用 GitHub REST API（公开接口，无 Key），获取仓库信息和最新 Release。
+
+**测试 Prompt**:
+```
+查一下 facebook/react 这个 GitHub 仓库的基本信息，包括 star 数、最新版本和主要语言。
+```
+
+**预期结果**:
+- 回复包含 star 数（react 有 240k+）
+- 包含最新 Release 版本号（v19.x）
+- 包含主要语言（JavaScript）
+- Debug API 的 toolRuns 中出现 `builtin_github`，状态为 `success`
+
+**两种查询模式**:
+- **精确查询**：`query` 填 `owner/repo` 格式（如 `facebook/react`）→ 并行获取仓库元数据 + 最新 Release
+- **搜索模式**：`query` 填关键词（如 `typescript http client`）→ 返回前 5 个结果
+
+**说明**: 无 Key 限额 60 次/小时，对于聊天场景完全够用。Rate limit 触发时返回友好错误提示。精确查询时两个 HTTP 请求并行发送，延迟约 200ms。
+
+---
+
+### Step 19 — Debug Session 状态验收（原 Step 16）
 
 **目的**: 检查整个测试 session 中无未处理错误，所有工具调用均成功。
 
@@ -471,7 +540,10 @@ curl "https://chatwithme2mcp.lintao-mailbox.workers.dev/api/debug/session/anonym
       { "toolName": "builtin_math_eval",     "status": "success", "argsSnippet": "expression=..." },
       { "toolName": "builtin_weather",       "status": "success", "argsSnippet": "location=..." },
       { "toolName": "builtin_wikipedia",     "status": "success", "argsSnippet": "query=..." },
-      { "toolName": "builtin_currency",      "status": "success", "argsSnippet": "from=USD..." }
+      { "toolName": "builtin_currency",      "status": "success", "argsSnippet": "from=USD..." },
+      { "toolName": "builtin_dictionary",    "status": "success", "argsSnippet": "word=..." },
+      { "toolName": "builtin_datetime",      "status": "success", "argsSnippet": "operation=convert..." },
+      { "toolName": "builtin_github",        "status": "success", "argsSnippet": "query=facebook/react" }
     ],
     "lastError": null
   },
@@ -616,6 +688,24 @@ curl -s "https://nominatim.openstreetmap.org/search?q=CITY_NAME&format=json&limi
 说明：open.er-api.com 免费版每日更新，缓存 TTL 1 小时。汇率不是实时的（通常延迟 6-12 小时）。
 
 若需要最新汇率：使用 `builtin_web_search` 搜索当前汇率，或升级到有 API Key 的付费计划。
+
+### builtin_dictionary 返回"No dictionary entry found"
+
+原因：单词拼写错误，或查询的是非英语单词（该工具仅支持英语）。
+
+解决：确认单词拼写正确，使用单词原形（不加 -ing/-ed 等变形效果可能更好）。非英语单词请用 `builtin_wikipedia` 替代。
+
+### builtin_datetime 时区转换结果偏差
+
+原因：夏令时（DST）导致同一时区在不同季节有不同 UTC 偏移（如 `America/New_York` 冬季 UTC-5、夏季 UTC-4）。
+
+说明：工具使用 IANA 时区名和系统 DST 数据，会自动计算正确偏移——测试时需注意日期对应的季节。
+
+### builtin_github 返回 rate limit 错误
+
+原因：GitHub 匿名 API 限额 60 次/小时（按 IP），密集测试可能触发。
+
+解决：等待约 1 小时后重试，或为 Worker 配置 GitHub Personal Access Token（添加到 `Authorization` 请求头可提升至 5000 次/小时）。
 
 ---
 

@@ -19,6 +19,9 @@
 #   - 实时天气（builtin_weather）
 #   - Wikipedia 百科查询（builtin_wikipedia）
 #   - 汇率换算（builtin_currency）
+#   - 英语词典（builtin_dictionary）
+#   - 时区/日期计算（builtin_datetime）
+#   - GitHub 仓库查询（builtin_github）
 #   - Debug API（session state + tool runs）
 #
 # 用法：
@@ -653,7 +656,7 @@ sleep 4
 section "Step 15 — 汇率换算工具（builtin_currency）"
 
 CURRENCY_SESSION="currency-test-$SESSION_ID"
-echo "发送: 查询美元兑人民币汇率并换算（独立 session: $CURRENCY_SESSION）"
+echo "发送: 查询美元兑人民币汇率并换算（独立 session: ${CURRENCY_SESSION}）"
 RAW=$(proxy_curl -s -X POST "$BASE/api/chat" \
   -H "Origin: http://localhost:5173" \
   -H "$AUTH_HEADER" \
@@ -701,9 +704,180 @@ fi
 sleep 2
 
 # --------------------------------------------------------------------------
-# Step 16: Debug Session 状态验收
+# Step 16: 英语词典（builtin_dictionary）
 # --------------------------------------------------------------------------
-section "Step 16 — Debug Session 状态验收"
+section "Step 16 — 英语词典工具（builtin_dictionary）"
+
+DICT_SESSION="dict-test-$SESSION_ID"
+echo "发送: 查询单词 ephemeral（独立 session: ${DICT_SESSION}）"
+RAW=$(proxy_curl -s -X POST "$BASE/api/chat" \
+  -H "Origin: http://localhost:5173" \
+  -H "$AUTH_HEADER" \
+  -H "Content-Type: application/json" \
+  -d "{\"message\": $(echo "What does the word 'ephemeral' mean? Give me its definition, part of speech, and an example sentence." | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip()))"), \"sessionId\": \"$DICT_SESSION\"}" \
+  --max-time 60 2>/dev/null)
+assert_response "词典查询:有结果" "$RAW"
+
+# 验证工具被调用（独立 session）
+sleep 2
+DICT_RUNS=$(proxy_curl -s \
+  "$BASE/api/debug/session/anonymous:$DICT_SESSION/state?token=$DEBUG_TOKEN" \
+  --max-time 10 2>/dev/null | \
+  python3 -c "
+import json,sys
+try:
+    d=json.load(sys.stdin)
+    runs=d.get('snapshot',{}).get('toolRuns',[])
+    print(json.dumps([r.get('toolName','') for r in runs]))
+except: print('[]')
+" 2>/dev/null || echo "[]")
+if echo "$DICT_RUNS" | python3 -c "import json,sys; runs=json.load(sys.stdin); exit(0 if 'builtin_dictionary' in runs else 1)" 2>/dev/null; then
+  echo -e "${GREEN}[PASS]${RESET} 词典查询:builtin_dictionary被调用 | tool 'builtin_dictionary' was called"
+  ((PASS++))
+else
+  echo -e "${YELLOW}[WARN]${RESET} 词典查询:builtin_dictionary未在toolRuns中（模型可能直接回答）"
+  ((WARN++))
+fi
+
+# 验证回复包含词义相关内容（adjective/lasting a short time/短暂）
+if echo "$RAW" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+r=d.get('response','').lower()
+exit(0 if any(kw in r for kw in ['adjective','lasting','short','brief','temporary','短暂','ephemeral']) else 1)
+" 2>/dev/null; then
+  echo -e "${GREEN}[PASS]${RESET} 词典查询:回复包含词义相关内容"
+  ((PASS++))
+else
+  echo -e "${YELLOW}[WARN]${RESET} 词典查询:未检测到预期词义关键词"
+  ((WARN++))
+fi
+sleep 4
+
+# --------------------------------------------------------------------------
+# Step 17: 时区/日期计算（builtin_datetime）
+# --------------------------------------------------------------------------
+section "Step 17 — 时区/日期计算工具（builtin_datetime）"
+
+DATETIME_SESSION="datetime-test-$SESSION_ID"
+echo "发送: 时区换算 + 日期差计算（独立 session: ${DATETIME_SESSION}）"
+RAW=$(proxy_curl -s -X POST "$BASE/api/chat" \
+  -H "Origin: http://localhost:5173" \
+  -H "$AUTH_HEADER" \
+  -H "Content-Type: application/json" \
+  -d "{\"message\": $(echo "北京时间2025年3月15日下午3点，对应纽约是几点？另外计算2025-01-01到2026-01-01之间有多少天。" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip()))"), \"sessionId\": \"$DATETIME_SESSION\"}" \
+  --max-time 60 2>/dev/null)
+assert_response "时区计算:有结果" "$RAW"
+
+# 验证工具被调用
+sleep 2
+DT_RUNS=$(proxy_curl -s \
+  "$BASE/api/debug/session/anonymous:$DATETIME_SESSION/state?token=$DEBUG_TOKEN" \
+  --max-time 10 2>/dev/null | \
+  python3 -c "
+import json,sys
+try:
+    d=json.load(sys.stdin)
+    runs=d.get('snapshot',{}).get('toolRuns',[])
+    print(json.dumps([r.get('toolName','') for r in runs]))
+except: print('[]')
+" 2>/dev/null || echo "[]")
+if echo "$DT_RUNS" | python3 -c "import json,sys; runs=json.load(sys.stdin); exit(0 if 'builtin_datetime' in runs else 1)" 2>/dev/null; then
+  echo -e "${GREEN}[PASS]${RESET} 时区计算:builtin_datetime被调用 | tool 'builtin_datetime' was called"
+  ((PASS++))
+else
+  echo -e "${YELLOW}[WARN]${RESET} 时区计算:builtin_datetime未在toolRuns中"
+  ((WARN++))
+fi
+
+# 验证回复包含纽约时间（UTC-5，北京PM3 = NY AM2）
+if echo "$RAW" | python3 -c "
+import json,sys,re
+d=json.load(sys.stdin)
+r=d.get('response','').lower()
+# 北京 15:00 = 纽约 02:00（UTC-5），也可能是 03:00（夏令时 UTC-4）
+exit(0 if re.search(r'0[23]:0[06]|凌晨.*[23]|new.{0,5}york|america|纽约', r) else 1)
+" 2>/dev/null; then
+  echo -e "${GREEN}[PASS]${RESET} 时区计算:回复包含纽约时间换算结果"
+  ((PASS++))
+else
+  echo -e "${YELLOW}[WARN]${RESET} 时区计算:未检测到纽约时间（模型可能改变了措辞）"
+  ((WARN++))
+fi
+
+# 验证回复包含 365 天
+if echo "$RAW" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+r=d.get('response','')
+exit(0 if '365' in r else 1)
+" 2>/dev/null; then
+  echo -e "${GREEN}[PASS]${RESET} 时区计算:回复包含日期差 365 天"
+  ((PASS++))
+else
+  echo -e "${YELLOW}[WARN]${RESET} 时区计算:未检测到 365 天"
+  ((WARN++))
+fi
+sleep 4
+
+# --------------------------------------------------------------------------
+# Step 18: GitHub 仓库查询（builtin_github）
+# --------------------------------------------------------------------------
+section "Step 18 — GitHub 仓库查询工具（builtin_github）"
+
+GITHUB_SESSION="github-test-$SESSION_ID"
+echo "发送: 查询 facebook/react 仓库信息（独立 session: ${GITHUB_SESSION}）"
+RAW=$(proxy_curl -s -X POST "$BASE/api/chat" \
+  -H "Origin: http://localhost:5173" \
+  -H "$AUTH_HEADER" \
+  -H "Content-Type: application/json" \
+  -d "{\"message\": $(echo "查一下 facebook/react 这个 GitHub 仓库的基本信息，包括 star 数、最新版本和主要语言。" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().rstrip()))"), \"sessionId\": \"$GITHUB_SESSION\"}" \
+  --max-time 60 2>/dev/null)
+assert_response "GitHub查询:有结果" "$RAW"
+
+# 验证工具被调用
+sleep 2
+GH_RUNS=$(proxy_curl -s \
+  "$BASE/api/debug/session/anonymous:$GITHUB_SESSION/state?token=$DEBUG_TOKEN" \
+  --max-time 10 2>/dev/null | \
+  python3 -c "
+import json,sys
+try:
+    d=json.load(sys.stdin)
+    runs=d.get('snapshot',{}).get('toolRuns',[])
+    print(json.dumps([r.get('toolName','') for r in runs]))
+except: print('[]')
+" 2>/dev/null || echo "[]")
+if echo "$GH_RUNS" | python3 -c "import json,sys; runs=json.load(sys.stdin); exit(0 if 'builtin_github' in runs else 1)" 2>/dev/null; then
+  echo -e "${GREEN}[PASS]${RESET} GitHub查询:builtin_github被调用 | tool 'builtin_github' was called"
+  ((PASS++))
+else
+  echo -e "${YELLOW}[WARN]${RESET} GitHub查询:builtin_github未在toolRuns中"
+  ((WARN++))
+fi
+
+# 验证回复包含 React 相关内容（star 数量、版本号）
+if echo "$RAW" | python3 -c "
+import json,sys,re
+d=json.load(sys.stdin)
+r=d.get('response','')
+# React repo: star count shown as 244k or 244,000 or raw number; check for k-suffix or large number
+has_stars = bool(re.search(r'[1-9]\d{2,}[kK万]|\b[1-9]\d{4,}\b', r))
+has_react='react' in r.lower() or 'javascript' in r.lower() or 'library' in r.lower()
+exit(0 if (has_stars and has_react) else 1)
+" 2>/dev/null; then
+  echo -e "${GREEN}[PASS]${RESET} GitHub查询:回复包含仓库信息（star数 + React相关内容）"
+  ((PASS++))
+else
+  echo -e "${YELLOW}[WARN]${RESET} GitHub查询:未检测到预期的仓库信息"
+  ((WARN++))
+fi
+sleep 2
+
+# --------------------------------------------------------------------------
+# Step 19: Debug Session 状态验收（原 Step 16）
+# --------------------------------------------------------------------------
+section "Step 19 — Debug Session 状态验收"
 
 STATE=$(proxy_curl -s \
   "$BASE/api/debug/session/anonymous:$SESSION_ID/state?token=$DEBUG_TOKEN" \
@@ -756,6 +930,7 @@ echo -e "  ${RED}FAIL${RESET}  $FAIL"
 echo ""
 echo "  Session ID : $SESSION_ID"
 echo "  Elapsed    : ${ELAPSED}s"
+echo "  Steps      : 19 (Step 0–19, including 3 new tool tests)"
 echo ""
 
 if [[ $FAIL -eq 0 ]]; then

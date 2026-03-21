@@ -21,6 +21,9 @@ import { createMathEvalTool, BUILTIN_MATH_EVAL_KEY } from "../builtin-tools/math
 import { createWeatherTool, BUILTIN_WEATHER_KEY } from "../builtin-tools/weather";
 import { createWikipediaTool, BUILTIN_WIKIPEDIA_KEY } from "../builtin-tools/wikipedia";
 import { createCurrencyTool, BUILTIN_CURRENCY_KEY } from "../builtin-tools/currency";
+import { createDictionaryTool, BUILTIN_DICTIONARY_KEY } from "../builtin-tools/dictionary";
+import { createDatetimeTool, BUILTIN_DATETIME_KEY } from "../builtin-tools/datetime";
+import { createGithubTool, BUILTIN_GITHUB_KEY } from "../builtin-tools/github";
 import {
   type ChatAgentState,
   type ToolRunRecord,
@@ -179,7 +182,10 @@ function getBuiltinToolsRaw(serperApiKey: string): ToolSet {
       ...createMathEvalTool(),
       ...createWeatherTool(),
       ...createWikipediaTool(),
-      ...createCurrencyTool()
+      ...createCurrencyTool(),
+      ...createDictionaryTool(),
+      ...createDatetimeTool(),
+      ...createGithubTool()
     };
   }
   return cachedBuiltinToolsRaw;
@@ -193,7 +199,10 @@ const BUILTIN_TOOL_LIST: string[] = [
   `${BUILTIN_MATH_EVAL_KEY}: Evaluate mathematical expressions with full precision (arithmetic, algebra, unit conversions, statistics). Use instead of mental math.`,
   `${BUILTIN_WEATHER_KEY}: Get current weather and 5-day forecast for any city worldwide. Real-time data, no API key needed.`,
   `${BUILTIN_WIKIPEDIA_KEY}: Look up encyclopedic information from Wikipedia. Supports multiple languages (en, zh, ja, etc.).`,
-  `${BUILTIN_CURRENCY_KEY}: Convert between 166 currencies using real-time exchange rates.`
+  `${BUILTIN_CURRENCY_KEY}: Convert between 166 currencies using real-time exchange rates.`,
+  `${BUILTIN_DICTIONARY_KEY}: Look up an English word's definition, pronunciation, part of speech, examples, and synonyms.`,
+  `${BUILTIN_DATETIME_KEY}: Timezone conversion, date arithmetic (add/subtract days/hours/months), and date difference. Zero latency.`,
+  `${BUILTIN_GITHUB_KEY}: Look up GitHub repository info (stars, latest release/version, description) or search repos by keyword.`
 ];
 
 // ============ Tool List Builder ============
