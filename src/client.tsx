@@ -343,11 +343,16 @@ function App() {
   const isStreaming = status === "streaming";
   const isConnected = connectionStatus === "connected";
   const chatMessages = messages;
+  // setMessages from useAgentChat is not stable (new function every render).
+  // Use a ref so setChatMessages has a stable identity and doesn't cascade
+  // through useCallback deps causing infinite re-renders via Virtuoso.
+  const setMessagesRef = useRef(setMessages);
+  setMessagesRef.current = setMessages;
   const setChatMessages = useCallback(
     (next: UIMessage[] | ((prev: UIMessage[]) => UIMessage[])) => {
-      setMessages((prev) => (typeof next === "function" ? next(prev) : next));
+      setMessagesRef.current((prev) => (typeof next === "function" ? next(prev) : next));
     },
-    [setMessages]
+    [] // stable — reads setMessages via ref at call time
   );
 
   const chatTransport = useMemo(
