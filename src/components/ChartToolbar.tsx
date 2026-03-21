@@ -32,6 +32,12 @@ export interface ChartToolbarProps {
   spec?: unknown;
   /** Callback when the Edit button is clicked (opens the chart editor). */
   onEdit?: () => void;
+  /**
+   * Optional callback to get a PNG data-URL directly from the chart engine.
+   * Supports both sync and async variants.
+   * When provided, this is used for PNG/PDF export instead of DOM capture.
+   */
+  getDataUrl?: () => string | null | Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +102,8 @@ function invertHueRotatePixels(ctx: CanvasRenderingContext2D, w: number, h: numb
  * Draws a white background + the chart canvas pixels onto an offscreen canvas.
  *
  * When `invertDark` is true (dark-mode export), applies pixel-level
- * invert + hue-rotate(180deg) so the image looks natural on a white background.
+ * invert + hue-rotate(180deg) ONLY to the chart area (not the white padding),
+ * so the image looks natural on a white background without the padding going dark.
  */
 function compositeCanvasPng(
   container: HTMLElement,
@@ -117,42 +124,50 @@ function compositeCanvasPng(
   const ctx = offscreen.getContext("2d");
   if (!ctx) return null;
 
-  // White background
+  // White background (padding area)
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, outWidth, outHeight);
 
-  // Draw chart canvas
-  ctx.drawImage(chartCanvas, padding, padding);
-
   if (invertDark) {
-    invertHueRotatePixels(ctx, outWidth, outHeight);
+    // Invert the chart canvas pixels first on a temporary canvas,
+    // then composite onto the white background — this way the white
+    // padding stays white instead of being inverted to black.
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = chartCanvas.width;
+    tempCanvas.height = chartCanvas.height;
+    const tempCtx = tempCanvas.getContext("2d");
+    if (!tempCtx) return null;
+    tempCtx.drawImage(chartCanvas, 0, 0);
+    invertHueRotatePixels(tempCtx, chartCanvas.width, chartCanvas.height);
+    ctx.drawImage(tempCanvas, padding, padding);
+  } else {
+    ctx.drawImage(chartCanvas, padding, padding);
   }
 
   return offscreen.toDataURL("image/png");
 }
 
 /**
- * Apply invert + hue-rotate(180deg) to a PNG data-URL and return a new data-URL.
- * Used for SVG-based engine exports in dark mode.
+ * Capture a DOM element as a PNG data-URL with the page temporarily switched
+ * to light mode. This ensures SVG-based charts (Mermaid, Vega-Lite, Markmap)
+ * export with correct dark-on-white colors instead of needing pixel inversion.
+ *
+ * The `data-mode` attribute on `<html>` is toggled for the duration of the
+ * html-to-image capture and immediately restored, so the UI never flickers.
  */
-function invertDataUrl(dataUrl: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement("canvas");
-      c.width = img.width;
-      c.height = img.height;
-      const ctx = c.getContext("2d");
-      if (!ctx) { reject(new Error("no 2d context")); return; }
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(img, 0, 0);
-      invertHueRotatePixels(ctx, c.width, c.height);
-      resolve(c.toDataURL("image/png"));
-    };
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
+async function captureLightModePng(el: HTMLElement): Promise<string> {
+  const html = document.documentElement;
+  const prevMode = html.getAttribute("data-mode");
+  html.setAttribute("data-mode", "light");
+  try {
+    return await toPngDataUrl(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+  } finally {
+    if (prevMode !== null) {
+      html.setAttribute("data-mode", prevMode);
+    } else {
+      html.removeAttribute("data-mode");
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +181,7 @@ export function ChartToolbar({
   chartType,
   spec,
   onEdit,
+  getDataUrl,
 }: ChartToolbarProps) {
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -177,7 +193,13 @@ export function ChartToolbar({
     if (!el) return;
     setBusy("png");
     try {
-      if (isCanvasEngine) {
+      if (getDataUrl) {
+        // Engine provides native data-URL (sync or async)
+        const dataUrl = await Promise.resolve(getDataUrl());
+        if (dataUrl) {
+          downloadFile(dataUrl, makeFilename(engine, chartType, "png"));
+        }
+      } else if (isCanvasEngine) {
         // Read pixels directly from the chart <canvas>
         // In dark mode, invert colors so the export is readable on white background
         const dataUrl = compositeCanvasPng(el, isDark);
@@ -185,26 +207,19 @@ export function ChartToolbar({
           downloadFile(dataUrl, makeFilename(engine, chartType, "png"));
         }
       } else {
-        // SVG-based engines (Mermaid, Vega-Lite, ECharts): html-to-image works fine
-        if (isDark) {
-          // Capture, then pixel-level invert for dark→light conversion
-          const raw = await toPngDataUrl(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
-          const inverted = await invertDataUrl(raw);
-          downloadFile(inverted, makeFilename(engine, chartType, "png"));
-        } else {
-          await exportToPng(el, {
-            pixelRatio: 2,
-            backgroundColor: "#ffffff",
-            filename: makeFilename(engine, chartType, "png"),
-          });
-        }
+        // SVG-based engines (Mermaid, Vega-Lite, Markmap): temporarily switch
+        // the page to light mode so html-to-image captures dark-on-white colors.
+        const pngDataUrl = isDark
+          ? await captureLightModePng(el)
+          : await toPngDataUrl(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+        downloadFile(pngDataUrl, makeFilename(engine, chartType, "png"));
       }
     } catch (err) {
       console.error("PNG export failed:", err);
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType, isCanvasEngine, isDark]);
+  }, [containerRef, engine, chartType, isCanvasEngine, isDark, getDataUrl]);
 
   // ---- SVG ----
   const handleSvg = useCallback(() => {
@@ -240,30 +255,32 @@ export function ChartToolbar({
     if (!el) return;
     setBusy("pdf");
     try {
-      if (isCanvasEngine) {
+      if (getDataUrl) {
+        // Engine provides native data-URL (sync or async)
+        const dataUrl = await Promise.resolve(getDataUrl());
+        if (dataUrl) {
+          await dataUrlToPdf(dataUrl, makeFilename(engine, chartType, "pdf"));
+        }
+      } else if (isCanvasEngine) {
         // Read canvas pixels directly (with dark-mode inversion if needed)
         const dataUrl = compositeCanvasPng(el, isDark);
         if (dataUrl) {
           await dataUrlToPdf(dataUrl, makeFilename(engine, chartType, "pdf"));
         }
       } else {
-        if (isDark) {
-          // SVG engines dark mode: capture → invert → PDF
-          const raw = await toPngDataUrl(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
-          const inverted = await invertDataUrl(raw);
-          await dataUrlToPdf(inverted, makeFilename(engine, chartType, "pdf"));
-        } else {
-          await exportToPdf(el, {
-            filename: makeFilename(engine, chartType, "pdf"),
-          });
-        }
+        // SVG-based engines (Mermaid, Vega-Lite, Markmap): temporarily switch
+        // the page to light mode so html-to-image captures dark-on-white colors.
+        const pngDataUrl = isDark
+          ? await captureLightModePng(el)
+          : await toPngDataUrl(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+        await dataUrlToPdf(pngDataUrl, makeFilename(engine, chartType, "pdf"));
       }
     } catch (err) {
       console.error("PDF export failed:", err);
     } finally {
       setBusy(null);
     }
-  }, [containerRef, engine, chartType, isCanvasEngine, isDark]);
+  }, [containerRef, engine, chartType, isCanvasEngine, isDark, getDataUrl]);
 
   // ---- JSON ----
   const handleJson = useCallback(() => {

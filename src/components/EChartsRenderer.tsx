@@ -272,6 +272,34 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
     }
   }, []);
 
+  // Provide a light-theme PNG data-URL for export.
+  // In dark mode, imports echarts and renders a temporary offscreen light-theme
+  // canvas instance so axis labels, legend text etc. are dark-on-white.
+  const getDataUrl = useCallback(async (): Promise<string | null> => {
+    if (!chartRef.current || chartRef.current.isDisposed()) return null;
+
+    if (!isDark) {
+      return chartRef.current.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
+    }
+
+    // Dark mode: render a temporary offscreen light-theme chart
+    const echarts = await import("echarts");
+    const offscreenDiv = document.createElement("div");
+    offscreenDiv.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;height:500px;visibility:hidden;";
+    document.body.appendChild(offscreenDiv);
+    try {
+      const tempChart = echarts.init(offscreenDiv, undefined, { renderer: "canvas", width: 800, height: 500 });
+      tempChart.setOption({ ...mergedOption, backgroundColor: "#ffffff" });
+      const dataUrl = tempChart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
+      tempChart.dispose();
+      return dataUrl;
+    } catch {
+      return chartRef.current.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
+    } finally {
+      document.body.removeChild(offscreenDiv);
+    }
+  }, [isDark, mergedOption]);
+
   // ---- Error state ----
   if (error) {
     return (
@@ -305,6 +333,7 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
         chartType={chartType}
         spec={activeSpec}
         onEdit={handleOpenEditor}
+        getDataUrl={getDataUrl}
       />
       <div className="relative overflow-hidden">
         <div

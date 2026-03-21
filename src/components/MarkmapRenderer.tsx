@@ -206,7 +206,7 @@ export function MarkmapRenderer({ code }: MarkmapRendererProps) {
           Click nodes to collapse/expand
         </span>
       </div>
-      <ChartToolbar containerRef={containerRef} engine="mermaid" chartType="mindmap" />
+      <ChartToolbar containerRef={containerRef} engine="mermaid" isDark={isDark} chartType="mindmap" />
 
       <div
         className="relative overflow-hidden rounded-lg"
