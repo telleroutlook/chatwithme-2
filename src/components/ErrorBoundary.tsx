@@ -67,7 +67,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <button
                 type="button"
                 onClick={this.handleRetry}
-                className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors bg-accent text-white hover:bg-accent/90 shadow-sm h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
               >
                 <ArrowClockwiseIcon size={16} className="mr-2" />
                 Reload

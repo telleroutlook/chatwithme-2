@@ -39,11 +39,11 @@ export function ChatSendButton({ disabled, isStreaming, onSend, onStop }: ChatSe
       type="button"
       onClick={onSend}
       disabled={disabled}
-      style={{ ...touchTargetStyle, color: "#fff" }}
+      style={touchTargetStyle}
       aria-label={t("chat_input_action_send")}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
-        "bg-accent text-white hover:bg-accent/90 shadow-sm",
+        "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm",
         "disabled:pointer-events-none disabled:opacity-50"
       )}
     >

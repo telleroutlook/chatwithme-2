@@ -78,7 +78,7 @@ export function ProfileDialog({ open, onClose, t }: ProfileDialogProps) {
             form={formId}
             disabled={!canSubmit || isLoading}
             className={cn(
-              "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
               (!canSubmit || isLoading) && "cursor-not-allowed opacity-50"
             )}
           >

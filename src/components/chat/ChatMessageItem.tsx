@@ -261,7 +261,7 @@ function ChatMessageItemInner({
             <button
               className={cn(
                 "inline-flex items-center justify-center rounded-lg",
-                "bg-accent px-3 h-8 text-xs font-medium text-white",
+                "bg-accent px-3 h-8 text-xs font-medium text-accent-foreground",
                 "hover:bg-accent/90 transition-colors shadow-sm",
                 "disabled:pointer-events-none disabled:opacity-50"
               )}

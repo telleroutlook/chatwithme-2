@@ -158,7 +158,7 @@ export function confirm(config: ConfirmConfig): Promise<boolean> {
             className={`inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors h-8 px-3 disabled:pointer-events-none disabled:opacity-50 ${
               config.danger
                 ? "bg-[var(--app-color-danger)] text-white hover:bg-[var(--app-color-danger)]/90 shadow-sm"
-                : "bg-accent text-white hover:bg-accent/90 shadow-sm"
+                : "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
             }`}
           >
             {config.okText || "OK"}
@@ -209,7 +209,7 @@ export function alert(config: AlertConfig): Promise<void> {
         <button
           type="button"
           onClick={handleOk}
-          className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors bg-accent text-white hover:bg-accent/90 shadow-sm h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm h-8 px-3 disabled:pointer-events-none disabled:opacity-50"
         >
           {config.okText || "OK"}
         </button>

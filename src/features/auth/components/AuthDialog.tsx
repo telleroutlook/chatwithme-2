@@ -104,7 +104,7 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
             form={formId}
             disabled={!canSubmit || isLoading}
             className={cn(
-              "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              "inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
               (!canSubmit || isLoading) && "cursor-not-allowed opacity-50"
             )}
           >
@@ -165,7 +165,7 @@ export function AuthDialog({ open, onClose, t }: AuthDialogProps) {
         ) : null}
 
         {localError || error ? (
-          <p className="rounded-lg border border-red-300/70 bg-red-50/80 px-3 py-2 text-sm text-red-700">
+          <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
             {localError ?? error}
           </p>
         ) : null}
