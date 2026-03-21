@@ -66,6 +66,31 @@ function buildCallOptions(params: ModelExecutionOptions) {
   };
 }
 
+// ============ Snippet Throttle Helper ============
+
+/**
+ * Emit a throttled progress snippet if enough time has passed and content changed.
+ * Mutates lastEmitTime and lastEmittedSnippet in-place via the returned values.
+ */
+function maybeEmitSnippet(
+  accumulatedText: string,
+  lastEmitTime: number,
+  lastEmittedSnippet: string,
+  emitProgress: ProgressEmitter
+): { lastEmitTime: number; lastEmittedSnippet: string } {
+  const now = Date.now();
+  const snippet = extractSnippet(accumulatedText);
+  if (
+    now - lastEmitTime >= SNIPPET_THROTTLE_MS &&
+    snippet.length >= SNIPPET_MIN_LENGTH_TO_EMIT &&
+    snippet !== lastEmittedSnippet
+  ) {
+    emitProgress({ phase: "model", message: "Generating response...", status: "info", snippet });
+    return { lastEmitTime: now, lastEmittedSnippet: snippet };
+  }
+  return { lastEmitTime, lastEmittedSnippet };
+}
+
 // ============ Model Execution Functions ============
 
 /**
@@ -108,22 +133,9 @@ export async function streamModelTextToWriter(
 
       // Also emit throttled progress snippets for the live feed
       if (params.emitProgress) {
-        const now = Date.now();
-        const snippet = extractSnippet(accumulatedText);
-        if (
-          now - lastEmitTime >= SNIPPET_THROTTLE_MS &&
-          snippet.length >= SNIPPET_MIN_LENGTH_TO_EMIT &&
-          snippet !== lastEmittedSnippet
-        ) {
-          lastEmitTime = now;
-          lastEmittedSnippet = snippet;
-          params.emitProgress({
-            phase: "model",
-            message: "Generating response...",
-            status: "info",
-            snippet
-          });
-        }
+        ({ lastEmitTime, lastEmittedSnippet } = maybeEmitSnippet(
+          accumulatedText, lastEmitTime, lastEmittedSnippet, params.emitProgress
+        ));
       }
     }
   });
@@ -160,25 +172,11 @@ async function streamModelTextCollect(
         accumulatedText += chunk.text;
       }
 
-      const now = Date.now();
-      const snippet = extractSnippet(accumulatedText);
-
-      if (
-        now - lastEmitTime < SNIPPET_THROTTLE_MS ||
-        snippet.length < SNIPPET_MIN_LENGTH_TO_EMIT ||
-        snippet === lastEmittedSnippet
-      ) {
-        return;
+      if (emitProgress) {
+        ({ lastEmitTime, lastEmittedSnippet } = maybeEmitSnippet(
+          accumulatedText, lastEmitTime, lastEmittedSnippet, emitProgress
+        ));
       }
-
-      lastEmitTime = now;
-      lastEmittedSnippet = snippet;
-      emitProgress?.({
-        phase: "model",
-        message: "Generating response...",
-        status: "info",
-        snippet
-      });
     }
   });
   return await result.text;

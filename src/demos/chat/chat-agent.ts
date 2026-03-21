@@ -186,44 +186,15 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     });
   }
 
-  // ============ Model Execution ============
-
-  private async requestModelTextInternal(params: {
-    model: ReturnType<ReturnType<typeof createOpenAICompatible>>;
-    system: string;
-    messages: ModelMessage[];
-    tools: ToolSet;
-    temperature: number;
-    abortSignal?: AbortSignal;
-    emitProgress?: ProgressEmitter;
-  }): Promise<string> {
-    return requestModelText({
-      model: params.model,
-      system: params.system,
-      messages: params.messages,
-      temperature: params.temperature,
-      tools: params.tools,
-      abortSignal: params.abortSignal,
-      emitProgress: params.emitProgress,
-      maxOutputTokens: getMaxOutputTokens(this.env),
-      maxToolSteps: getMaxToolSteps(this.env),
-      thinkingType: getThinkingType(this.env),
-      streamEnabled: getModelStreamEnabled(this.env)
-    });
-  }
-
   // ============ Message Handling ============
 
   private async convertMessagesWithFallback(
     emitProgress?: ProgressEmitter
-  ): Promise<{ modelMessages: ModelMessage[]; source: "converted" | "fallback" }> {
+  ): Promise<ModelMessage[]> {
     const currentMessages = Array.isArray(this.messages) ? this.messages : [];
     try {
-      const converted = await convertToModelMessages(currentMessages);
-      return { modelMessages: converted, source: "converted" };
+      return await convertToModelMessages(currentMessages);
     } catch (error) {
-      const fallbackMessages = toFallbackModelMessages(currentMessages);
-
       emitProgress?.({
         phase: "context",
         status: "error",
@@ -231,7 +202,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         snippet: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
         groupKey: "context:history-conversion"
       });
-      return { modelMessages: fallbackMessages, source: "fallback" };
+      return toFallbackModelMessages(currentMessages);
     }
   }
 
@@ -554,7 +525,11 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     const mcpProgressGroupKey = requestTraceId
       ? `context:mcp-init:${requestTraceId}`
       : "context:mcp-init";
-    const { tools, toolList } = await this.buildAiTools(emitProgress, mcpProgressGroupKey);
+    const [{ tools, toolList }, existingMessages] = await Promise.all([
+      this.buildAiTools(emitProgress, mcpProgressGroupKey),
+      this.convertMessagesWithFallback(emitProgress)
+    ]);
+
     const systemPrompt = buildSystemPrompt(toolList);
     emitProgress?.({
       phase: "context",
@@ -568,10 +543,6 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       apiKey: this.env.BIGMODEL_API_KEY,
       baseURL: "https://open.bigmodel.cn/api/coding/paas/v4"
     });
-
-    const { modelMessages: existingMessages, source } = await this.convertMessagesWithFallback(
-      emitProgress
-    );
 
     const userMessage: ModelMessage = {
       role: "user",
@@ -589,7 +560,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     emitProgress?.({
       phase: "context",
       status: "info",
-      message: `History prepared (${source}); messages: ${candidateMessages.length} -> ${messages.length}.`,
+      message: `History prepared; messages: ${candidateMessages.length} -> ${messages.length}.`,
       groupKey: "context:history-prune"
     });
 
@@ -691,14 +662,18 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       message, userAlreadyInHistory, emitProgress, requestTraceId
     );
 
-    let finalResponse = await this.requestModelTextInternal({
+    let finalResponse = await requestModelText({
       model: ctx.modelInstance,
       system: ctx.systemPrompt,
       messages: ctx.messages,
       tools: ctx.tools,
       temperature: ctx.temperature,
       abortSignal,
-      emitProgress
+      emitProgress,
+      maxOutputTokens: getMaxOutputTokens(this.env),
+      maxToolSteps: getMaxToolSteps(this.env),
+      thinkingType: getThinkingType(this.env),
+      streamEnabled: getModelStreamEnabled(this.env)
     });
 
     if (finalResponse.trim().length === 0) {
@@ -779,14 +754,18 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     // doesn't try to output raw JSON tool calls as text.
     const strippedPrompt = stripToolSections(ctx.systemPrompt);
 
-    let finalResponse = await this.requestModelTextInternal({
+    let finalResponse = await requestModelText({
       model: ctx.modelInstance,
       system: `${strippedPrompt}${fallbackAddendum}`,
       messages: fallbackMessages,
       tools: {},
       temperature: Math.max(0.2, ctx.temperature - 0.2),
       abortSignal,
-      emitProgress
+      emitProgress,
+      maxOutputTokens: getMaxOutputTokens(this.env),
+      maxToolSteps: getMaxToolSteps(this.env),
+      thinkingType: getThinkingType(this.env),
+      streamEnabled: getModelStreamEnabled(this.env)
     });
 
     if (finalResponse.trim().length === 0) {

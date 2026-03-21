@@ -129,25 +129,16 @@ export async function deleteMessage(
   try {
     const msgArray = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
 
-    // Resolve: try exact ID in memory, then scan D1 directly
+    // Resolve: try exact ID in memory, then fall back to raw messageId
     const memIndex = msgArray.findIndex((m) => m.id === messageId);
     const resolvedId = memIndex >= 0 ? msgArray[memIndex].id! : messageId;
 
-    const existing = (await sql`
-      select count(*) as cnt
-      from cf_ai_chat_agent_messages
+    const result = (await sql`
+      delete from cf_ai_chat_agent_messages
       where id = ${resolvedId}
-    `) ?? [];
+    `) as unknown as { meta?: { changes?: number } };
 
-    const cnt = existing[0]?.cnt;
-    const deleted = (typeof cnt === "number" ? cnt : 0) > 0;
-
-    if (deleted) {
-      await sql`
-        delete from cf_ai_chat_agent_messages
-        where id = ${resolvedId}
-      `;
-    }
+    const deleted = (result?.meta?.changes ?? 0) > 0;
 
     setMessages(msgArray.filter((message) => message.id !== resolvedId));
 

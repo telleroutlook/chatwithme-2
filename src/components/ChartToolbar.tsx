@@ -11,7 +11,7 @@
 
 import { useState, useCallback, type RefObject } from "react";
 import { exportToPng, toPngDataUrl, downloadTextFile, downloadFile } from "../utils/exporters/image";
-import { exportToPdf } from "../utils/exporters/pdf";
+import { exportToPdf, dataUrlToPdf } from "../utils/exporters/pdf";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -153,39 +153,6 @@ function invertDataUrl(dataUrl: string): Promise<string> {
     img.onerror = reject;
     img.src = dataUrl;
   });
-}
-
-/** Save a PNG data-URL as a single-page PDF. */
-async function dataUrlToPdf(dataUrl: string, filename: string): Promise<void> {
-  const { default: jsPDF } = await import("jspdf");
-
-  const img = new Image();
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-
-  const landscape = img.width > img.height;
-  const pdf = new jsPDF({
-    orientation: landscape ? "landscape" : "portrait",
-    unit: "mm",
-    format: "a4",
-  });
-
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 10;
-  const ratio = Math.min(
-    (pageW - margin * 2) / img.width,
-    (pageH - margin * 2) / img.height,
-  );
-  const w = img.width * ratio;
-  const h = img.height * ratio;
-  const x = (pageW - w) / 2;
-
-  pdf.addImage(dataUrl, "PNG", x, margin, w, h);
-  pdf.save(filename);
 }
 
 // ---------------------------------------------------------------------------
