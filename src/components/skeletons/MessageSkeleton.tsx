@@ -1,6 +1,10 @@
 import { memo } from "react";
 import type { ChartSkeletonType } from "../../utils/streamingChartDetector";
 
+// Detect user language once at module load time
+const isChinese = navigator.language.startsWith("zh");
+const RENDERING_LABEL = isChinese ? "渲染中，请稍候" : "Rendering, please wait…";
+
 interface SkeletonProps {
   className?: string;
   animate?: boolean;
@@ -90,6 +94,12 @@ export const ChartSkeleton = memo(function ChartSkeleton({
       <div className="flex items-center gap-2 mb-3">
         <Skeleton className="h-4 w-4 rounded" animate={animate} />
         <Skeleton className="h-4 w-20" animate={animate} />
+        <span
+          className="ml-auto text-xs text-foreground-muted animate-[pulse_2s_ease-in-out_infinite]"
+          aria-live="polite"
+        >
+          {RENDERING_LABEL}
+        </span>
       </div>
       {/* Chart area */}
       <div className="relative" style={{ minHeight: 200 }}>
@@ -148,7 +158,12 @@ export const ChartTypeSkeleton = memo(function ChartTypeSkeleton({
         <div className="h-3.5 w-3.5 rounded bg-border/60" />
         <div className="h-3.5 w-24 rounded bg-border/60" />
         <div className="flex-1" />
-        <div className="h-3 w-16 rounded bg-border/40" />
+        <span
+          className="text-xs text-foreground-muted animate-[pulse_2s_ease-in-out_infinite]"
+          aria-live="polite"
+        >
+          {RENDERING_LABEL}
+        </span>
       </div>
 
       {/* Chart body — delegates to a per-type SVG */}
