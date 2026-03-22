@@ -36,6 +36,8 @@ const LazyChartEditor = lazy(() => import("./ChartEditor"));
 interface EChartsRendererProps {
   spec: EChartsOption;
   animated?: boolean;
+  /** Skip viewport detection and render immediately (e.g. PDF export). */
+  forceVisible?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +54,6 @@ const DEFAULT_TOOLBOX: Record<string, unknown> = {
   feature: {
     dataZoom: { yAxisIndex: "none" },
     restore: {},
-    saveAsImage: {},
   },
   right: 10,
   top: 5,
@@ -94,13 +95,13 @@ function detectChartType(spec: EChartsOption): string {
 // Component
 // ---------------------------------------------------------------------------
 
-const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChartsRendererProps): ReactNode {
+const EChartsRendererInner = memo(function EChartsRendererInner({ spec, forceVisible }: EChartsRendererProps): ReactNode {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof import("echarts")["init"]> | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { ref: viewportRef, inViewport } = useInViewport({ threshold: 0.1 });
+  const { ref: viewportRef, inViewport } = useInViewport({ threshold: 0.1, disabled: forceVisible });
 
   // Editor state: tracks edited spec overlay (null = use original)
   const [editedSpec, setEditedSpec] = useState<EChartsOption | null>(null);
@@ -146,11 +147,37 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
           ? DEFAULT_DATA_ZOOM
           : undefined;
 
+    // Ensure title renders above legend: if both exist and legend has no explicit top,
+    // push legend below title so they don't overlap.
+    let legend = activeSpec.legend;
+    const titleObj = activeSpec.title;
+    if (titleObj && legend) {
+      const titleTop =
+        typeof titleObj === "object" && !Array.isArray(titleObj)
+          ? ((titleObj as Record<string, unknown>).top ?? 0)
+          : 0;
+      const titleTopNum = typeof titleTop === "number" ? titleTop : 0;
+      // Rough title height: one line ≈ 20px + 6px padding
+      const titleHeight = titleTopNum + 26;
+
+      const fixLegend = (leg: Record<string, unknown>): Record<string, unknown> => {
+        if (leg.top !== undefined) return leg; // user set it explicitly — don't override
+        return { ...leg, top: titleHeight };
+      };
+
+      if (Array.isArray(legend)) {
+        legend = legend.map((l) => (l && typeof l === "object" ? fixLegend(l as Record<string, unknown>) : l));
+      } else if (typeof legend === "object") {
+        legend = fixLegend(legend as Record<string, unknown>);
+      }
+    }
+
     const merged: EChartsOption = {
       ...BASE_OPTIONS,
       ...activeSpec,
       tooltip: { ...baseTooltip, ...userTooltip },
       toolbox,
+      ...(legend !== activeSpec.legend ? { legend } : {}),
       // Inject theme-aware text styles where possible
       textStyle: {
         color: themeTokens.axisLabelFill,

@@ -53,6 +53,9 @@ function useChartFix() {
 // Context for passing isStreaming into the static components object
 const IsStreamingContext = createContext<boolean>(false);
 
+// Context for forcing all chart renderers to skip viewport detection (e.g. PDF export)
+const ForceVisibleContext = createContext<boolean>(false);
+
 // Lazy load CodeBlock to avoid loading Shiki highlighter on initial page load
 // This reduces the initial bundle by ~800KB (vendor-highlight chunk)
 const LazyCodeBlock = lazy(() =>
@@ -103,6 +106,8 @@ interface MarkdownRendererProps {
   streamCursor?: boolean;
   citations?: CitationCardItem[];
   onFixChart?: (ctx: ChartFixContext) => void;
+  /** Skip viewport detection for all chart renderers (used in PDF export). */
+  forceVisible?: boolean;
 }
 
 interface MarkdownPreviewRendererProps {
@@ -386,6 +391,7 @@ const CodeRenderer = memo(function CodeRenderer({
   children?: ReactNode;
 }) {
   const isStreaming = useContext(IsStreamingContext);
+  const forceVisible = useContext(ForceVisibleContext);
   const match = /language-([^\s]+)/.exec(className || "");
   const language = match ? match[1].trim().toLowerCase() : "";
   const codeString = String(children).replace(/\n$/, "");
@@ -493,7 +499,7 @@ const CodeRenderer = memo(function CodeRenderer({
             trackChatEvent("chart_render_failure", { engine: "echarts", errorCode: error.message })
           }
         >
-          <LazyEChartsRenderer spec={ecResult.spec} />
+          <LazyEChartsRenderer spec={ecResult.spec} forceVisible={forceVisible} />
         </ErrorBoundary>
       );
     }
@@ -731,6 +737,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   streamCursor = true,
   citations = [],
   onFixChart,
+  forceVisible = false,
 }: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
     let normalized = (
@@ -750,6 +757,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
 
   return (
     <IsStreamingContext.Provider value={isStreaming ?? false}>
+      <ForceVisibleContext.Provider value={forceVisible}>
       <ChartFixCallbackContext.Provider value={onFixChart ?? null}>
         <div className="markdown-content max-w-none">
         <ReactMarkdown
@@ -765,6 +773,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
         <CitationCards items={citations} />
       </div>
     </ChartFixCallbackContext.Provider>
+    </ForceVisibleContext.Provider>
     </IsStreamingContext.Provider>
   );
 });

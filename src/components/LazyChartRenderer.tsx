@@ -61,6 +61,7 @@ export const LazyMermaidRenderer = memo(function LazyMermaidRenderer({
 interface LazyEChartsRendererProps {
   spec: EChartsOption;
   animated?: boolean;
+  forceVisible?: boolean;
 }
 
 /**
@@ -69,10 +70,11 @@ interface LazyEChartsRendererProps {
 export const LazyEChartsRenderer = memo(function LazyEChartsRenderer({
   spec,
   animated = false,
+  forceVisible = false,
 }: LazyEChartsRendererProps): ReactNode {
   return (
     <Suspense fallback={<ChartSkeleton type="echarts" />}>
-      <EChartsRendererLazy spec={spec} animated={animated} />
+      <EChartsRendererLazy spec={spec} animated={animated} forceVisible={forceVisible} />
     </Suspense>
   );
 });

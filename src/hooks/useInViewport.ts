@@ -8,6 +8,11 @@ interface UseInViewportOptions {
   threshold?: number;
   /** Margin around the root (CSS margin syntax). Default: "0px" */
   rootMargin?: string;
+  /**
+   * When true, skip the IntersectionObserver and immediately return inViewport=true.
+   * Useful for off-screen rendering contexts like PDF export.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -22,12 +27,12 @@ export function useInViewport(options: UseInViewportOptions = {}): {
   ref: (node: HTMLElement | null) => void;
   inViewport: boolean;
 } {
-  const { threshold = 0.1, rootMargin = "0px" } = options;
-  const [inViewport, setInViewport] = useState(false);
+  const { threshold = 0.1, rootMargin = "0px", disabled = false } = options;
+  const [inViewport, setInViewport] = useState(disabled);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const nodeRef = useRef<HTMLElement | null>(null);
   // Track triggered state in a ref to avoid re-creating the ref callback.
-  const triggeredRef = useRef(false);
+  const triggeredRef = useRef(disabled);
 
   // Disconnect any existing observer.
   const disconnect = useCallback(() => {

@@ -162,8 +162,8 @@ async function waitForRender(el: HTMLElement): Promise<void> {
 
   // Give lazy-loaded chart bundles (ECharts, Mermaid, Vega-Lite, Markmap) time
   // to dynamically import, initialize, and paint their SVG/canvas content.
-  // 1500 ms covers worst-case cold lazy load + ECharts init + animation frame.
-  await new Promise<void>((r) => setTimeout(r, 1500));
+  // 3000 ms covers worst-case cold lazy load + multiple ECharts instances init + animation frames.
+  await new Promise<void>((r) => setTimeout(r, 3000));
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
 }
 
@@ -226,6 +226,7 @@ function MessageRow({ message, index, getMessageText }: MessageRowProps) {
             enableAlerts: true,
             enableFootnotes: true,
             streamCursor: false,
+            forceVisible: true,
           } as Parameters<typeof MarkdownRenderer>[0])
         )
   );
@@ -297,8 +298,10 @@ export async function exportRenderedChatToPdf(
 
   // 1. Hidden off-screen container
   const wrapper = document.createElement("div");
+  // Must be at position 0,0 (not left:-9999px) so IntersectionObserver fires
+  // for chart components that defer rendering until they enter the viewport.
   wrapper.style.cssText =
-    "position:fixed;left:-9999px;top:0;width:900px;background:#fff;overflow:visible;z-index:-1;";
+    "position:fixed;left:0;top:0;width:900px;background:#fff;overflow:visible;z-index:-1;opacity:0;pointer-events:none;";
   document.body.appendChild(wrapper);
 
   const styleEl = document.createElement("style");
