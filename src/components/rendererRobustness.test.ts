@@ -82,6 +82,51 @@ describe("ECharts parser normalization", () => {
     expect(result.warnings!.some((w) => w.includes("empty"))).toBe(true);
   });
 
+  it("converts scatter [x,y,string] tuples to {name,value:[x,y]} objects", () => {
+    const code = JSON.stringify({
+      xAxis: { type: "value", scale: true },
+      yAxis: { type: "value", scale: true },
+      series: [{
+        type: "scatter",
+        symbolSize: 10,
+        data: [
+          [166.0, 2487, "内蒙古自治区"],
+          [21.8, 12601, "广东省"],
+        ],
+      }],
+    });
+    const result = parseEChartsSpecFromCode(code);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const series = result.spec.series as Record<string, unknown>[];
+    const data = series[0].data as Record<string, unknown>[];
+    expect(data[0]).toEqual({ name: "内蒙古自治区", value: [166.0, 2487] });
+    expect(data[1]).toEqual({ name: "广东省", value: [21.8, 12601] });
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("converted"))).toBe(true);
+  });
+
+  it("uses fixed symbolSize=10 when scatter symbolSize function is stripped and 3rd dim is string", () => {
+    // Simulate JSON-cleaned spec where symbolSize was a function → null
+    const spec = {
+      xAxis: { type: "value", scale: true },
+      yAxis: { type: "value", scale: true },
+      series: [{
+        type: "scatter",
+        symbolSize: null as unknown,
+        data: [
+          [166.0, 2487, "内蒙古自治区"],
+          [21.8, 12601, "广东省"],
+        ],
+      }],
+    };
+    const result = parseEChartsSpecFromCode(JSON.stringify(spec));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const series = result.spec.series as Record<string, unknown>[];
+    expect(series[0].symbolSize).toBe(10);
+  });
+
   it("infers radar type for series without type when radar config exists", () => {
     const code = JSON.stringify({
       radar: { indicator: [{ name: "A" }, { name: "B" }] },

@@ -267,11 +267,18 @@ function normalizeEChartsSpec(
               return 0;
             };
             const sizes = rawData.map(extractSize);
-            const maxSize = Math.max(...sizes, 1);
-            // Target max bubble diameter ~50px; min 6px
-            const scale = 50 / Math.sqrt(maxSize);
-            s.symbolSize = sizes.map((v) => Math.max(6, Math.round(Math.sqrt(v) * scale)));
-            warnings.push("symbolSize function stripped; auto-computed from data third dimension");
+            const hasNumericSizes = sizes.some((v) => v > 0);
+            if (hasNumericSizes) {
+              const maxSize = Math.max(...sizes, 1);
+              // Target max bubble diameter ~50px; min 6px
+              const scale = 50 / Math.sqrt(maxSize);
+              s.symbolSize = sizes.map((v) => Math.max(6, Math.round(Math.sqrt(v) * scale)));
+              warnings.push("symbolSize function stripped; auto-computed from data third dimension");
+            } else {
+              // 3rd element is a string label, not a size — use fixed size
+              s.symbolSize = 10;
+              warnings.push("symbolSize function stripped; defaulted to 10 (3rd data dim is string label)");
+            }
           } else {
             s.symbolSize = 10;
             warnings.push("symbolSize function stripped; defaulted to 10");
@@ -315,9 +322,33 @@ function normalizeEChartsSpec(
     }
   }
 
-  // 7. Fix string numbers in series data
+  // 7. Fix string numbers in series data; auto-upgrade scatter [x,y,name] tuples
   if (Array.isArray(result.series)) {
     for (const s of result.series as Record<string, unknown>[]) {
+      const seriesType7 = typeof s.type === "string" ? s.type : "";
+
+      // 7a. Scatter-specific: convert [x, y, "name"] tuples to {name, value:[x,y]} objects
+      //     so that ECharts labels and tooltips can access the name via {b}.
+      if ((seriesType7 === "scatter" || seriesType7 === "scatter3D") && Array.isArray(s.data)) {
+        const firstItem = (s.data as unknown[])[0];
+        const isTupleWithStringLabel =
+          Array.isArray(firstItem) &&
+          (firstItem as unknown[]).length >= 3 &&
+          typeof (firstItem as unknown[])[2] === "string";
+
+        if (isTupleWithStringLabel) {
+          s.data = (s.data as unknown[]).map((item) => {
+            if (Array.isArray(item) && (item as unknown[]).length >= 2) {
+              const arr = item as unknown[];
+              const name = arr.length >= 3 && typeof arr[2] === "string" ? (arr[2] as string) : "";
+              return { name, value: [arr[0], arr[1]] };
+            }
+            return item;
+          });
+          warnings.push("scatter data converted from [x,y,name] tuples to {name,value:[x,y]} objects");
+        }
+      }
+
       if (Array.isArray(s.data)) {
         s.data = (s.data as unknown[]).map((item) => {
           if (typeof item === "string") {
