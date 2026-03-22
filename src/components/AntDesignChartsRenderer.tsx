@@ -197,6 +197,10 @@ export function normalizeConfigForADC2(
   // Remove title — it's for our header display, not an ADC config field
   delete result.title;
 
+  // Remove width/height — the container controls responsive layout
+  delete result.width;
+  delete result.height;
+
   // ============ Migrate legacy columnStyle → style ============
   if (type === "column" || type === "bar") {
     const legacyStyle = config.columnStyle || config.barStyle;

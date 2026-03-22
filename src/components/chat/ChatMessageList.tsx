@@ -54,7 +54,7 @@ function ChatMessageListInner({
   // Render individual message item
   const itemContent = useCallback(
     (index: number, message: UIMessage) => (
-      <div className="mx-auto w-full max-w-3xl px-4 mb-4 sm:px-6">
+      <div className="mx-auto w-full max-w-5xl px-4 mb-4 sm:px-6">
         <ChatMessageItem
           key={message.id}
           message={message}

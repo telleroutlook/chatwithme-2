@@ -249,7 +249,7 @@ export function ChatPane({
 
           {/* Live progress feed */}
           {awaitingFirstAssistant && (
-            <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 mt-4">
+            <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 mt-4">
                 <div className="rounded-lg border border-border bg-surface-chat/80 px-4 py-3">
                   {/* Header */}
                   <div className="mb-2 flex items-center gap-2">
@@ -376,7 +376,7 @@ export function ChatPane({
           }}
         >
           {/* Keep input constrained to the same reading width */}
-          <div className="mx-auto w-full max-w-3xl">
+          <div className="mx-auto w-full max-w-5xl">
             <ChatInputArea
               value={input}
               onChange={setInput}
