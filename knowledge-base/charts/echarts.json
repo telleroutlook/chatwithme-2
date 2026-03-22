@@ -16,7 +16,8 @@
     "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
     "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer",
     "xAxis.data must be an array of strings, NOT a comma-separated string",
-    "CRITICAL: tooltip.formatter for scatter must use {b} (name), {c[0]} (x), {c[1]} (y) — NOT {d} which is pie-chart-only and will show undefined in scatter"
+    "CRITICAL: tooltip.formatter for scatter must use {b} (name), {c[0]} (x), {c[1]} (y) — NOT {d} which is pie-chart-only and will show undefined in scatter",
+    "CRITICAL: scatter series data MUST use object format {\"name\": \"label\", \"value\": [x, y]} — NEVER plain [x, y] arrays. Plain arrays lose the name, making tooltip blank and labels impossible"
   ],
   "typeWhitelist": [
     "line",
@@ -55,11 +56,11 @@
         "xAxis": { "type": "category", "data": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"] },
         "yAxis": { "type": "value" },
         "series": [
-          { "name": "产品A", "type": "line", "data": [120, 132, 101, 134, 90, 230], "smooth": true },
-          { "name": "产品B", "type": "line", "data": [220, 182, 191, 234, 290, 330], "smooth": true }
+          { "name": "产品A", "type": "line", "data": [120, 132, 101, 134, 90, 230], "smooth": true, "label": { "show": false } },
+          { "name": "产品B", "type": "line", "data": [220, 182, 191, 234, 290, 330], "smooth": true, "label": { "show": false } }
         ]
       },
-      "notes": "Use xAxis.type:'category' with xAxis.data for discrete labels. For multi-series, each series has its own data array matching xAxis.data length. Set smooth:true for curved lines."
+      "notes": "Use xAxis.type:'category' with xAxis.data for discrete labels. For multi-series, each series has its own data array matching xAxis.data length. Set smooth:true for curved lines. Labels are typically off for line charts (too cluttered); rely on tooltip + legend instead."
     },
     {
       "type": "column",
@@ -72,12 +73,12 @@
         "xAxis": { "type": "category", "data": ["销售", "技术", "市场", "运营"] },
         "yAxis": { "type": "value" },
         "series": [
-          { "name": "Q1", "type": "bar", "data": [120, 200, 150, 80] },
-          { "name": "Q2", "type": "bar", "data": [150, 230, 180, 95] },
-          { "name": "Q3", "type": "bar", "data": [180, 260, 200, 110] }
+          { "name": "Q1", "type": "bar", "data": [120, 200, 150, 80], "label": { "show": true, "position": "top" } },
+          { "name": "Q2", "type": "bar", "data": [150, 230, 180, 95], "label": { "show": true, "position": "top" } },
+          { "name": "Q3", "type": "bar", "data": [180, 260, 200, 110], "label": { "show": true, "position": "top" } }
         ]
       },
-      "notes": "Column = vertical bar: xAxis is category, yAxis is value. ECharts uses type:'bar' for both column and horizontal bar. For grouped bars, use multiple series with same xAxis."
+      "notes": "Column = vertical bar: xAxis is category, yAxis is value. ECharts uses type:'bar' for both column and horizontal bar. For grouped bars, use multiple series with same xAxis. Always add label:{show:true, position:'top'} to each series so values appear above bars."
     },
     {
       "type": "bar",
@@ -89,10 +90,10 @@
         "xAxis": { "type": "value" },
         "yAxis": { "type": "category", "data": ["上海", "北京", "广州", "深圳", "成都"] },
         "series": [
-          { "type": "bar", "data": [2487, 2154, 1872, 1756, 1604] }
+          { "type": "bar", "data": [2487, 2154, 1872, 1756, 1604], "label": { "show": true, "position": "right" } }
         ]
       },
-      "notes": "Horizontal bar: yAxis is category, xAxis is value — this is the opposite of column. Use when category labels are long or you want a ranking list."
+      "notes": "Horizontal bar: yAxis is category, xAxis is value — this is the opposite of column. Use when category labels are long or you want a ranking list. Always add label:{show:true, position:'right'} so values appear at the end of each bar."
     },
     {
       "type": "area",
@@ -105,12 +106,12 @@
         "xAxis": { "type": "category", "data": ["Q1", "Q2", "Q3", "Q4"] },
         "yAxis": { "type": "value" },
         "series": [
-          { "name": "华东", "type": "line", "areaStyle": {}, "data": [820, 932, 901, 1290] },
-          { "name": "华南", "type": "line", "areaStyle": {}, "data": [620, 732, 701, 890] },
-          { "name": "华北", "type": "line", "areaStyle": {}, "data": [420, 532, 601, 790] }
+          { "name": "华东", "type": "line", "areaStyle": {}, "data": [820, 932, 901, 1290], "label": { "show": false } },
+          { "name": "华南", "type": "line", "areaStyle": {}, "data": [620, 732, 701, 890], "label": { "show": false } },
+          { "name": "华北", "type": "line", "areaStyle": {}, "data": [420, 532, 601, 790], "label": { "show": false } }
         ]
       },
-      "notes": "Area chart = line with areaStyle:{}. For stacked area, add stack:'total' to each series. The areaStyle object controls fill opacity and color (leave empty for defaults)."
+      "notes": "Area chart = line with areaStyle:{}. For stacked area, add stack:'total' to each series. The areaStyle object controls fill opacity and color (leave empty for defaults). Labels are typically off for area charts (too cluttered); rely on tooltip + legend instead."
     },
     {
       "type": "pie",
@@ -188,7 +189,7 @@
           }
         ]
       },
-      "notes": "Data is array of [x, y] pairs, or [x, y, size] for bubble charts. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names. symbolSize MUST be a plain number (e.g. 10) — do NOT use a function. For bubble charts where point size encodes a third variable, store the size value as data[2] and set symbolSize to a fixed number like 15; the renderer will auto-scale from data[2] if symbolSize is a function (which gets stripped from JSON)."
+      "notes": "CRITICAL: Each data item MUST be an object {\"name\": \"省份\", \"value\": [x, y]} — NEVER use plain [x, y] arrays. Using plain arrays omits the name and makes tooltip show nothing. Add label:{show:true, formatter:\"{b}\", position:\"right\"} so names appear next to each point. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names. symbolSize MUST be a plain number (e.g. 10) — do NOT use a function. tooltip.formatter should use {b} for name, {c[0]}/{c[1]} for x/y values."
     },
     {
       "type": "radar",
@@ -238,11 +239,11 @@
               [0, 2, 280], [1, 2, 300], [2, 2, 320], [3, 2, 340], [4, 2, 310], [5, 2, 420], [6, 2, 380],
               [0, 3, 180], [1, 3, 220], [2, 3, 200], [3, 3, 210], [4, 3, 190], [5, 3, 490], [6, 3, 500]
             ],
-            "label": { "show": false }
+            "label": { "show": true }
           }
         ]
       },
-      "notes": "Data is [xIndex, yIndex, value]. REQUIRES visualMap for color mapping. xAxis and yAxis both use type:'category'. Indices are 0-based matching axis data arrays."
+      "notes": "Data is [xIndex, yIndex, value]. REQUIRES visualMap for color mapping. xAxis and yAxis both use type:'category'. Indices are 0-based matching axis data arrays. Set label:{show:true} so each cell shows its value."
     },
     {
       "type": "funnel",
@@ -284,11 +285,12 @@
           {
             "type": "bar",
             "data": [2, 5, 12, 18, 30, 42, 35, 28, 15, 8],
-            "barWidth": "99%"
+            "barWidth": "99%",
+            "label": { "show": true, "position": "top" }
           }
         ]
       },
-      "notes": "Histogram = bar chart with pre-binned data and barWidth:'99%' (no gaps). Pre-compute bins from raw data before building the spec. xAxis shows bin labels, series data shows bin counts."
+      "notes": "Histogram = bar chart with pre-binned data and barWidth:'99%' (no gaps). Pre-compute bins from raw data before building the spec. xAxis shows bin labels, series data shows bin counts. Add label:{show:true, position:'top'} to display count above each bar."
     },
     {
       "type": "dualAxes",
@@ -304,11 +306,11 @@
           { "type": "value", "name": "增长率 (%)", "position": "right" }
         ],
         "series": [
-          { "name": "收入 (万元)", "type": "bar", "yAxisIndex": 0, "data": [320, 450, 390, 510, 620, 580] },
-          { "name": "增长率 (%)", "type": "line", "yAxisIndex": 1, "data": [12.5, 40.6, -13.3, 30.8, 21.6, -6.5], "smooth": true }
+          { "name": "收入 (万元)", "type": "bar", "yAxisIndex": 0, "data": [320, 450, 390, 510, 620, 580], "label": { "show": true, "position": "top" } },
+          { "name": "增长率 (%)", "type": "line", "yAxisIndex": 1, "data": [12.5, 40.6, -13.3, 30.8, 21.6, -6.5], "smooth": true, "label": { "show": false } }
         ]
       },
-      "notes": "yAxis MUST be an array of two objects. Each series has yAxisIndex:0 (left) or yAxisIndex:1 (right). Common pattern: bar for volume (left) + line for rate/ratio (right)."
+      "notes": "yAxis MUST be an array of two objects. Each series has yAxisIndex:0 (left) or yAxisIndex:1 (right). Common pattern: bar for volume (left) + line for rate/ratio (right). Add label:{show:true, position:'top'} to bar series for value display."
     },
     {
       "type": "sankey",
