@@ -16,8 +16,11 @@
     "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
     "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer",
     "xAxis.data must be an array of strings, NOT a comma-separated string",
-    "CRITICAL: tooltip.formatter for scatter must use {b} (name), {c[0]} (x), {c[1]} (y) — NOT {d} which is pie-chart-only and will show undefined in scatter",
-    "CRITICAL: scatter series data MUST use object format {\"name\": \"label\", \"value\": [x, y]} — NEVER plain [x, y] arrays. Plain arrays lose the name, making tooltip blank and labels impossible"
+    "CRITICAL: tooltip.formatter placeholder rules by chart type — {a}=seriesName, {b}=name/category, {c}=value, {d}=percentage. {d} is ONLY valid for pie/rose/funnel — using {d} in scatter/line/bar/heatmap/radar will show 'undefined'. {c[0]}/{c[1]} only valid when data value is a 2-element array. NEVER use {c0}/{c1}/{a0}/{b0} etc. — there is NO digit-subscript syntax in ECharts tooltip templates; {c0} is NOT the same as {c[0]} and will appear as literal text.",
+    "CRITICAL: tooltip.formatter for scatter must use {b} (name), {c[0]} (x-value), {c[1]} (y-value) — NOT {d} which is pie-chart-only, and NEVER {c0}/{c1} (those are invalid syntax that renders as literal text).",
+    "CRITICAL: scatter series data MUST use object format {\"name\": \"label\", \"value\": [x, y]} — NEVER plain [x, y] arrays. Plain arrays lose the name, making tooltip blank and labels impossible",
+    "CRITICAL: {c[0]} and {c[1]} in tooltip.formatter ONLY work when value is a 2-element array [x, y]. If value is a single number or 1-element array, {c[0]} will NOT be substituted and will appear as literal text. In that case use a bar chart instead, or ensure value is always [x, y].",
+    "CRITICAL: if the scatter data has only one numeric dimension (e.g. population count per ethnic group), do NOT use scatter — use bar chart instead. Scatter requires two numeric axes."
   ],
   "typeWhitelist": [
     "line",
@@ -189,7 +192,7 @@
           }
         ]
       },
-      "notes": "CRITICAL: Each data item MUST be an object {\"name\": \"省份\", \"value\": [x, y]} — NEVER use plain [x, y] arrays. Using plain arrays omits the name and makes tooltip show nothing. Add label:{show:true, formatter:\"{b}\", position:\"right\"} so names appear next to each point. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names. symbolSize MUST be a plain number (e.g. 10) — do NOT use a function. tooltip.formatter should use {b} for name, {c[0]}/{c[1]} for x/y values."
+      "notes": "CRITICAL: Each data item MUST be an object {\"name\": \"省份\", \"value\": [x, y]} — NEVER use plain [x, y] arrays, and value MUST be a 2-element array. Using plain arrays or a single number as value omits the name, makes tooltip blank, and causes {c[0]}/{c[1]} to appear as literal text instead of values. Add label:{show:true, formatter:\"{b}\", position:\"right\"} so names appear next to each point. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names. symbolSize MUST be a plain number (e.g. 10) — do NOT use a function. tooltip.formatter MUST use {b} for name, {c[0]}/{c[1]} for x/y values — NEVER use {c0}/{c1} (invalid syntax, renders as literal text). NEVER use scatter for single-dimension data (e.g. one category axis + one value axis) — use bar chart instead."
     },
     {
       "type": "radar",
@@ -226,7 +229,7 @@
       "description": "2D matrix intensity; day×hour patterns; correlation matrix",
       "spec_example": {
         "title": { "text": "一周各时段访问热力图" },
-        "tooltip": { "position": "top" },
+        "tooltip": { "position": "top", "formatter": "{b}: {c}" },
         "xAxis": { "type": "category", "data": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"] },
         "yAxis": { "type": "category", "data": ["00-06时", "06-12时", "12-18时", "18-24时"] },
         "visualMap": { "min": 0, "max": 500, "calculable": true, "orient": "horizontal", "left": "center", "bottom": 0 },
@@ -243,7 +246,7 @@
           }
         ]
       },
-      "notes": "Data is [xIndex, yIndex, value]. REQUIRES visualMap for color mapping. xAxis and yAxis both use type:'category'. Indices are 0-based matching axis data arrays. Set label:{show:true} so each cell shows its value."
+      "notes": "Data is [xIndex, yIndex, value]. REQUIRES visualMap for color mapping. xAxis and yAxis both use type:'category'. Indices are 0-based matching axis data arrays. Set label:{show:true} so each cell shows its value. tooltip.formatter: {b} shows the x-axis label, {c} shows the cell value — do NOT use {d} (pie-only) or {c[0]}/{c[1]} (scatter-only)."
     },
     {
       "type": "funnel",
@@ -270,7 +273,7 @@
           }
         ]
       },
-      "notes": "Data is array of {name, value}. Sort:'descending' puts largest at top (standard funnel). Set gap:2 for spacing between stages. No xAxis/yAxis needed."
+      "notes": "Data is array of {name, value}. Sort:'descending' puts largest at top (standard funnel). Set gap:2 for spacing between stages. No xAxis/yAxis needed. {d} in formatter gives the percentage of each stage relative to total — valid for funnel and pie only."
     },
     {
       "type": "histogram",
@@ -842,7 +845,7 @@
           "text": "示例themeRiver图表"
         }
       },
-      "notes": "Data is array of [date, value, categoryName] triples. Requires singleAxis config. Ensure consistent date points across all categories."
+      "notes": "Data is array of [date, value, categoryName] triples. Requires singleAxis config. Ensure consistent date points across all categories. tooltip trigger:'axis' shows all categories at a date; do NOT use {d} (pie-only) in formatter."
     },
     {
       "type": "map",
@@ -1143,7 +1146,7 @@
           "text": "示例scatter3D图表"
         }
       },
-      "notes": "REQUIRES echarts-gl extension. Data format: [x, y, z]. Use symbolSize for point size."
+      "notes": "REQUIRES echarts-gl extension. Data format: [x, y, z] (plain arrays, no name field). Because data has no name, tooltip {b} will be empty — do not set a custom formatter with {b}; just use tooltip:{} for default display. Use symbolSize for point size."
     }
   ]
 }
