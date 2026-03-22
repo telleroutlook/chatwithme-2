@@ -439,7 +439,7 @@ export function registerAuthRoutes(app: Hono<AppBindings>): void {
         return successJson(c, {
           authenticated: false,
           guest: true,
-          userId: authCtx.userId === "anonymous" ? null : authCtx.userId,
+          userId: authCtx.authMode === "guest" ? null : authCtx.userId,
         });
       }
 

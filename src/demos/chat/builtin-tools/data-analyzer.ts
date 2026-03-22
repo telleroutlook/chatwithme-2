@@ -133,6 +133,9 @@ function parseJSONData(
       headerSet.add(key);
     }
   }
+  if (headerSet.size > 500) {
+    throw new Error(`Data has too many columns (${headerSet.size}). Maximum 500 allowed.`);
+  }
   const headers = [...headerSet];
 
   const rows = arr.map((item) =>
@@ -280,7 +283,7 @@ function recommendCharts(
         name: nc.name,
         type: "line",
         smooth: true,
-        data: sampleRows.map((r) => Number(r[nc.name]) || 0),
+        data: sampleRows.map((r) => { const v = Number(r[nc.name]); return isFinite(v) ? v : null; }),
       }));
       recommendations.push({
         chartType: "multi-line",
@@ -306,7 +309,7 @@ function recommendCharts(
           tooltip: { trigger: "axis" },
           xAxis: { type: "category", data: sampleRows.map((r) => r[dateCol]) },
           yAxis: { type: "value" },
-          series: [{ type: "line", smooth: true, data: sampleRows.map((r) => Number(r[valueCol]) || 0) }],
+          series: [{ type: "line", smooth: true, data: sampleRows.map((r) => { const v = Number(r[valueCol]); return isFinite(v) ? v : null; }) }],
         },
       });
     }
@@ -318,7 +321,7 @@ function recommendCharts(
     const valueCol = numericCols[0].name;
     const sampleRows = rows.slice(0, 50);
     const categories = sampleRows.map((r) => r[catCol]);
-    const values = sampleRows.map((r) => Number(r[valueCol]) || 0);
+    const values = sampleRows.map((r) => { const v = Number(r[valueCol]); return isFinite(v) ? v : null; });
     const uniqueCategories = new Set(categories).size;
 
     if (uniqueCategories > 0 && uniqueCategories < 10) {
@@ -349,7 +352,7 @@ function recommendCharts(
       const seriesData = numericCols.map((nc) => ({
         name: nc.name,
         type: "bar",
-        data: sampleRows.map((r) => Number(r[nc.name]) || 0),
+        data: sampleRows.map((r) => { const v = Number(r[nc.name]); return isFinite(v) ? v : null; }),
       }));
       recommendations.push({
         chartType: "grouped-bar",
@@ -384,10 +387,10 @@ function recommendCharts(
   if (numericCols.length >= 2) {
     const xCol = numericCols[0].name;
     const yCol = numericCols[1].name;
-    const scatterData = rows.slice(0, 100).map((r) => [
-      Number(r[xCol]) || 0,
-      Number(r[yCol]) || 0,
-    ]);
+    const scatterData = rows.slice(0, 100).map((r) => {
+      const x = Number(r[xCol]); const y = Number(r[yCol]);
+      return [isFinite(x) ? x : null, isFinite(y) ? y : null];
+    });
     recommendations.push({
       chartType: "scatter",
       engine: "echarts",
@@ -417,7 +420,7 @@ function recommendCharts(
         yAxis: { type: "value", name: col },
         series: [{
           type: "bar",
-          data: sampleRows.map((r) => Number(r[col]) || 0),
+          data: sampleRows.map((r) => { const v = Number(r[col]); return isFinite(v) ? v : null; }),
           barWidth: "99%",
         }],
       },
@@ -438,7 +441,7 @@ function recommendCharts(
         tooltip: { trigger: "axis" },
         xAxis: { type: "category", data: sampleRows.map((r) => r[xCol]) },
         yAxis: { type: "value" },
-        series: [{ type: "bar", data: sampleRows.map((r) => Number(r[yCol]) || 0) }],
+        series: [{ type: "bar", data: sampleRows.map((r) => { const v = Number(r[yCol]); return isFinite(v) ? v : null; }) }],
       },
     });
   }

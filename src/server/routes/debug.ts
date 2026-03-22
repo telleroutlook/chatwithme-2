@@ -34,6 +34,17 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 /**
+ * Redact sensitive patterns from debug output (API keys, emails, Bearer tokens).
+ */
+function redactSensitiveContent(content: unknown): unknown {
+  if (typeof content !== "string") return content;
+  return content
+    .replace(/\b(sk-|Bearer\s)[A-Za-z0-9\-_]{8,}/g, "[REDACTED]")
+    .replace(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z]{2,}\b/gi, "[EMAIL]")
+    .replace(/(["']?(?:api[_-]?key|apikey|token|secret|password|passwd)["']?\s*[:=]\s*)["']?[A-Za-z0-9\-_./+]{8,}["']?/gi, "$1[REDACTED]");
+}
+
+/**
  * Verify debug token from Authorization header or ?token= query param.
  * Uses constant-time comparison to prevent timing attacks.
  */
@@ -56,6 +67,13 @@ function verifyDebugToken(request: Request, debugToken: string): boolean {
 /** Format a Server-Sent Events message */
 function sseEvent(eventName: string, data: unknown): string {
   return `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+/** Validate agentName format: must be "userId:sessionId" with safe characters only. */
+function validateAgentName(agentName: string): boolean {
+  // userId part: hex16, user-hex8, or anon-hex8
+  // sessionId part: alphanumeric + hyphens/underscores
+  return /^([\w\-]+):([\w\-]+)$/.test(agentName) && agentName.length <= 200;
 }
 
 export function registerDebugRoutes(app: Hono<AppBindings>): void {
@@ -91,6 +109,9 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
 
   app.get("/api/debug/session/:agentName/state", async (c) => {
     const agentName = decodeURIComponent(c.req.param("agentName"));
+    if (!validateAgentName(agentName)) {
+      return errorJson(c, 400, "INVALID_AGENT_NAME", "Invalid agentName format");
+    }
     try {
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const snapshot = await agent.getRuntimeSnapshot();
@@ -108,6 +129,9 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
 
   app.get("/api/debug/session/:agentName/info", async (c) => {
     const agentName = decodeURIComponent(c.req.param("agentName"));
+    if (!validateAgentName(agentName)) {
+      return errorJson(c, 400, "INVALID_AGENT_NAME", "Invalid agentName format");
+    }
     try {
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
       const info = await agent.getDebugInfo();
@@ -121,6 +145,9 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
 
   app.get("/api/debug/session/:agentName/history", async (c) => {
     const agentName = decodeURIComponent(c.req.param("agentName"));
+    if (!validateAgentName(agentName)) {
+      return errorJson(c, 400, "INVALID_AGENT_NAME", "Invalid agentName format");
+    }
     const limitParam = c.req.query("limit");
     const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 20, 200) : 20;
 
@@ -139,10 +166,11 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
         history: sliced.map((msg) => ({
           id: msg.id,
           role: msg.role,
-          content:
+          content: redactSensitiveContent(
             typeof msg.content === "string" && msg.content.length > 500
               ? msg.content.slice(0, 500) + `… [+${msg.content.length - 500} chars]`
               : msg.content
+          )
         }))
       });
     } catch (error) {
@@ -170,6 +198,9 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
 
   app.get("/api/debug/session/:agentName/stream", async (c) => {
     const agentName = decodeURIComponent(c.req.param("agentName"));
+    if (!validateAgentName(agentName)) {
+      return errorJson(c, 400, "INVALID_AGENT_NAME", "Invalid agentName format");
+    }
     const intervalMs = Math.min(
       Math.max(parseInt(c.req.query("interval") ?? "1000", 10) || 1000, 500),
       10000
@@ -318,37 +349,31 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
   app.get("/api/debug/sessions", async (c) => {
     const userIdParam = c.req.query("userId");
     const limitParam = c.req.query("limit");
-    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 500) : 50;
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 200) : 50;
+
+    // userId is required — never list all users' sessions.
+    if (!userIdParam) {
+      return errorJson(c, 400, "MISSING_USER_ID", "userId query parameter is required");
+    }
 
     // Validate userId format to prevent querying arbitrary users.
-    // Only allow known userId patterns: hex IDs (authenticated) or "user-XXXXXXXX" (guest).
-    if (userIdParam) {
-      const validUserId = /^[0-9a-f]{16}$/.test(userIdParam) ||
-        /^user-[0-9a-f]{8}$/.test(userIdParam) ||
-        /^anonymous$/.test(userIdParam);
-      if (!validUserId) {
-        return errorJson(c, 400, "INVALID_USER_ID", "Invalid userId format");
-      }
+    // Only allow known userId patterns: hex IDs (authenticated), "user-XXXXXXXX" (guest UUID), "anon-XXXXXXXX" (IP-derived).
+    const validUserId = /^[0-9a-f]{16}$/.test(userIdParam) ||
+      /^user-[0-9a-f]{8}$/.test(userIdParam) ||
+      /^anon-[0-9a-f]{8}$/.test(userIdParam);
+    if (!validUserId) {
+      return errorJson(c, 400, "INVALID_USER_ID", "Invalid userId format");
     }
 
     try {
       let rows: { user_id: string; session_id: string; updated_at: string }[];
 
-      if (userIdParam) {
-        const result = await c.env.DB.prepare(
-          "SELECT user_id, session_id, updated_at FROM user_session_bindings WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?"
-        )
-          .bind(userIdParam, limit)
-          .all<{ user_id: string; session_id: string; updated_at: string }>();
-        rows = result.results ?? [];
-      } else {
-        const result = await c.env.DB.prepare(
-          "SELECT user_id, session_id, updated_at FROM user_session_bindings ORDER BY updated_at DESC LIMIT ?"
-        )
-          .bind(limit)
-          .all<{ user_id: string; session_id: string; updated_at: string }>();
-        rows = result.results ?? [];
-      }
+      const result = await c.env.DB.prepare(
+        "SELECT user_id, session_id, updated_at FROM user_session_bindings WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?"
+      )
+        .bind(userIdParam, limit)
+        .all<{ user_id: string; session_id: string; updated_at: string }>();
+      rows = result.results ?? [];
 
       return successJson(c, {
         total: rows.length,

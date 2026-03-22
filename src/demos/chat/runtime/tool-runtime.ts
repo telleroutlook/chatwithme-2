@@ -40,6 +40,26 @@ import {
   queueApproval
 } from "./approval-runtime";
 
+// ============ Helpers ============
+
+/** Sensitive field names that should be redacted from logs. */
+const SENSITIVE_KEYS = new Set(["password", "passwd", "secret", "token", "apikey", "api_key", "key", "authorization", "credential", "credentials"]);
+
+/**
+ * Serialize args for logging, redacting sensitive fields and handling circular refs.
+ */
+function safeStringify(args: unknown, maxLength = 320): string {
+  try {
+    const str = JSON.stringify(args, (k, v) => {
+      if (typeof k === "string" && SENSITIVE_KEYS.has(k.toLowerCase())) return "[REDACTED]";
+      return v;
+    });
+    return str.slice(0, maxLength);
+  } catch {
+    return "[unserializable]";
+  }
+}
+
 // ============ Types ============
 
 export interface ToolExecutionContext {
@@ -111,6 +131,11 @@ export async function callMcpToolWithRetry(
     }
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(`Tool timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
     try {
       return await Promise.race([
         context.mcp!.callTool({
@@ -118,14 +143,10 @@ export async function callMcpToolWithRetry(
           serverId: params.serverId,
           arguments: params.arguments
         }),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(new Error(`Tool timeout after ${timeoutMs}ms`));
-          }, timeoutMs);
-        })
+        timeoutPromise
       ]);
     } finally {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
     }
   };
 
@@ -246,7 +267,7 @@ export async function buildAiTools(
           serverId: "builtin",
           status: "running",
           startedAt: runStart,
-          argsSnippet: JSON.stringify(args).slice(0, 320)
+          argsSnippet: safeStringify(args, 320)
         };
 
         context.setState(
@@ -263,7 +284,7 @@ export async function buildAiTools(
           status: "start",
           toolName: key,
           message: `Executing built-in tool "${key}"`,
-          snippet: JSON.stringify(args).slice(0, 240)
+          snippet: safeStringify(args, 240)
         });
 
         try {
@@ -393,7 +414,7 @@ async function executeToolCallInternal(
     serverId,
     status: "running",
     startedAt: runStart,
-    argsSnippet: JSON.stringify(normalizedArgs).slice(0, 320)
+    argsSnippet: safeStringify(normalizedArgs, 320)
   };
 
   // Validate input
@@ -433,7 +454,7 @@ async function executeToolCallInternal(
     status: "start",
     toolName: alias,
     message: `Executing tool "${alias}"`,
-    snippet: JSON.stringify(normalizedArgs).slice(0, 240)
+    snippet: safeStringify(normalizedArgs, 240)
   });
 
   try {
@@ -477,7 +498,7 @@ async function executeToolCallInternal(
           signature: approvalSignature,
           toolName: alias,
           serverId,
-          argsSnippet: JSON.stringify(normalizedArgs).slice(0, 320)
+          argsSnippet: safeStringify(normalizedArgs, 320)
         });
         const error = `Tool "${alias}" requires approval (id: ${approval.id}).`;
         context.setState(updateLastErrorState(appendRuntimeEvent(upsertToolRunState(queuedState, {

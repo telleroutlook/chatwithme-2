@@ -100,6 +100,24 @@ function extractToken(request: Request): TokenInfo | null {
 }
 
 /**
+ * Derive a stable but anonymous guest ID from the request IP.
+ * Uses FNV-1a hash — not cryptographic, just for session isolation.
+ * Different IPs get different IDs; same IP gets same ID within a Worker isolate.
+ */
+function deriveAnonId(request: Request): string {
+  const ip =
+    request.headers.get("CF-Connecting-IP") ||
+    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
+    "unknown";
+  let h = 0x811c9dc5;
+  for (let i = 0; i < ip.length; i++) {
+    h ^= ip.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return `anon-${(h >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+/**
  * Resolve full authentication context from request.
  * Checks: 1) Authorization header, 2) URL query param, 3) Cookie
  *
@@ -109,7 +127,7 @@ export async function resolveAuthContext(request: Request, options: ResolveAuthO
   const tokenInfo = extractToken(request);
   if (!tokenInfo) {
     return {
-      userId: "anonymous",
+      userId: deriveAnonId(request),
       authMode: "guest",
       tokenSource: "none",
     };
@@ -140,7 +158,7 @@ export async function resolveAuthContext(request: Request, options: ResolveAuthO
   }
 
   return {
-    userId: "anonymous",
+    userId: deriveAnonId(request),
     authMode: "guest",
     tokenSource: source,
   };

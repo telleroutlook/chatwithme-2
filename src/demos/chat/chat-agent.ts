@@ -862,7 +862,12 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         }
       ]);
     } catch (e) {
-      console.error("Error persisting messages:", e);
+      console.error(JSON.stringify({
+        event: "persist_failed",
+        error: e instanceof Error ? e.message : String(e),
+      }));
+      // Re-throw so the caller knows the message was not saved.
+      throw new Error(`Response generated but failed to save: ${e instanceof Error ? e.message : "unknown error"}`);
     }
 
     return finalResponse;
@@ -904,10 +909,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       });
 
       const hasConnections = [...this.getConnections()].length > 0;
-      this.pendingSessionDeletion = true;
       if (!hasConnections) {
+        // No active connections — destroy immediately.
+        this.pendingSessionDeletion = true;
         cancelIdleSchedules(this as never);
         this.schedule(1, "onIdleTimeout" as never, {});
+      } else {
+        // Connections are open — mark for destruction when the last one closes.
+        this.pendingSessionDeletion = true;
       }
       return {
         success: true,
@@ -957,6 +966,12 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     brokenSpec: string,
     errorMessage?: string
   ): Promise<{ success: boolean; fixedSpec?: string; error?: string }> {
+    // Validate brokenSpec is JSON before embedding in prompt (prevents prompt injection)
+    try {
+      JSON.parse(brokenSpec);
+    } catch {
+      return { success: false, error: "brokenSpec must be valid JSON" };
+    }
     // Fetch the precise format spec from the knowledge base (same data builtin_chart_template uses)
     const lookup = buildChartTemplateLookup();
     const templateKey = `${engine}:${chartType}`;

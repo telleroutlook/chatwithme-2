@@ -17,6 +17,20 @@ import {
 const MAX_APPROVALS = 120;
 const MAX_APPROVED_SIGNATURES = 200;
 
+/**
+ * Constant-time string comparison to prevent timing attacks on signature verification.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  const maxLen = Math.max(aBytes.length, bBytes.length);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < maxLen; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 // ============ Approval State Helpers ============
 
 /**
@@ -56,7 +70,7 @@ export function hasApprovedSignature(
   const remaining: typeof state.runtime.approvedSignatures = [];
   let found = false;
   for (const entry of state.runtime.approvedSignatures) {
-    const isMatch = entry.signature === signature && new Date(entry.expiresAt).getTime() > now;
+    const isMatch = timingSafeEqual(entry.signature, signature) && new Date(entry.expiresAt).getTime() > now;
     if (isMatch && !found) {
       // Consume the first matching signature (skip it from remaining)
       found = true;

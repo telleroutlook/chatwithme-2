@@ -50,8 +50,13 @@ function assertPublicUrl(rawUrl: string): void {
     throw new Error(`URL scheme not allowed: ${parsed.protocol}`);
   }
 
-  // Block loopback
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+  // Block loopback — IPv4, IPv6, and IPv4-mapped IPv6 (::ffff:127.x.x.x)
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    /^::ffff:(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/i.test(hostname)
+  ) {
     throw new Error("Requests to loopback addresses are not allowed");
   }
 
