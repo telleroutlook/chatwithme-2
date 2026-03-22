@@ -7,16 +7,13 @@
   "fallbackUsed": false,
   "kbDegraded": false,
   "summary": {
-    "adc": true,
     "mermaid": true,
     "echarts": true,
     "mermaidDiagramCount": 19,
-    "adcChartCount": 12,
-    "echartsChartCount": 11
+    "echartsChartCount": 23
   },
   "sizeInfo": {
     "total": 0,
-    "adc": 0,
     "mermaid": 0,
     "echarts": 0
   },

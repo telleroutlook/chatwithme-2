@@ -80,6 +80,8 @@ function cleanJsonForECharts(raw: string): string {
 
   // 5. Remove function-like values (function(){...} or () => ...)
   //    Replace with null so the JSON structure stays valid.
+  //    NOTE: normalizeEChartsSpec() recovers known fields that must not be null
+  //    (e.g. symbolSize for scatter) by applying sensible defaults afterwards.
   cleaned = cleaned.replace(
     /:\s*(function\s*\([^)]*\)\s*\{[^}]*\}|\([^)]*\)\s*=>[^,}\]]*|[a-zA-Z_$]\w*\s*=>[^,}\]]*)/g,
     ": null",
@@ -222,7 +224,98 @@ function normalizeEChartsSpec(
   // 5. Remove $schema if AI included it (not used by ECharts)
   delete result.$schema;
 
-  // 6. Fix string numbers in series data
+  // 6. Recover fields that become null when AI outputs a JS function — these are
+  //    fields where null is invalid and a sensible default can be inferred.
+  if (Array.isArray(result.series)) {
+    for (const s of result.series as Record<string, unknown>[]) {
+      const seriesType = typeof s.type === "string" ? s.type : "";
+
+      // symbolSize: used by scatter / scatter3D / tree / graph.
+      // When null (function stripped), fall back to a fixed integer.
+      // For scatter with a 3-element data tuple [x, y, size], derive from data.
+      if (s.symbolSize === null) {
+        if (seriesType === "scatter" || seriesType === "scatter3D") {
+          // Check if data items are [x, y, size] triples; if so scale from 3rd element
+          const rawData = Array.isArray(s.data) ? s.data as unknown[] : [];
+          // Support two data formats:
+          // - Tuple: [x, y, size]
+          // - Object: { name, value: [x, y, size] }
+          const hasThirdDim = rawData.length > 0 && (() => {
+            const first = rawData[0];
+            if (Array.isArray(first)) return (first as unknown[]).length >= 3;
+            if (first && typeof first === "object") {
+              const v = (first as Record<string, unknown>).value;
+              return Array.isArray(v) && (v as unknown[]).length >= 3;
+            }
+            return false;
+          })();
+
+          if (hasThirdDim) {
+            // Compute a sensible scale factor from the third dimension values
+            const extractSize = (d: unknown): number => {
+              if (Array.isArray(d) && (d as unknown[]).length >= 3) {
+                const v = (d as unknown[])[2];
+                return typeof v === "number" ? v : 0;
+              }
+              if (d && typeof d === "object") {
+                const val = (d as Record<string, unknown>).value;
+                if (Array.isArray(val) && (val as unknown[]).length >= 3) {
+                  const v = (val as unknown[])[2];
+                  return typeof v === "number" ? v : 0;
+                }
+              }
+              return 0;
+            };
+            const sizes = rawData.map(extractSize);
+            const maxSize = Math.max(...sizes, 1);
+            // Target max bubble diameter ~50px; min 6px
+            const scale = 50 / Math.sqrt(maxSize);
+            s.symbolSize = sizes.map((v) => Math.max(6, Math.round(Math.sqrt(v) * scale)));
+            warnings.push("symbolSize function stripped; auto-computed from data third dimension");
+          } else {
+            s.symbolSize = 10;
+            warnings.push("symbolSize function stripped; defaulted to 10");
+          }
+        } else if (seriesType === "tree" || seriesType === "graph") {
+          s.symbolSize = 8;
+          warnings.push(`${seriesType} symbolSize function stripped; defaulted to 8`);
+        } else {
+          // Generic: remove null so ECharts uses its built-in default
+          delete s.symbolSize;
+          warnings.push("symbolSize function stripped; removed (ECharts default will apply)");
+        }
+      }
+
+      // label.formatter: null is fine — ECharts shows default label. Remove to avoid confusion.
+      if (s.label && typeof s.label === "object") {
+        const label = s.label as Record<string, unknown>;
+        if (label.formatter === null) {
+          delete label.formatter;
+          warnings.push("label.formatter function stripped; removed (ECharts default applies)");
+        }
+      }
+
+      // tooltip.formatter inside series: same as above
+      if (s.tooltip && typeof s.tooltip === "object") {
+        const tt = s.tooltip as Record<string, unknown>;
+        if (tt.formatter === null) {
+          delete tt.formatter;
+          warnings.push("series tooltip.formatter function stripped; removed");
+        }
+      }
+    }
+  }
+
+  // Recover top-level tooltip.formatter if stripped to null
+  if (result.tooltip && typeof result.tooltip === "object" && !Array.isArray(result.tooltip)) {
+    const tt = result.tooltip as Record<string, unknown>;
+    if (tt.formatter === null) {
+      delete tt.formatter;
+      warnings.push("tooltip.formatter function stripped; removed (ECharts default applies)");
+    }
+  }
+
+  // 7. Fix string numbers in series data
   if (Array.isArray(result.series)) {
     for (const s of result.series as Record<string, unknown>[]) {
       if (Array.isArray(s.data)) {

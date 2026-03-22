@@ -74,7 +74,7 @@ export const MessageSkeleton = memo(function MessageSkeleton({
 });
 
 interface ChartSkeletonProps {
-  type?: "mermaid" | "adc" | "echarts";
+  type?: "mermaid" | "echarts";
   animate?: boolean;
 }
 
@@ -85,7 +85,7 @@ const BAR_HEIGHTS = ["h-12", "h-20", "h-14", "h-24", "h-16", "h-22", "h-14"];
  * Skeleton for chart loading state (used by Suspense fallbacks in LazyChartRenderer)
  */
 export const ChartSkeleton = memo(function ChartSkeleton({
-  type = "adc",
+  type = "echarts",
   animate = true,
 }: ChartSkeletonProps) {
   return (

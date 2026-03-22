@@ -9,13 +9,14 @@
     "CRITICAL: series must be an array, not a single object. WRONG: \"series\": {...}. CORRECT: \"series\": [{...}]",
     "CRITICAL: ALL numeric values in series data must be actual JSON numbers, NOT strings",
     "CRITICAL: Each series must have a non-empty \"data\" array (or use top-level \"dataset\")",
+    "CRITICAL: symbolSize MUST be a number (e.g. 10) or an array of numbers — NEVER a function. Wrong: \"symbolSize\": function(d){...}. Right: \"symbolSize\": 10",
     "Supported series types: line, bar, pie, scatter, radar, heatmap, funnel, map, sankey, tree, treemap, sunburst, candlestick, gauge, themeRiver, wordCloud, bar3D, scatter3D",
     "Include realistic, descriptive data values — not placeholder numbers",
     "Do not set color arrays — the renderer applies a curated palette automatically",
     "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
     "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer",
     "xAxis.data must be an array of strings, NOT a comma-separated string",
-    "ALWAYS include a top-level \"title\" object: e.g. \"title\": {\"text\": \"图表标题\"} — required for all echarts charts"
+    "CRITICAL: tooltip.formatter for scatter must use {b} (name), {c[0]} (x), {c[1]} (y) — NOT {d} which is pie-chart-only and will show undefined in scatter"
   ],
   "typeWhitelist": [
     "line",
@@ -168,22 +169,26 @@
       "name": "Scatter Plot / 散点图",
       "description": "Correlation detection; cluster analysis; two numeric variables",
       "spec_example": {
-        "title": { "text": "身高与体重相关性" },
-        "tooltip": { "trigger": "item" },
-        "xAxis": { "type": "value", "name": "身高 (cm)", "scale": true },
-        "yAxis": { "type": "value", "name": "体重 (kg)", "scale": true },
+        "title": { "text": "各省GDP与人口气泡图" },
+        "tooltip": { "trigger": "item", "formatter": "{b}<br/>GDP: {c[0]}万亿<br/>人口: {c[1]}万" },
+        "xAxis": { "type": "value", "name": "GDP (万亿元)", "scale": true },
+        "yAxis": { "type": "value", "name": "常住人口 (万人)", "scale": true },
         "series": [
           {
             "type": "scatter",
-            "symbolSize": 10,
+            "symbolSize": 15,
             "data": [
-              [161, 55], [162, 58], [165, 62], [168, 65], [170, 68],
-              [172, 70], [175, 75], [178, 78], [180, 82], [182, 85]
-            ]
+              { "name": "广东", "value": [13.56, 12656] },
+              { "name": "江苏", "value": [12.82, 8505] },
+              { "name": "山东", "value": [9.20, 10162] },
+              { "name": "浙江", "value": [8.25, 6540] },
+              { "name": "河南", "value": [6.13, 9815] }
+            ],
+            "label": { "show": true, "formatter": "{b}", "position": "right" }
           }
         ]
       },
-      "notes": "Data is array of [x, y] pairs. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names."
+      "notes": "Data is array of [x, y] pairs, or [x, y, size] for bubble charts. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names. symbolSize MUST be a plain number (e.g. 10) — do NOT use a function. For bubble charts where point size encodes a third variable, store the size value as data[2] and set symbolSize to a fixed number like 15; the renderer will auto-scale from data[2] if symbolSize is a function (which gets stripped from JSON)."
     },
     {
       "type": "radar",

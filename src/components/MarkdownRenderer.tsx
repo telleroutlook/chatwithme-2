@@ -475,11 +475,9 @@ const CodeRenderer = memo(function CodeRenderer({
     return <SuspenseCodeBlock language="json" code={codeString} />;
   }
 
-  // ADC legacy fallback — parse as ECharts (backward compat for old adc code blocks)
   // ECharts
   if (
-    language === "echarts" || language === "echart" ||
-    language === "adc" || language === "ant-design-charts" || language === "antd-charts"
+    language === "echarts" || language === "echart"
   ) {
     const ecResult = parseEChartsSpecFromCode(codeString);
     const ecSpecAny = ecResult.ok ? (ecResult.spec as Record<string, unknown>) : null;

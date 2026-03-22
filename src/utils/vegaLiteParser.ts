@@ -75,6 +75,8 @@ function cleanJsonForVegaLite(raw: string): string {
   cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
 
   // 5. Remove function-like values — replace with null
+  //    NOTE: Vega-Lite specs should not use JS functions (use expr strings instead),
+  //    so this cleanup is rare. normalizeVegaLiteSpec() removes null formatters afterwards.
   cleaned = cleaned.replace(
     /:\s*(function\s*\([^)]*\)\s*\{[^}]*\}|\([^)]*\)\s*=>[^,}\]]*|[a-zA-Z_$]\w*\s*=>[^,}\]]*)/g,
     ": null",
@@ -224,6 +226,25 @@ function normalizeVegaLiteSpec(
             }
             return changed ? newRow : row;
           });
+        }
+      }
+    }
+  }
+
+  // 5. Remove null formatters caused by function stripping.
+  //    Vega-Lite format specs must be strings (e.g. "~s", ".2f") or objects.
+  //    A null format breaks axis/tooltip formatting — remove it so Vega-Lite uses defaults.
+  const encoding = result.encoding as Record<string, Record<string, unknown>> | undefined;
+  if (encoding && typeof encoding === "object") {
+    for (const channel of Object.values(encoding)) {
+      if (channel && typeof channel === "object") {
+        if (channel.format === null) {
+          delete channel.format;
+          warnings.push("encoding channel format=null (function stripped) removed");
+        }
+        if (channel.title === null) {
+          delete channel.title;
+          warnings.push("encoding channel title=null (function stripped) removed");
         }
       }
     }

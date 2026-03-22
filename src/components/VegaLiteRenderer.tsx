@@ -266,7 +266,7 @@ function VegaLiteRendererInner({ spec }: VegaLiteRendererProps): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Memo export (matches ECharts/ADC pattern)
+// Memo export (matches ECharts pattern)
 // ---------------------------------------------------------------------------
 
 export const LazyVegaLiteRenderer = memo(function LazyVegaLiteRenderer(

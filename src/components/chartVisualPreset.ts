@@ -75,7 +75,7 @@ interface G2ThemePreset {
 }
 
 export interface EChartsThemePreset {
-  /** Color palette for series — matches ADC's categorical palette for visual consistency */
+  /** Color palette for series */
   color: string[];
   /** Background color (transparent to inherit container) */
   backgroundColor: string;

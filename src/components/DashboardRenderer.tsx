@@ -1,6 +1,6 @@
 /**
  * DashboardRenderer — renders a composite dashboard with multiple items
- * (stat cards, ADC charts, ECharts, text) in a responsive grid layout.
+ * (stat cards, ECharts, text) in a responsive grid layout.
  *
  * Each item is wrapped in its own error boundary so one broken item
  * does not take down the whole dashboard.
@@ -123,8 +123,8 @@ const DashboardItemWrapper = memo(function DashboardItemWrapper({
     );
   }
 
-  // ECharts renders in its own styled container; "adc" legacy type also uses ECharts
-  if (item.type === "adc" || item.type === "echarts") {
+  // ECharts renders in its own styled container
+  if (item.type === "echarts") {
     return (
       <div className={`${spanClass} min-h-[200px]`}>
         {item.title && (

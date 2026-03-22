@@ -8,9 +8,6 @@
 
 /** Languages recognised as chart code blocks. */
 const CHART_LANGUAGES = new Set([
-  "adc",
-  "ant-design-charts",
-  "antd-charts",
   "echarts",
   "echart",
   "vega-lite",
@@ -93,12 +90,6 @@ export function detectChartTypeFromPartial(
   if (language === "echarts" || language === "echart") {
     const subtype = detectSubtypeFromJson(code);
     return { engine: "echarts", subtype: subtype ?? "echarts" };
-  }
-
-  // -- ADC / Ant Design Charts --
-  if (language === "adc" || language === "ant-design-charts" || language === "antd-charts") {
-    const subtype = detectSubtypeFromJson(code);
-    return { engine: "adc", subtype: subtype ?? "generic" };
   }
 
   return { engine: "unknown", subtype: "generic" };

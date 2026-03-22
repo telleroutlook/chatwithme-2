@@ -2,9 +2,9 @@
  * ChartToolbar — floating export toolbar for chart containers.
  *
  * Appears on hover over the parent chart area with fade-in animation.
- * Supports PNG, SVG, PDF and JSON/CSV export for both Mermaid and ADC charts.
+ * Supports PNG, SVG, PDF and JSON/CSV export for Mermaid and ECharts.
  *
- * Canvas-based engines (ADC, ECharts) read pixels directly from the <canvas>
+ * Canvas-based engines (ECharts) read pixels directly from the <canvas>
  * element instead of using html-to-image / html2canvas, which cannot capture
  * canvas content reliably (blank PNG, garbled colors in PDF, etc.).
  */

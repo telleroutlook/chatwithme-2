@@ -2,7 +2,7 @@
  * Dashboard Parser
  * Parses composite dashboard specs from ```dashboard code blocks.
  *
- * A dashboard contains multiple items (stat cards, ADC charts, ECharts, text)
+ * A dashboard contains multiple items (stat cards, ECharts, text)
  * arranged in a grid layout.
  *
  * Expected format:
@@ -11,7 +11,7 @@
  *   "layout": "2x2",
  *   "items": [
  *     { "type": "stat", "data": [{ "title": "Revenue", "value": "$1.2M", "trend": "up" }] },
- *     { "type": "adc",  "data": { "type": "line", "data": [...], "xField": "month", "yField": "value" } },
+ *     { "type": "echarts",  "data": { "type": "line", "data": [...] } },
  *     { "type": "echarts", "data": { "series": [...], "xAxis": {...} }, "span": 2 },
  *     { "type": "text", "data": "Key insight: Revenue grew 12% QoQ." }
  *   ]
@@ -25,7 +25,7 @@ import type { EChartsOption } from "./ecSpecParser";
 // Types
 // ---------------------------------------------------------------------------
 
-export type DashboardItemType = "stat" | "adc" | "echarts" | "text";
+export type DashboardItemType = "stat" | "echarts" | "text";
 export interface DashboardItem {
   type: DashboardItemType;
   title?: string;
@@ -55,7 +55,7 @@ export type DashboardParseResult = DashboardParseSuccess | DashboardParseError;
 // Validation helpers
 // ---------------------------------------------------------------------------
 
-const VALID_ITEM_TYPES = new Set<string>(["stat", "adc", "echarts", "text"]);
+const VALID_ITEM_TYPES = new Set<string>(["stat", "echarts", "text"]);
 
 const ECHARTS_REQUIRED_FIELDS = new Set<string>([
   "series", "xAxis", "yAxis", "geo", "radar", "graphic",
@@ -98,7 +98,6 @@ function validateItem(item: unknown, index: number): string | null {
         return `Item ${index}: stat data must be an array of { title, value } objects`;
       }
       break;
-    case "adc":
     case "echarts":
       if (!isEChartsSpec(obj.data)) {
         return `Item ${index}: echarts data must have at least one of: series, xAxis, yAxis, geo, radar, graphic`;
@@ -190,7 +189,7 @@ export function parseDashboardSpec(code: string): DashboardParseResult {
     return { ok: false, error: '"layout" must be a string' };
   }
 
-  // Build the spec — "adc" items pass through as-is (rendered as ECharts)
+  // Build the spec
   const items: DashboardItem[] = (obj.items as Array<Record<string, unknown>>).map((raw) => {
     const item: DashboardItem = {
       type: raw.type as DashboardItemType,

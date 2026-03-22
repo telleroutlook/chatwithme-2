@@ -103,9 +103,9 @@ curl "https://chatwithme2mcp.lintao-mailbox.workers.dev/api/debug/session/anonym
 
 ---
 
-### Step 3 — ADC 多系列折线图
+### Step 3 — ECharts 多系列折线图
 
-**目的**: 验证 ADC（Ant Design Charts）折线图生成正确，且多系列使用长格式数据（`colorField`）。
+**目的**: 验证 ECharts 折线图生成正确，且多系列数据结构正确。
 
 **测试 Prompt**:
 ```
@@ -113,20 +113,12 @@ curl "https://chatwithme2mcp.lintao-mailbox.workers.dev/api/debug/session/anonym
 ```
 
 **预期结果**:
-- 回复包含 `` ```adc `` 代码块
-- JSON 中包含 `"colorField"` 字段（多系列长格式标志）
+- 回复包含 `` ```echarts `` 代码块
+- JSON 中包含 `series` 数组（每个系列独立 `data`）
 - JSON 中包含 `"title"` 字段
 
-**验证 colorField**（多系列必须使用长格式，宽格式无法正确着色）:
-```python
-import json
-data = json.loads(adc_json_string)
-assert "colorField" in str(data), "多系列折线图缺少 colorField"
-```
-
 **常见问题**:
-- 若无 `colorField`，模型使用了宽格式数据（旧格式），可能导致多系列颜色错误
-- 若无 `title`，检查 `knowledge-base/charts/adc.json` 的 example 字段
+- 若无 `title`，检查 `knowledge-base/charts/echarts.json` 的 example 字段
 
 ---
 
@@ -144,7 +136,7 @@ assert "colorField" in str(data), "多系列折线图缺少 colorField"
 - JSON 包含 `series[0].type: "gauge"` 和 `series[0].data[0].value: 72`
 - JSON 包含 `"title"` 对象（如 `{"text": "CPU使用率"}`）
 
-**注意**: gauge 类型分配给 ECharts（不是 ADC），AI 通过 `builtin_chart_template` 工具获取格式规范后生成。
+**注意**: AI 通过 `builtin_chart_template` 工具获取格式规范后生成。
 
 ---
 
@@ -721,15 +713,15 @@ curl -s "https://nominatim.openstreetmap.org/search?q=CITY_NAME&format=json&limi
 
 ### 2. 图表生成缺少 title 字段（高）
 
-- **根本原因**: `knowledge-base/charts/{adc,echarts,vega-lite}.json` 的示例中所有图表类型均无 title 字段，模型照搬示例导致生成的 chart spec 缺少 title
-- **修复**: 为 ADC（12 种）、ECharts（11 种）、Vega-Lite（3 种）所有类型示例追加 title，并在 outputContract 中添加强制规则
-- **文件**: `knowledge-base/charts/adc.json`, `echarts.json`, `vega-lite.json`
+- **根本原因**: `knowledge-base/charts/{echarts,vega-lite}.json` 的示例中所有图表类型均无 title 字段，模型照搬示例导致生成的 chart spec 缺少 title
+- **修复**: 为 ECharts（23 种）、Vega-Lite（3 种）所有类型示例追加 title，并在 outputContract 中添加强制规则
+- **文件**: `knowledge-base/charts/echarts.json`, `vega-lite.json`
 
-### 3. ADC dualAxes 使用已废弃 API（中）
+### 3. ECharts dualAxes 使用错误数据结构（中）
 
-- **根本原因**: knowledge base 中 dualAxes 的 commonErrors 描述过于简短，模型仍使用 v1 的 `geometryOptions` 和 `color`（在 ADC v2 中已移除）
-- **修复**: 扩展 commonErrors 和 tips，明确禁止 `geometryOptions` 和 `color` 字段
-- **文件**: `knowledge-base/charts/adc.json`
+- **根本原因**: knowledge base 中 dualAxes 的 commonErrors 描述过于简短，模型生成了错误的 `yAxis` 和 `series` 配置
+- **修复**: 扩展 commonErrors 和 tips，明确正确的双轴配置结构
+- **文件**: `knowledge-base/charts/echarts.json`
 
 ### 4. 前端图表渲染失败无修复入口（中）
 

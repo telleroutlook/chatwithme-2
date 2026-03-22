@@ -17,7 +17,7 @@ describe("getChartKnowledge", () => {
     expect(kb.echarts!.typeWhitelist).toContain("gauge");
   });
 
-  it("ECharts includes all 12 migrated ADC chart types", () => {
+  it("ECharts includes all common chart types (line, bar, pie, etc.)", () => {
     const kb = getChartKnowledge();
     const types = kb.echarts!.chartTypes.map(c => c.type);
     expect(types).toContain("line");

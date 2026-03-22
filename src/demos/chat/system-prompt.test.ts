@@ -38,7 +38,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Do NOT set color");
   });
 
-  it("should contain ADC chart types in catalog", () => {
+  it("should contain ECharts common chart types in catalog", () => {
     const prompt = buildSystemPrompt([]);
     expect(prompt).toContain("line: trends over time");
     expect(prompt).toContain("column: categorical comparison");
