@@ -16,11 +16,12 @@
     "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
     "For map charts, use \"map\": \"china\" or \"map\": \"world\" in series — geoJSON is registered by the renderer",
     "xAxis.data must be an array of strings, NOT a comma-separated string",
-    "CRITICAL: tooltip.formatter placeholder rules by chart type — {a}=seriesName, {b}=name/category, {c}=value, {d}=percentage. {d} is ONLY valid for pie/rose/funnel — using {d} in scatter/line/bar/heatmap/radar will show 'undefined'. {c[0]}/{c[1]} only valid when data value is a 2-element array. NEVER use {c0}/{c1}/{a0}/{b0} etc. — there is NO digit-subscript syntax in ECharts tooltip templates; {c0} is NOT the same as {c[0]} and will appear as literal text.",
-    "CRITICAL: tooltip.formatter for scatter must use {b} (name), {c[0]} (x-value), {c[1]} (y-value) — NOT {d} which is pie-chart-only, and NEVER {c0}/{c1} (those are invalid syntax that renders as literal text).",
+    "CRITICAL: tooltip.formatter placeholder rules by chart type — {a}=seriesName, {b}=name/category, {c}=value, {d}=percentage. {d} is ONLY valid for pie/rose/funnel — using {d} in scatter/line/bar/heatmap/radar will show 'undefined'. For multi-series charts, {a0}/{b0}/{c0} etc. use digit suffix for series index (0-based). NEVER use {c[0]}/{c[1]} — bracket-index syntax is NOT supported by ECharts template engine and renders as literal text.",
+    "CRITICAL: For scatter series, do NOT write a custom tooltip.formatter at all — omit the formatter field entirely. The renderer automatically injects a function formatter that correctly reads params.value[0] (x) and params.value[1] (y) from the data array. Any string formatter you write will be replaced anyway.",
     "CRITICAL: scatter series data MUST use object format {\"name\": \"label\", \"value\": [x, y]} — NEVER plain [x, y] arrays. Plain arrays lose the name, making tooltip blank and labels impossible",
-    "CRITICAL: {c[0]} and {c[1]} in tooltip.formatter ONLY work when value is a 2-element array [x, y]. If value is a single number or 1-element array, {c[0]} will NOT be substituted and will appear as literal text. In that case use a bar chart instead, or ensure value is always [x, y].",
-    "CRITICAL: if the scatter data has only one numeric dimension (e.g. population count per ethnic group), do NOT use scatter — use bar chart instead. Scatter requires two numeric axes."
+    "CRITICAL: if the scatter data has only one numeric dimension (e.g. population count per ethnic group), do NOT use scatter — use bar chart instead. Scatter requires two numeric axes.",
+    "CRITICAL: NEVER combine scatter series with xAxis.type:'category'. This is a category-x scatter anti-pattern: the x axis becomes a categorical label axis, all data points collapse to a single column, and different y-value magnitudes (e.g. 200 vs 13200) make small values invisible. If you want to compare multiple metrics across countries/groups on a single chart, use: (1) grouped bar chart, or (2) a normalized bar chart with index values, or (3) separate scatter per metric pair. NEVER do: xAxis:{type:'category', data:['A','B','C']} + scatter series data:[[0,200],[1,3200]].",
+    "CRITICAL: When comparing countries across multiple heterogeneous metrics (e.g. military budget + troop count + aircraft + ships), NEVER put all metrics on one scatter chart with a category x-axis — the vastly different magnitudes (2.5 vs 13200) make small values invisible. Instead use: (1) a grouped bar chart with multiple series, or (2) a radar chart for normalized comparison, or (3) a bubble chart (scatter) with only TWO numeric axes + bubble size for a third dimension. A scatter chart is for showing correlation between exactly two continuous numeric variables."
   ],
   "typeWhitelist": [
     "line",
@@ -174,7 +175,7 @@
       "description": "Correlation detection; cluster analysis; two numeric variables",
       "spec_example": {
         "title": { "text": "各省GDP与人口气泡图" },
-        "tooltip": { "trigger": "item", "formatter": "{b}<br/>GDP: {c[0]}万亿<br/>人口: {c[1]}万" },
+        "tooltip": { "trigger": "item" },
         "xAxis": { "type": "value", "name": "GDP (万亿元)", "scale": true },
         "yAxis": { "type": "value", "name": "常住人口 (万人)", "scale": true },
         "series": [
@@ -192,7 +193,7 @@
           }
         ]
       },
-      "notes": "CRITICAL: Each data item MUST be an object {\"name\": \"省份\", \"value\": [x, y]} — NEVER use plain [x, y] arrays, and value MUST be a 2-element array. Using plain arrays or a single number as value omits the name, makes tooltip blank, and causes {c[0]}/{c[1]} to appear as literal text instead of values. Add label:{show:true, formatter:\"{b}\", position:\"right\"} so names appear next to each point. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names. symbolSize MUST be a plain number (e.g. 10) — do NOT use a function. tooltip.formatter MUST use {b} for name, {c[0]}/{c[1]} for x/y values — NEVER use {c0}/{c1} (invalid syntax, renders as literal text). NEVER use scatter for single-dimension data (e.g. one category axis + one value axis) — use bar chart instead."
+      "notes": "CRITICAL: Each data item MUST be an object {\"name\": \"省份\", \"value\": [x, y]} — NEVER use plain [x, y] arrays, and value MUST be a 2-element array. Using plain arrays omits the name and makes tooltip/labels impossible. Add label:{show:true, formatter:\"{b}\", position:\"right\"} so names appear next to each point. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names. symbolSize MUST be a plain number (e.g. 10) — do NOT use a function. Do NOT write a tooltip.formatter for scatter — omit it entirely; the renderer injects a correct function formatter automatically. NEVER use scatter for single-dimension data (e.g. one category axis + one value axis) — use bar chart instead. NEVER use xAxis.type:'category' with scatter series — this is invalid; both xAxis and yAxis must be type:'value'. If comparing multiple unrelated metrics across groups (e.g. countries with different military stats), use a grouped bar chart or radar chart instead — not a scatter with a category x-axis."
     },
     {
       "type": "radar",

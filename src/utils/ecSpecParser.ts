@@ -269,9 +269,10 @@ function normalizeEChartsSpec(
             const sizes = rawData.map(extractSize);
             const hasNumericSizes = sizes.some((v) => v > 0);
             if (hasNumericSizes) {
-              const maxSize = Math.max(...sizes, 1);
+              const maxSize = Math.max(...sizes);
               // Target max bubble diameter ~50px; min 6px
-              const scale = 50 / Math.sqrt(maxSize);
+              // Guard against zero/near-zero maxSize to avoid division by zero
+              const scale = maxSize > 0 ? 50 / Math.sqrt(maxSize) : 50;
               s.symbolSize = sizes.map((v) => Math.max(6, Math.round(Math.sqrt(v) * scale)));
               warnings.push("symbolSize function stripped; auto-computed from data third dimension");
             } else {
@@ -318,7 +319,7 @@ function normalizeEChartsSpec(
     const tt = result.tooltip as Record<string, unknown>;
     if (tt.formatter === null) {
       delete tt.formatter;
-      warnings.push("tooltip.formatter function stripped; removed (ECharts default applies)");
+      warnings.push("tooltip.formatter function stripped; removed (renderer will inject axis-aware formatter for scatter)");
     }
   }
 

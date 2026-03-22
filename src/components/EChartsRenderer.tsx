@@ -147,10 +147,34 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec, forceVis
           ? DEFAULT_DATA_ZOOM
           : undefined;
 
-    // Ensure title renders above legend: if both exist and legend has no explicit top,
-    // push legend below title so they don't overlap.
+    // ---- Legend layout fixes ----
+    // (1) Ensure title renders above legend: if both exist and legend has no explicit top,
+    //     push legend below title so they don't overlap.
+    // (2) Ensure legend at the bottom doesn't overlap chart content (radar labels, axis labels).
+    //     When legend is at bottom, give it a fixed pixel offset and push content area up.
     let legend = activeSpec.legend;
     const titleObj = activeSpec.title;
+
+    // Helper: is the legend anchored to the bottom?
+    const isLegendAtBottom = (leg: Record<string, unknown>): boolean => {
+      if (leg.bottom !== undefined) return true;
+      if (leg.top === "bottom") return true;
+      return false;
+    };
+
+    // Helper: normalize "top:'bottom'" → "bottom:0" and ensure explicit bottom spacing
+    const fixLegendBottom = (leg: Record<string, unknown>): Record<string, unknown> => {
+      if (leg.top === "bottom") {
+        const { top: _top, ...rest } = leg;
+        void _top;
+        return { ...rest, bottom: 10 };
+      }
+      if (leg.bottom !== undefined && typeof leg.bottom === "number" && leg.bottom < 5) {
+        return { ...leg, bottom: 10 };
+      }
+      return leg;
+    };
+
     if (titleObj && legend) {
       const titleTop =
         typeof titleObj === "object" && !Array.isArray(titleObj)
@@ -161,8 +185,16 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec, forceVis
       const titleHeight = titleTopNum + 26;
 
       const fixLegend = (leg: Record<string, unknown>): Record<string, unknown> => {
-        if (leg.top !== undefined) return leg; // user set it explicitly — don't override
-        return { ...leg, top: titleHeight };
+        let result = leg;
+        // Push down below title if no explicit top/bottom set yet
+        if (leg.top === undefined && leg.bottom === undefined) {
+          result = { ...result, top: titleHeight };
+        }
+        // Normalize bottom-anchored legends
+        if (isLegendAtBottom(result)) {
+          result = fixLegendBottom(result);
+        }
+        return result;
       };
 
       if (Array.isArray(legend)) {
@@ -170,14 +202,104 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec, forceVis
       } else if (typeof legend === "object") {
         legend = fixLegend(legend as Record<string, unknown>);
       }
+    } else if (legend) {
+      // No title, but still fix bottom-anchored legends
+      const fixBottomOnly = (leg: Record<string, unknown>): Record<string, unknown> =>
+        isLegendAtBottom(leg) ? fixLegendBottom(leg) : leg;
+      if (Array.isArray(legend)) {
+        legend = legend.map((l) => (l && typeof l === "object" ? fixBottomOnly(l as Record<string, unknown>) : l));
+      } else if (typeof legend === "object") {
+        legend = fixBottomOnly(legend as Record<string, unknown>);
+      }
+    }
+
+    // When legend is at bottom, ensure chart content area has enough bottom margin.
+    // Legend height ≈ 30px; we need grid.bottom (for cartesian charts) and
+    // radar.center shift (for radar charts) to avoid overlap with indicator labels.
+    const legendIsBottom = legend
+      ? Array.isArray(legend)
+        ? (legend as Record<string, unknown>[]).some((l) => l && typeof l === "object" && isLegendAtBottom(l as Record<string, unknown>))
+        : typeof legend === "object" && isLegendAtBottom(legend as Record<string, unknown>)
+      : false;
+
+    // For radar: push center up to make room for bottom legend + indicator labels
+    let radar = activeSpec.radar;
+    if (legendIsBottom && radar) {
+      const fixRadar = (r: Record<string, unknown>): Record<string, unknown> => {
+        if (r.center !== undefined) return r; // user set explicitly
+        // Default radar center is ['50%','50%']; shift up so bottom labels don't overlap legend
+        return { ...r, center: ["50%", "45%"], radius: r.radius ?? "60%" };
+      };
+      if (Array.isArray(radar)) {
+        radar = (radar as Record<string, unknown>[]).map((r) =>
+          r && typeof r === "object" ? fixRadar(r as Record<string, unknown>) : r,
+        );
+      } else if (typeof radar === "object") {
+        radar = fixRadar(radar as Record<string, unknown>);
+      }
+    }
+
+    // For cartesian charts (grid): increase bottom margin when legend is at bottom
+    let grid = activeSpec.grid;
+    if (legendIsBottom && (activeSpec.xAxis || activeSpec.yAxis)) {
+      const LEGEND_BOTTOM_MARGIN = 55; // legend (~30px) + gap
+      const fixGrid = (g: Record<string, unknown>): Record<string, unknown> => {
+        const curBottom = typeof g.bottom === "number" ? g.bottom : 40;
+        return { ...g, bottom: Math.max(curBottom, LEGEND_BOTTOM_MARGIN) };
+      };
+      if (!grid) {
+        grid = { bottom: LEGEND_BOTTOM_MARGIN };
+      } else if (Array.isArray(grid)) {
+        grid = (grid as Record<string, unknown>[]).map((g) =>
+          g && typeof g === "object" ? fixGrid(g as Record<string, unknown>) : g,
+        );
+      } else if (typeof grid === "object") {
+        grid = fixGrid(grid as Record<string, unknown>);
+      }
+    }
+
+    const mergedTooltip = { ...baseTooltip, ...userTooltip };
+    // For scatter charts, string formatters like "{c0}" don't work (ECharts returns raw array).
+    // Always inject a real function formatter for scatter, even if a string formatter was provided.
+    const isScatter =
+      Array.isArray(activeSpec.series) &&
+      (activeSpec.series as Record<string, unknown>[]).some(
+        (s) => s.type === "scatter" || s.type === "scatter3D",
+      );
+    if (!mergedTooltip.formatter || (isScatter && typeof mergedTooltip.formatter === "string")) {
+      if (isScatter) {
+        const xAxisName =
+          activeSpec.xAxis && typeof activeSpec.xAxis === "object" && !Array.isArray(activeSpec.xAxis)
+            ? ((activeSpec.xAxis as Record<string, unknown>).name as string | undefined)
+            : undefined;
+        const yAxisName =
+          activeSpec.yAxis && typeof activeSpec.yAxis === "object" && !Array.isArray(activeSpec.yAxis)
+            ? ((activeSpec.yAxis as Record<string, unknown>).name as string | undefined)
+            : undefined;
+        mergedTooltip.formatter = (params: unknown) => {
+          const p = params as { seriesName?: string; value?: unknown; name?: string };
+          const val = p.value;
+          const lines: string[] = [p.seriesName ?? ""];
+          if (p.name) lines.push(p.name);
+          if (Array.isArray(val)) {
+            const arr = val as unknown[];
+            if (arr.length >= 1) lines.push(`${xAxisName ?? "X"}: ${arr[0]}`);
+            if (arr.length >= 2) lines.push(`${yAxisName ?? "Y"}: ${arr[1]}`);
+            if (arr.length >= 3 && typeof arr[2] === "number") lines.push(`指数: ${arr[2]}`);
+          }
+          return lines.join("<br/>");
+        };
+      }
     }
 
     const merged: EChartsOption = {
       ...BASE_OPTIONS,
       ...activeSpec,
-      tooltip: { ...baseTooltip, ...userTooltip },
+      tooltip: mergedTooltip,
       toolbox,
       ...(legend !== activeSpec.legend ? { legend } : {}),
+      ...(radar !== activeSpec.radar ? { radar } : {}),
+      ...(grid !== activeSpec.grid ? { grid } : {}),
       // Inject theme-aware text styles where possible
       textStyle: {
         color: themeTokens.axisLabelFill,
