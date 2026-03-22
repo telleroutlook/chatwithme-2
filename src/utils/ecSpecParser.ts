@@ -322,13 +322,28 @@ function normalizeEChartsSpec(
     }
   }
 
+  // 6b. Fix visualMap: auto-set type:"piecewise" when categories is present but type is missing.
+  //     Without this, ECharts defaults to "continuous" which ignores string categories → invisible dots.
+  if (result.visualMap && typeof result.visualMap === "object" && !Array.isArray(result.visualMap)) {
+    const vm = result.visualMap as Record<string, unknown>;
+    if (Array.isArray(vm.categories) && !vm.type) {
+      vm.type = "piecewise";
+      warnings.push("visualMap.type set to 'piecewise' (categories present but type was missing)");
+    }
+  }
+
   // 7. Fix string numbers in series data; auto-upgrade scatter [x,y,name] tuples
   if (Array.isArray(result.series)) {
     for (const s of result.series as Record<string, unknown>[]) {
       const seriesType7 = typeof s.type === "string" ? s.type : "";
 
-      // 7a. Scatter-specific: convert [x, y, "name"] tuples to {name, value:[x,y]} objects
+      // 7a. Scatter-specific: convert tuple data to {name, value:[...]} objects
       //     so that ECharts labels and tooltips can access the name via {b}.
+      //
+      //     Handles two tuple shapes:
+      //     - [x, y, "name"]           → {name, value:[x,y]}
+      //     - [x, y, "name", category] → {name, value:[x,y,category]}
+      //       and adjusts visualMap.dimension from 3 → 2 when applicable.
       if ((seriesType7 === "scatter" || seriesType7 === "scatter3D") && Array.isArray(s.data)) {
         const firstItem = (s.data as unknown[])[0];
         const isTupleWithStringLabel =
@@ -337,15 +352,38 @@ function normalizeEChartsSpec(
           typeof (firstItem as unknown[])[2] === "string";
 
         if (isTupleWithStringLabel) {
+          const hasCategory =
+            (firstItem as unknown[]).length >= 4 &&
+            typeof (firstItem as unknown[])[3] === "string";
+
           s.data = (s.data as unknown[]).map((item) => {
             if (Array.isArray(item) && (item as unknown[]).length >= 2) {
               const arr = item as unknown[];
-              const name = arr.length >= 3 && typeof arr[2] === "string" ? (arr[2] as string) : "";
+              const name = typeof arr[2] === "string" ? (arr[2] as string) : "";
+              if (hasCategory) {
+                // Preserve category at value[2] for visualMap.dimension:2
+                const cat = typeof arr[3] === "string" ? arr[3] : arr[3];
+                return { name, value: [arr[0], arr[1], cat] };
+              }
               return { name, value: [arr[0], arr[1]] };
             }
             return item;
           });
-          warnings.push("scatter data converted from [x,y,name] tuples to {name,value:[x,y]} objects");
+
+          if (hasCategory) {
+            // visualMap.dimension was 3 (4th tuple element); after conversion it's value[2]
+            const vm = result.visualMap;
+            if (vm && typeof vm === "object" && !Array.isArray(vm)) {
+              const vmObj = vm as Record<string, unknown>;
+              if (vmObj.dimension === 3) {
+                vmObj.dimension = 2;
+                warnings.push("visualMap.dimension adjusted 3→2 after scatter tuple conversion");
+              }
+            }
+            warnings.push("scatter data converted from [x,y,name,category] tuples to {name,value:[x,y,category]} objects");
+          } else {
+            warnings.push("scatter data converted from [x,y,name] tuples to {name,value:[x,y]} objects");
+          }
         }
       }
 

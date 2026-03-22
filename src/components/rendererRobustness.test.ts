@@ -138,6 +138,47 @@ describe("ECharts parser normalization", () => {
     const series = result.spec.series as Record<string, unknown>[];
     expect(series[0].type).toBe("radar");
   });
+
+  it("converts scatter [x,y,name,category] tuples to {name,value:[x,y,cat]} and adjusts visualMap.dimension", () => {
+    const code = JSON.stringify({
+      xAxis: { type: "value", scale: true },
+      yAxis: { type: "value", scale: true },
+      series: [{
+        type: "scatter",
+        symbolSize: 10,
+        data: [
+          [12601, 135673, "广东", "华南"],
+          [7451, 92073, "江苏", "华东"],
+        ],
+      }],
+      visualMap: {
+        dimension: 3,
+        categories: ["华南", "华东"],
+        inRange: { color: ["#5470c6", "#91cc75"] },
+      },
+    });
+    const result = parseEChartsSpecFromCode(code);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const series = result.spec.series as Record<string, unknown>[];
+    const data = series[0].data as Record<string, unknown>[];
+    expect(data[0]).toEqual({ name: "广东", value: [12601, 135673, "华南"] });
+    expect(data[1]).toEqual({ name: "江苏", value: [7451, 92073, "华东"] });
+    const vm = result.spec.visualMap as Record<string, unknown>;
+    expect(vm.dimension).toBe(2);
+  });
+
+  it("sets visualMap.type to piecewise when categories present but type missing", () => {
+    const code = JSON.stringify({
+      series: [{ type: "scatter", data: [{ name: "A", value: [1, 2, "X"] }] }],
+      visualMap: { categories: ["X", "Y"], dimension: 2, inRange: { color: ["red", "blue"] } },
+    });
+    const result = parseEChartsSpecFromCode(code);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const vm = result.spec.visualMap as Record<string, unknown>;
+    expect(vm.type).toBe("piecewise");
+  });
 });
 
 // ============================================================
