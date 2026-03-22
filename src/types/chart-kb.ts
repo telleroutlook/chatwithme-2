@@ -23,30 +23,6 @@ export interface MermaidKnowledge {
   diagramTypes: Record<string, MermaidTemplate>;
 }
 
-/** ADC chart type rule */
-export interface AdcChartRule {
-  /** Chart type name */
-  type: string;
-  /** Required fields */
-  requiredFields: string[];
-  /** Minimal example */
-  example: string;
-  /** Common errors */
-  commonErrors: string[];
-  /** Usage tips (optional) */
-  tips?: string;
-}
-
-/** ADC knowledge base */
-export interface AdcKnowledge {
-  /** Output contract rules */
-  outputContract: string[];
-  /** Supported chart types */
-  chartTypes: AdcChartRule[];
-  /** Whitelist of supported types */
-  typeWhitelist: string[];
-}
-
 /** ECharts chart type rule */
 export interface EChartsChartRule {
   /** ECharts series type (e.g., "map", "sankey", "tree") */
@@ -101,8 +77,6 @@ export interface VegaLiteKnowledge {
 
 /** Loaded chart knowledge (what the runtime uses) */
 export interface ChartKnowledge {
-  /** ADC rules and examples */
-  adc: AdcKnowledge | null;
   /** Mermaid templates */
   mermaid: MermaidKnowledge | null;
   /** ECharts rules and examples */

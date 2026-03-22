@@ -1,6 +1,5 @@
 import { lazy, Suspense, memo, type ReactNode } from "react";
 import { ChartSkeleton, Skeleton } from "./skeletons";
-import type { ParsedAdcSpec } from "../utils/adcSpecParser";
 import type { EChartsOption } from "../utils/ecSpecParser";
 import type { VegaLiteSpec } from "../utils/vegaLiteParser";
 import type { StatCardItem } from "../utils/statCardParser";
@@ -10,10 +9,6 @@ import type { ExcalidrawData } from "../utils/excalidrawParser";
 // Lazy load the heavy chart components (these include the actual rendering logic)
 const MermaidRendererLazy = lazy(() =>
   import("./ChartRenderer").then((m) => ({ default: m.MermaidRenderer }))
-);
-
-const AntDesignChartsRendererLazy = lazy(() =>
-  import("./AntDesignChartsRenderer").then((m) => ({ default: m.LazyAntDesignChartsRenderer }))
 );
 
 const EChartsRendererLazy = lazy(() =>
@@ -59,25 +54,6 @@ export const LazyMermaidRenderer = memo(function LazyMermaidRenderer({
   return (
     <Suspense fallback={<ChartSkeleton type="mermaid" />}>
       <MermaidRendererLazy code={code} animated={animated} />
-    </Suspense>
-  );
-});
-
-interface LazyAntDesignChartsRendererProps {
-  spec: ParsedAdcSpec;
-  animated?: boolean;
-}
-
-/**
- * Lazy-loaded Ant Design Charts renderer with skeleton fallback
- */
-export const LazyAntDesignChartsRenderer = memo(function LazyAntDesignChartsRenderer({
-  spec,
-  animated = false,
-}: LazyAntDesignChartsRendererProps): ReactNode {
-  return (
-    <Suspense fallback={<ChartSkeleton type="adc" />}>
-      <AntDesignChartsRendererLazy spec={spec} animated={animated} />
     </Suspense>
   );
 });
@@ -178,7 +154,6 @@ export const LazyMarkmapRenderer = memo(function LazyMarkmapRenderer({
 });
 
 // Re-export the parser functions for immediate use (they are pure functions, no side effects)
-export { parseAdcSpecFromCode } from "../utils/adcSpecParser";
 export { parseEChartsSpecFromCode } from "../utils/ecSpecParser";
 export { parseVegaLiteSpecFromCode } from "../utils/vegaLiteParser";
 export { parseStatCardData } from "../utils/statCardParser";

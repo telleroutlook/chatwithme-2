@@ -13,7 +13,7 @@ import { getChartKnowledge } from "../chart-knowledge";
 
 export const BUILTIN_CHART_TEMPLATE_KEY = "builtin_chart_template";
 
-const VALID_ENGINES = ["adc", "echarts", "mermaid", "vega-lite"] as const;
+const VALID_ENGINES = ["echarts", "mermaid", "vega-lite"] as const;
 
 type Engine = (typeof VALID_ENGINES)[number];
 
@@ -28,23 +28,6 @@ export function buildLookup(): Map<string, Record<string, unknown>> {
 
   const kb = getChartKnowledge();
   const map = new Map<string, Record<string, unknown>>();
-
-  // ADC
-  if (kb.adc) {
-    for (const chart of kb.adc.chartTypes) {
-      map.set(`adc:${chart.type}`, {
-        engine: "adc",
-        chartType: chart.type,
-        outputContract: kb.adc.outputContract,
-        example: chart.example,
-        requiredFields: chart.requiredFields,
-        tips: chart.tips || null,
-        commonErrors: chart.commonErrors,
-        themeNote:
-          "Do not set colors, font colors, or background colors. The renderer applies theme-aware palettes and styles automatically for both light and dark modes.",
-      });
-    }
-  }
 
   // ECharts
   if (kb.echarts) {
@@ -114,10 +97,10 @@ export function createChartTemplateTool(): ToolSet {
   return {
     [BUILTIN_CHART_TEMPLATE_KEY]: tool({
       description:
-        "Get the exact format spec and example for a specific chart engine and type. Call this BEFORE generating any adc/echarts/vega-lite/mermaid code block.",
+        "Get the exact format spec and example for a specific chart engine and type. Call this BEFORE generating any echarts/vega-lite/mermaid code block.",
       inputSchema: z.object({
         engine: z
-          .enum(["adc", "echarts", "mermaid", "vega-lite"])
+          .enum(["echarts", "mermaid", "vega-lite"])
           .describe("Chart engine to use"),
         chartType: z
           .string()

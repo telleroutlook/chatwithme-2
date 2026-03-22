@@ -22,7 +22,6 @@ describe("buildSystemPrompt", () => {
   it("should contain engine catalog", () => {
     const prompt = buildSystemPrompt([]);
     expect(prompt).toContain("Engine Catalog");
-    expect(prompt).toContain("adc");
     expect(prompt).toContain("echarts");
     expect(prompt).toContain("vega-lite");
     expect(prompt).toContain("mermaid");
@@ -36,7 +35,7 @@ describe("buildSystemPrompt", () => {
 
   it("should contain theme rule", () => {
     const prompt = buildSystemPrompt([]);
-    expect(prompt).toContain("Do NOT set colors");
+    expect(prompt).toContain("Do NOT set color");
   });
 
   it("should contain ADC chart types in catalog", () => {

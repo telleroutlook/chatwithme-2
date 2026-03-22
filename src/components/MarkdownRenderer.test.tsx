@@ -270,7 +270,7 @@ describe("MarkdownRenderer", () => {
     });
   });
 
-  it("shows invalid ADC fallback with original spec", () => {
+  it("shows invalid ECharts fallback for legacy adc block with bad spec", () => {
     const content = [
       "```adc",
       '{"type":"unknown","data":[{"x":1,"y":2}]}',
@@ -279,9 +279,9 @@ describe("MarkdownRenderer", () => {
 
     render(<MarkdownRenderer content={content} />);
 
-    expect(screen.getByText("Unsupported ADC chart type")).toBeInTheDocument();
+    // adc blocks now go through ECharts parser; spec missing series/xAxis/yAxis fails
+    expect(screen.getByText(/ECharts spec must contain at least one of/)).toBeInTheDocument();
     expect(screen.getByText("View original spec")).toBeInTheDocument();
-    expect(screen.getByText('{"type":"unknown","data":[{"x":1,"y":2}]}')).toBeInTheDocument();
   });
 
   it("shows detailed Mermaid validation error for markdown syntax in block", () => {

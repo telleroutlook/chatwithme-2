@@ -9,7 +9,7 @@
     "CRITICAL: series must be an array, not a single object. WRONG: \"series\": {...}. CORRECT: \"series\": [{...}]",
     "CRITICAL: ALL numeric values in series data must be actual JSON numbers, NOT strings",
     "CRITICAL: Each series must have a non-empty \"data\" array (or use top-level \"dataset\")",
-    "Supported series types: map, sankey, tree, treemap, sunburst, candlestick, gauge, themeRiver, wordCloud, bar3D, scatter3D",
+    "Supported series types: line, bar, pie, scatter, radar, heatmap, funnel, map, sankey, tree, treemap, sunburst, candlestick, gauge, themeRiver, wordCloud, bar3D, scatter3D",
     "Include realistic, descriptive data values — not placeholder numbers",
     "Do not set color arrays — the renderer applies a curated palette automatically",
     "Do not set textStyle.color, axisLine.lineStyle.color, or tooltip styles -- the renderer applies theme-aware styles automatically for both light and dark modes",
@@ -18,6 +18,18 @@
     "ALWAYS include a top-level \"title\" object: e.g. \"title\": {\"text\": \"图表标题\"} — required for all echarts charts"
   ],
   "typeWhitelist": [
+    "line",
+    "bar",
+    "pie",
+    "scatter",
+    "radar",
+    "heatmap",
+    "funnel",
+    "column",
+    "area",
+    "rose",
+    "histogram",
+    "dualAxes",
     "map",
     "sankey",
     "tree",
@@ -31,6 +43,268 @@
     "scatter3D"
   ],
   "chartTypes": [
+    {
+      "type": "line",
+      "name": "Line Chart / 折线图",
+      "description": "Trends over time or continuous categories; multi-series comparison",
+      "spec_example": {
+        "title": { "text": "月度销售趋势" },
+        "tooltip": { "trigger": "axis" },
+        "legend": { "data": ["产品A", "产品B"] },
+        "xAxis": { "type": "category", "data": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"] },
+        "yAxis": { "type": "value" },
+        "series": [
+          { "name": "产品A", "type": "line", "data": [120, 132, 101, 134, 90, 230], "smooth": true },
+          { "name": "产品B", "type": "line", "data": [220, 182, 191, 234, 290, 330], "smooth": true }
+        ]
+      },
+      "notes": "Use xAxis.type:'category' with xAxis.data for discrete labels. For multi-series, each series has its own data array matching xAxis.data length. Set smooth:true for curved lines."
+    },
+    {
+      "type": "column",
+      "name": "Column Chart / 柱状图 (竖向)",
+      "description": "Categorical comparison with vertical bars; default bar orientation",
+      "spec_example": {
+        "title": { "text": "各部门季度业绩" },
+        "tooltip": { "trigger": "axis" },
+        "legend": { "data": ["Q1", "Q2", "Q3"] },
+        "xAxis": { "type": "category", "data": ["销售", "技术", "市场", "运营"] },
+        "yAxis": { "type": "value" },
+        "series": [
+          { "name": "Q1", "type": "bar", "data": [120, 200, 150, 80] },
+          { "name": "Q2", "type": "bar", "data": [150, 230, 180, 95] },
+          { "name": "Q3", "type": "bar", "data": [180, 260, 200, 110] }
+        ]
+      },
+      "notes": "Column = vertical bar: xAxis is category, yAxis is value. ECharts uses type:'bar' for both column and horizontal bar. For grouped bars, use multiple series with same xAxis."
+    },
+    {
+      "type": "bar",
+      "name": "Bar Chart / 条形图 (横向)",
+      "description": "Horizontal ranking; long category labels; comparing magnitudes",
+      "spec_example": {
+        "title": { "text": "城市人口排名" },
+        "tooltip": { "trigger": "axis" },
+        "xAxis": { "type": "value" },
+        "yAxis": { "type": "category", "data": ["上海", "北京", "广州", "深圳", "成都"] },
+        "series": [
+          { "type": "bar", "data": [2487, 2154, 1872, 1756, 1604] }
+        ]
+      },
+      "notes": "Horizontal bar: yAxis is category, xAxis is value — this is the opposite of column. Use when category labels are long or you want a ranking list."
+    },
+    {
+      "type": "area",
+      "name": "Area Chart / 面积图",
+      "description": "Volume/cumulative trends; stacked composition over time",
+      "spec_example": {
+        "title": { "text": "季度收入趋势" },
+        "tooltip": { "trigger": "axis" },
+        "legend": { "data": ["华东", "华南", "华北"] },
+        "xAxis": { "type": "category", "data": ["Q1", "Q2", "Q3", "Q4"] },
+        "yAxis": { "type": "value" },
+        "series": [
+          { "name": "华东", "type": "line", "areaStyle": {}, "data": [820, 932, 901, 1290] },
+          { "name": "华南", "type": "line", "areaStyle": {}, "data": [620, 732, 701, 890] },
+          { "name": "华北", "type": "line", "areaStyle": {}, "data": [420, 532, 601, 790] }
+        ]
+      },
+      "notes": "Area chart = line with areaStyle:{}. For stacked area, add stack:'total' to each series. The areaStyle object controls fill opacity and color (leave empty for defaults)."
+    },
+    {
+      "type": "pie",
+      "name": "Pie Chart / 饼图",
+      "description": "Part-to-whole distribution; market share; 4-8 slices ideal",
+      "spec_example": {
+        "title": { "text": "市场份额分布" },
+        "tooltip": { "trigger": "item", "formatter": "{b}: {d}%" },
+        "legend": { "orient": "vertical", "right": 10 },
+        "series": [
+          {
+            "type": "pie",
+            "radius": ["40%", "70%"],
+            "data": [
+              { "name": "产品A", "value": 1048 },
+              { "name": "产品B", "value": 735 },
+              { "name": "产品C", "value": 580 },
+              { "name": "产品D", "value": 484 },
+              { "name": "产品E", "value": 300 }
+            ],
+            "label": { "show": true, "formatter": "{b}: {d}%" }
+          }
+        ]
+      },
+      "notes": "Data is array of {name, value}. Use radius:['40%','70%'] for donut style; use radius:'70%' for full pie. Keep slices ≤8 for readability. No xAxis/yAxis needed."
+    },
+    {
+      "type": "rose",
+      "name": "Rose Chart / 玫瑰图 (极坐标面积图)",
+      "description": "Polar area chart; categorical magnitude comparison in a circular layout",
+      "spec_example": {
+        "title": { "text": "各类别销量玫瑰图" },
+        "tooltip": { "trigger": "item" },
+        "legend": { "bottom": 10 },
+        "series": [
+          {
+            "type": "pie",
+            "roseType": "area",
+            "radius": ["15%", "70%"],
+            "data": [
+              { "name": "电子", "value": 320 },
+              { "name": "服装", "value": 240 },
+              { "name": "食品", "value": 180 },
+              { "name": "家居", "value": 150 },
+              { "name": "运动", "value": 130 },
+              { "name": "书籍", "value": 90 }
+            ],
+            "label": { "show": true }
+          }
+        ]
+      },
+      "notes": "Rose chart = pie with roseType:'area'. Each sector has radius proportional to value. Use for comparing magnitudes across categories in a visually engaging way."
+    },
+    {
+      "type": "scatter",
+      "name": "Scatter Plot / 散点图",
+      "description": "Correlation detection; cluster analysis; two numeric variables",
+      "spec_example": {
+        "title": { "text": "身高与体重相关性" },
+        "tooltip": { "trigger": "item" },
+        "xAxis": { "type": "value", "name": "身高 (cm)", "scale": true },
+        "yAxis": { "type": "value", "name": "体重 (kg)", "scale": true },
+        "series": [
+          {
+            "type": "scatter",
+            "symbolSize": 10,
+            "data": [
+              [161, 55], [162, 58], [165, 62], [168, 65], [170, 68],
+              [172, 70], [175, 75], [178, 78], [180, 82], [182, 85]
+            ]
+          }
+        ]
+      },
+      "notes": "Data is array of [x, y] pairs. Use xAxis.scale:true and yAxis.scale:true to auto-fit range. For multi-group scatter, use multiple series with different names."
+    },
+    {
+      "type": "radar",
+      "name": "Radar Chart / 雷达图",
+      "description": "Multi-dimension comparison across 5-8 axes; capability/score profiles",
+      "spec_example": {
+        "title": { "text": "团队能力雷达图" },
+        "tooltip": {},
+        "legend": { "data": ["团队A", "团队B"] },
+        "radar": {
+          "indicator": [
+            { "name": "技术", "max": 100 },
+            { "name": "沟通", "max": 100 },
+            { "name": "创新", "max": 100 },
+            { "name": "执行力", "max": 100 },
+            { "name": "协作", "max": 100 }
+          ]
+        },
+        "series": [
+          {
+            "type": "radar",
+            "data": [
+              { "name": "团队A", "value": [85, 70, 90, 75, 80] },
+              { "name": "团队B", "value": [70, 85, 65, 90, 75] }
+            ]
+          }
+        ]
+      },
+      "notes": "REQUIRES top-level 'radar' config with indicator array (each has name + max). Series data.value array length MUST match indicator count. No xAxis/yAxis."
+    },
+    {
+      "type": "heatmap",
+      "name": "Heatmap / 热力图",
+      "description": "2D matrix intensity; day×hour patterns; correlation matrix",
+      "spec_example": {
+        "title": { "text": "一周各时段访问热力图" },
+        "tooltip": { "position": "top" },
+        "xAxis": { "type": "category", "data": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"] },
+        "yAxis": { "type": "category", "data": ["00-06时", "06-12时", "12-18时", "18-24时"] },
+        "visualMap": { "min": 0, "max": 500, "calculable": true, "orient": "horizontal", "left": "center", "bottom": 0 },
+        "series": [
+          {
+            "type": "heatmap",
+            "data": [
+              [0, 0, 120], [1, 0, 200], [2, 0, 150], [3, 0, 80],  [4, 0, 70],  [5, 0, 300], [6, 0, 350],
+              [0, 1, 320], [1, 1, 280], [2, 1, 310], [3, 1, 290], [4, 1, 330], [5, 1, 180], [6, 1, 120],
+              [0, 2, 280], [1, 2, 300], [2, 2, 320], [3, 2, 340], [4, 2, 310], [5, 2, 420], [6, 2, 380],
+              [0, 3, 180], [1, 3, 220], [2, 3, 200], [3, 3, 210], [4, 3, 190], [5, 3, 490], [6, 3, 500]
+            ],
+            "label": { "show": false }
+          }
+        ]
+      },
+      "notes": "Data is [xIndex, yIndex, value]. REQUIRES visualMap for color mapping. xAxis and yAxis both use type:'category'. Indices are 0-based matching axis data arrays."
+    },
+    {
+      "type": "funnel",
+      "name": "Funnel Chart / 漏斗图",
+      "description": "Conversion pipeline; stage drop-off rates; sales funnel",
+      "spec_example": {
+        "title": { "text": "销售转化漏斗" },
+        "tooltip": { "trigger": "item", "formatter": "{b}: {d}%" },
+        "series": [
+          {
+            "type": "funnel",
+            "left": "10%",
+            "width": "80%",
+            "sort": "descending",
+            "gap": 2,
+            "label": { "show": true, "position": "inside", "formatter": "{b}: {d}%" },
+            "data": [
+              { "name": "访问", "value": 5000 },
+              { "name": "注册", "value": 1800 },
+              { "name": "激活", "value": 900 },
+              { "name": "付费", "value": 360 },
+              { "name": "续费", "value": 180 }
+            ]
+          }
+        ]
+      },
+      "notes": "Data is array of {name, value}. Sort:'descending' puts largest at top (standard funnel). Set gap:2 for spacing between stages. No xAxis/yAxis needed."
+    },
+    {
+      "type": "histogram",
+      "name": "Histogram / 直方图",
+      "description": "Distribution of continuous values; frequency bins",
+      "spec_example": {
+        "title": { "text": "成绩分布直方图" },
+        "tooltip": { "trigger": "axis" },
+        "xAxis": { "type": "category", "data": ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"] },
+        "yAxis": { "type": "value", "name": "频次" },
+        "series": [
+          {
+            "type": "bar",
+            "data": [2, 5, 12, 18, 30, 42, 35, 28, 15, 8],
+            "barWidth": "99%"
+          }
+        ]
+      },
+      "notes": "Histogram = bar chart with pre-binned data and barWidth:'99%' (no gaps). Pre-compute bins from raw data before building the spec. xAxis shows bin labels, series data shows bin counts."
+    },
+    {
+      "type": "dualAxes",
+      "name": "Dual Axes Chart / 双轴图",
+      "description": "Two metrics with different scales on left and right y-axes; e.g. revenue + growth rate",
+      "spec_example": {
+        "title": { "text": "收入与增长率双轴图" },
+        "tooltip": { "trigger": "axis" },
+        "legend": { "data": ["收入 (万元)", "增长率 (%)"] },
+        "xAxis": { "type": "category", "data": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"] },
+        "yAxis": [
+          { "type": "value", "name": "收入 (万元)", "position": "left" },
+          { "type": "value", "name": "增长率 (%)", "position": "right" }
+        ],
+        "series": [
+          { "name": "收入 (万元)", "type": "bar", "yAxisIndex": 0, "data": [320, 450, 390, 510, 620, 580] },
+          { "name": "增长率 (%)", "type": "line", "yAxisIndex": 1, "data": [12.5, 40.6, -13.3, 30.8, 21.6, -6.5], "smooth": true }
+        ]
+      },
+      "notes": "yAxis MUST be an array of two objects. Each series has yAxisIndex:0 (left) or yAxisIndex:1 (right). Common pattern: bar for volume (left) + line for rate/ratio (right)."
+    },
     {
       "type": "sankey",
       "name": "Sankey Diagram / 桑基图",

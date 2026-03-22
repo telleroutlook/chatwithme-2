@@ -5,7 +5,6 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import {
   LazyMermaidRenderer,
-  LazyAntDesignChartsRenderer,
   LazyEChartsRenderer,
   LazyVegaLiteRenderer,
   LazyStatCardRenderer,
@@ -13,7 +12,6 @@ import {
   LazyDashboardRenderer,
   LazyExcalidrawRenderer,
   LazyReactSandbox,
-  parseAdcSpecFromCode,
   parseEChartsSpecFromCode,
   parseVegaLiteSpecFromCode,
   parseStatCardData,
@@ -477,37 +475,12 @@ const CodeRenderer = memo(function CodeRenderer({
     return <SuspenseCodeBlock language="json" code={codeString} />;
   }
 
-  // Ant Design Charts
-  if (language === "adc" || language === "ant-design-charts" || language === "antd-charts") {
-    const result = parseAdcSpecFromCode(codeString);
-    const adcChartType = (result.ok && result.spec?.type) ? String(result.spec.type) : "chart";
-
-    if (result.ok && result.spec) {
-      return (
-        <ErrorBoundary
-          level="chart"
-          fallback={<InvalidChartSpec message="Invalid ADC spec" code={codeString} engine="adc" chartType={adcChartType} />}
-          onError={(error) =>
-            trackChatEvent("chart_render_failure", { engine: "adc", errorCode: error.message })
-          }
-        >
-          <LazyAntDesignChartsRenderer spec={result.spec} />
-        </ErrorBoundary>
-      );
-    }
-    const errorMessage =
-      result.error === "ADC_PARSE_INVALID_TYPE"
-        ? "Unsupported ADC chart type"
-        : result.error === "ADC_PARSE_UNSUPPORTED_CALLBACK"
-          ? "ADC callbacks are not supported"
-          : result.error === "ADC_PARSE_EMPTY"
-          ? "Empty ADC spec"
-            : "Invalid ADC JSON";
-    return <InvalidChartSpec message={errorMessage} code={codeString} engine="adc" chartType={adcChartType} />;
-  }
-
+  // ADC legacy fallback — parse as ECharts (backward compat for old adc code blocks)
   // ECharts
-  if (language === "echarts" || language === "echart") {
+  if (
+    language === "echarts" || language === "echart" ||
+    language === "adc" || language === "ant-design-charts" || language === "antd-charts"
+  ) {
     const ecResult = parseEChartsSpecFromCode(codeString);
     const ecSpecAny = ecResult.ok ? (ecResult.spec as Record<string, unknown>) : null;
     const ecSeriesArr = Array.isArray(ecSpecAny?.series) ? ecSpecAny.series as Array<Record<string, unknown>> : [];
@@ -781,19 +754,19 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     <IsStreamingContext.Provider value={isStreaming ?? false}>
       <ChartFixCallbackContext.Provider value={onFixChart ?? null}>
         <div className="markdown-content max-w-none">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={MARKDOWN_COMPONENTS}
-          >
-            {processedContent}
-          </ReactMarkdown>
-          {isStreaming && streamCursor && (
-            <span className="inline-block w-0.5 h-[1em] bg-accent ml-0.5 animate-blink-cursor" />
-          )}
-          <CitationCards items={citations} />
-        </div>
-      </ChartFixCallbackContext.Provider>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          components={MARKDOWN_COMPONENTS}
+        >
+          {processedContent}
+        </ReactMarkdown>
+        {isStreaming && streamCursor && (
+          <span className="inline-block w-0.5 h-[1em] bg-accent ml-0.5 animate-blink-cursor" />
+        )}
+        <CitationCards items={citations} />
+      </div>
+    </ChartFixCallbackContext.Provider>
     </IsStreamingContext.Provider>
   );
 });

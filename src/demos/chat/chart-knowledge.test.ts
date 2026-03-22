@@ -5,24 +5,9 @@ describe("getChartKnowledge", () => {
   it("returns a non-null ChartKnowledge object", () => {
     const kb = getChartKnowledge();
     expect(kb).toBeDefined();
-    expect(kb.adc).toBeDefined();
     expect(kb.mermaid).toBeDefined();
     expect(kb.echarts).toBeDefined();
     expect(kb.vegaLite).toBeDefined();
-  });
-
-  it("ADC knowledge has chart types and output contract", () => {
-    const kb = getChartKnowledge();
-    expect(kb.adc!.outputContract.length).toBeGreaterThan(0);
-    expect(kb.adc!.chartTypes.length).toBeGreaterThan(0);
-    expect(kb.adc!.typeWhitelist.length).toBeGreaterThan(0);
-  });
-
-  it("ADC does not include gauge (moved to ECharts)", () => {
-    const kb = getChartKnowledge();
-    expect(kb.adc!.typeWhitelist).not.toContain("gauge");
-    const gaugeChart = kb.adc!.chartTypes.find(c => c.type === "gauge");
-    expect(gaugeChart).toBeUndefined();
   });
 
   it("ECharts knowledge has chart types and output contract", () => {
@@ -30,6 +15,23 @@ describe("getChartKnowledge", () => {
     expect(kb.echarts!.outputContract.length).toBeGreaterThan(0);
     expect(kb.echarts!.chartTypes.length).toBeGreaterThan(0);
     expect(kb.echarts!.typeWhitelist).toContain("gauge");
+  });
+
+  it("ECharts includes all 12 migrated ADC chart types", () => {
+    const kb = getChartKnowledge();
+    const types = kb.echarts!.chartTypes.map(c => c.type);
+    expect(types).toContain("line");
+    expect(types).toContain("bar");
+    expect(types).toContain("column");
+    expect(types).toContain("area");
+    expect(types).toContain("pie");
+    expect(types).toContain("rose");
+    expect(types).toContain("scatter");
+    expect(types).toContain("radar");
+    expect(types).toContain("heatmap");
+    expect(types).toContain("funnel");
+    expect(types).toContain("histogram");
+    expect(types).toContain("dualAxes");
   });
 
   it("Mermaid knowledge has diagram types and universal rules", () => {

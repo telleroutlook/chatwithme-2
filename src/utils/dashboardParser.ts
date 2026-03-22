@@ -19,7 +19,6 @@
  */
 
 import type { StatCardItem } from "./statCardParser";
-import type { ParsedAdcSpec, AdcChartType } from "./adcSpecParser";
 import type { EChartsOption } from "./ecSpecParser";
 
 // ---------------------------------------------------------------------------
@@ -27,7 +26,6 @@ import type { EChartsOption } from "./ecSpecParser";
 // ---------------------------------------------------------------------------
 
 export type DashboardItemType = "stat" | "adc" | "echarts" | "text";
-
 export interface DashboardItem {
   type: DashboardItemType;
   title?: string;
@@ -59,11 +57,6 @@ export type DashboardParseResult = DashboardParseSuccess | DashboardParseError;
 
 const VALID_ITEM_TYPES = new Set<string>(["stat", "adc", "echarts", "text"]);
 
-const ADC_CHART_TYPES = new Set<string>([
-  "line", "column", "bar", "area", "pie", "scatter",
-  "radar", "gauge", "heatmap", "funnel", "histogram", "dualAxes",
-]);
-
 const ECHARTS_REQUIRED_FIELDS = new Set<string>([
   "series", "xAxis", "yAxis", "geo", "radar", "graphic",
 ]);
@@ -75,13 +68,6 @@ function isStatCardArray(data: unknown): data is StatCardItem[] {
     const obj = item as Record<string, unknown>;
     return typeof obj.title === "string" && (typeof obj.value === "string" || typeof obj.value === "number");
   });
-}
-
-function isAdcSpec(data: unknown): data is { type: AdcChartType; config: Record<string, unknown> } {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
-  const obj = data as Record<string, unknown>;
-  if (typeof obj.type !== "string" || !ADC_CHART_TYPES.has(obj.type)) return false;
-  return true;
 }
 
 function isEChartsSpec(data: unknown): data is EChartsOption {
@@ -98,7 +84,7 @@ function validateItem(item: unknown, index: number): string | null {
   const obj = item as Record<string, unknown>;
 
   if (typeof obj.type !== "string" || !VALID_ITEM_TYPES.has(obj.type)) {
-    return `Item ${index}: invalid type "${String(obj.type)}" (must be one of: stat, adc, echarts, text)`;
+    return `Item ${index}: invalid type "${String(obj.type)}" (must be one of: stat, echarts, text)`;
   }
 
   if (obj.data === undefined || obj.data === null) {
@@ -113,10 +99,6 @@ function validateItem(item: unknown, index: number): string | null {
       }
       break;
     case "adc":
-      if (!isAdcSpec(obj.data)) {
-        return `Item ${index}: adc data must be an object with a valid "type" field (line, bar, pie, etc.)`;
-      }
-      break;
     case "echarts":
       if (!isEChartsSpec(obj.data)) {
         return `Item ${index}: echarts data must have at least one of: series, xAxis, yAxis, geo, radar, graphic`;
@@ -208,21 +190,13 @@ export function parseDashboardSpec(code: string): DashboardParseResult {
     return { ok: false, error: '"layout" must be a string' };
   }
 
-  // Build the spec, normalizing ADC items
+  // Build the spec — "adc" items pass through as-is (rendered as ECharts)
   const items: DashboardItem[] = (obj.items as Array<Record<string, unknown>>).map((raw) => {
     const item: DashboardItem = {
       type: raw.type as DashboardItemType,
       data: raw.data,
       ...(typeof raw.title === "string" && raw.title.trim() ? { title: raw.title.trim() } : {}),
     };
-
-    // Normalize ADC items: extract type + config from flat format
-    if (item.type === "adc" && item.data && typeof item.data === "object" && !Array.isArray(item.data)) {
-      const adcData = item.data as Record<string, unknown>;
-      const { type: adcType, ...config } = adcData;
-      item.data = { type: adcType, config } as ParsedAdcSpec;
-    }
-
     // Normalize stat items: ensure values are strings
     if (item.type === "stat" && Array.isArray(item.data)) {
       item.data = (item.data as Array<Record<string, unknown>>).map((s) => ({

@@ -2,11 +2,6 @@
  * Type declarations for knowledge-base JSON files
  */
 
-declare module "../../../knowledge-base/charts/adc.json" {
-  const value: import("./chart-kb").AdcKnowledge;
-  export default value;
-}
-
 declare module "../../../knowledge-base/charts/mermaid.json" {
   const value: import("./chart-kb").MermaidKnowledge;
   export default value;

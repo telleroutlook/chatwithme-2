@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import type { UIMessage } from "ai";
 import { getMessageText } from "../../../utils/message-text";
 import { downloadTextFile } from "../../../utils/exporters/image";
-import { exportPlainTextToPdf } from "../../../utils/exporters/pdf";
+import { exportRenderedChatToPdf } from "../../../utils/exporters/renderChatPdf";
 import { trackChatEvent } from "../services/trackChatEvent";
 import type { UiMessageKey } from "../../../i18n/ui";
 import type { TranslateParams } from "../../../hooks/useI18n";
@@ -58,34 +58,11 @@ export function useExportActions(params: UseExportActionsParams): UseExportActio
   const handleExportPdf = useCallback(async () => {
     if (chatMessages.length === 0) return;
 
-    const exportedAt = new Date();
-    const timestamp = exportedAt.toISOString().replace(/[:.]/g, "-");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const filename = `chat-${currentSessionId}-${timestamp}.pdf`;
-    const lines: string[] = [
-      "Chat Export",
-      "",
-      `Session ID: ${currentSessionId}`,
-      `Exported At: ${exportedAt.toISOString()}`,
-      "",
-      "----------------------------------------",
-      ""
-    ];
-
-    chatMessages.forEach((message, index) => {
-      const role = message.role === "assistant" ? "Assistant" : message.role === "user" ? "User" : "System";
-      const content = getMessageText(message).trim();
-      lines.push(`${index + 1}. ${role}`);
-      lines.push(content || "(empty)");
-      lines.push("");
-    });
 
     try {
-      await exportPlainTextToPdf(lines.join("\n"), {
-        filename,
-        margin: 12,
-        fontSize: 11,
-        title: "Chat Export"
-      });
+      await exportRenderedChatToPdf(chatMessages, getMessageText, currentSessionId, filename);
       addToast(t("topbar_export_pdf_done"), "success");
       trackChatEvent("chat_export_pdf", { messageCount: chatMessages.length, sessionId: currentSessionId });
     } catch (error) {

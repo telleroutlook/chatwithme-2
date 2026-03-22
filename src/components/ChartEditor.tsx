@@ -27,7 +27,7 @@ import { useThemeDetector } from "../hooks/useThemeDetector";
 // Types
 // ---------------------------------------------------------------------------
 
-export type ChartEditorEngine = "adc" | "echarts";
+export type ChartEditorEngine = "echarts";
 
 export interface ChartEditorProps {
   spec: Record<string, unknown>;
@@ -120,30 +120,9 @@ function EChartsPreview({ spec }: { spec: Record<string, unknown> }): ReactNode 
 }
 
 // ---------------------------------------------------------------------------
-// ADC preview — uses a lazy-loaded isolated module to avoid circular imports
-// ---------------------------------------------------------------------------
-
-const LazyAdcPreviewInner = lazy(() => import("./ChartEditorAdcPreview"));
-
-function AdcPreview({ spec }: { spec: Record<string, unknown> }): ReactNode {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-full text-xs text-gray-400">
-          Loading preview...
-        </div>
-      }
-    >
-      <LazyAdcPreviewInner spec={spec} />
-    </Suspense>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Quick Actions: chart type options
 // ---------------------------------------------------------------------------
 
-const ADC_TYPE_OPTIONS = ["line", "column", "bar", "area", "pie"] as const;
 const ECHARTS_TYPE_OPTIONS = ["bar", "line", "scatter", "pie"] as const;
 
 // ---------------------------------------------------------------------------
@@ -211,9 +190,6 @@ export function ChartEditor({
   // Quick action: extract chart type
   const currentChartType = useMemo(() => {
     if (!parsedSpec) return "";
-    if (engine === "adc") {
-      return typeof parsedSpec.type === "string" ? parsedSpec.type : "";
-    }
     // ECharts: detect from series[0].type
     const series = parsedSpec.series;
     if (Array.isArray(series) && series.length > 0) {
@@ -221,7 +197,7 @@ export function ChartEditor({
       if (first && typeof first.type === "string") return first.type;
     }
     return "";
-  }, [parsedSpec, engine]);
+  }, [parsedSpec]);
 
   // Animate in on mount
   useEffect(() => {
@@ -272,24 +248,20 @@ export function ChartEditor({
     (newTitle: string) => {
       try {
         const current = JSON.parse(jsonText) as Record<string, unknown>;
-        if (engine === "adc") {
-          current.title = newTitle || undefined;
-        } else {
-          // ECharts title object
-          const existing = current.title;
-          current.title = {
-            ...(existing && typeof existing === "object" && !Array.isArray(existing)
-              ? (existing as Record<string, unknown>)
-              : {}),
-            text: newTitle,
-          };
-        }
+        // ECharts title object
+        const existing = current.title;
+        current.title = {
+          ...(existing && typeof existing === "object" && !Array.isArray(existing)
+            ? (existing as Record<string, unknown>)
+            : {}),
+          text: newTitle,
+        };
         setJsonText(JSON.stringify(current, null, 2));
       } catch {
         // If JSON is broken, just ignore
       }
     },
-    [jsonText, engine]
+    [jsonText]
   );
 
   // Quick action: change chart type
@@ -297,29 +269,25 @@ export function ChartEditor({
     (newType: string) => {
       try {
         const current = JSON.parse(jsonText) as Record<string, unknown>;
-        if (engine === "adc") {
-          current.type = newType;
-        } else {
-          // ECharts: update all series types
-          const series = current.series;
-          if (Array.isArray(series)) {
-            current.series = series.map((s) => {
-              if (s && typeof s === "object") {
-                return { ...(s as Record<string, unknown>), type: newType };
-              }
-              return s;
-            });
-          }
+        // ECharts: update all series types
+        const series = current.series;
+        if (Array.isArray(series)) {
+          current.series = series.map((s) => {
+            if (s && typeof s === "object") {
+              return { ...(s as Record<string, unknown>), type: newType };
+            }
+            return s;
+          });
         }
         setJsonText(JSON.stringify(current, null, 2));
       } catch {
         // If JSON is broken, just ignore
       }
     },
-    [jsonText, engine]
+    [jsonText]
   );
 
-  const typeOptions = engine === "adc" ? ADC_TYPE_OPTIONS : ECHARTS_TYPE_OPTIONS;
+  const typeOptions = ECHARTS_TYPE_OPTIONS;
 
   // Render the drawer content
   const drawer = (
@@ -346,7 +314,7 @@ export function ChartEditor({
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             Chart Editor
             <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-              ({engine === "adc" ? "Ant Design Charts" : "ECharts"})
+              (ECharts)
             </span>
           </h2>
           <button
@@ -444,11 +412,7 @@ export function ChartEditor({
                 </div>
               ) : parsedSpec ? (
                 <div className="w-full h-full min-h-[300px]">
-                  {engine === "adc" ? (
-                    <AdcPreview spec={parsedSpec} />
-                  ) : (
-                    <EChartsPreview spec={parsedSpec} />
-                  )}
+                  <EChartsPreview spec={parsedSpec} />
                 </div>
               ) : null}
             </div>

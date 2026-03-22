@@ -17,7 +17,7 @@ import { exportToPdf, dataUrlToPdf } from "../utils/exporters/pdf";
 // Types
 // ---------------------------------------------------------------------------
 
-export type ChartEngine = "mermaid" | "adc" | "echarts" | "vega-lite";
+export type ChartEngine = "mermaid" | "echarts" | "vega-lite";
 
 export interface ChartToolbarProps {
   /** Ref to the DOM element that wraps the rendered chart (used for PNG/PDF export). */
@@ -44,8 +44,8 @@ export interface ChartToolbarProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Engines that render to <canvas> instead of <svg>. */
-const CANVAS_ENGINES: ReadonlySet<ChartEngine> = new Set(["adc"]);
+/** All current chart engines render to SVG. */
+const CANVAS_ENGINES: ReadonlySet<ChartEngine> = new Set([]);
 
 function makeFilename(engine: ChartEngine, chartType: string | undefined, ext: string): string {
   const type = chartType ?? engine;

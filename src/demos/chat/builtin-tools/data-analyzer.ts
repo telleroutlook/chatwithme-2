@@ -28,7 +28,7 @@ export interface ColumnStats {
 
 export interface ChartRecommendation {
   chartType: string;
-  engine: "adc";
+  engine: "echarts";
   reason: string;
   spec: Record<string, unknown>;
 }
@@ -263,7 +263,6 @@ function recommendCharts(
   const numericCols = columnStats.filter((c) => c.type === "numeric");
   const categoricalCols = columnStats.filter((c) => c.type === "categorical");
   const dateCols = columnStats.filter((c) => c.type === "date");
-  // Text columns that have low cardinality can also serve as categorical
   const textCols = columnStats.filter((c) => c.type === "text");
   const labelCols = [
     ...categoricalCols,
@@ -273,45 +272,42 @@ function recommendCharts(
   // 1 date + 1 numeric -> line chart
   if (dateCols.length >= 1 && numericCols.length >= 1) {
     const dateCol = dateCols[0].name;
-    const valueCol = numericCols[0].name;
-    const spec: Record<string, unknown> = {
-      type: "line",
-      data: rows.slice(0, 50).map((r) => ({
-        [dateCol]: r[dateCol],
-        [valueCol]: Number(r[valueCol]) || 0,
-      })),
-      xField: dateCol,
-      yField: valueCol,
-      smooth: true,
-      point: { size: 3 },
-    };
-    // Multi-line if more than 1 numeric column
+    const sampleRows = rows.slice(0, 50);
+
     if (numericCols.length > 1) {
-      const multiData: Record<string, unknown>[] = [];
-      for (const row of rows.slice(0, 50)) {
-        for (const nc of numericCols) {
-          multiData.push({
-            [dateCol]: row[dateCol],
-            value: Number(row[nc.name]) || 0,
-            series: nc.name,
-          });
-        }
-      }
-      spec.data = multiData;
-      spec.yField = "value";
-      spec.colorField = "series";
+      // Multi-line: one series per numeric column
+      const seriesData = numericCols.map((nc) => ({
+        name: nc.name,
+        type: "line",
+        smooth: true,
+        data: sampleRows.map((r) => Number(r[nc.name]) || 0),
+      }));
       recommendations.push({
         chartType: "multi-line",
-        engine: "adc",
+        engine: "echarts",
         reason: `${dateCols.length} date column(s) + ${numericCols.length} numeric columns suggest a multi-line chart over time.`,
-        spec,
+        spec: {
+          title: { text: `${numericCols.map((c) => c.name).join(" & ")} 趋势` },
+          tooltip: { trigger: "axis" },
+          legend: { data: numericCols.map((c) => c.name) },
+          xAxis: { type: "category", data: sampleRows.map((r) => r[dateCol]) },
+          yAxis: { type: "value" },
+          series: seriesData,
+        },
       });
     } else {
+      const valueCol = numericCols[0].name;
       recommendations.push({
         chartType: "line",
-        engine: "adc",
+        engine: "echarts",
         reason: `Date column "${dateCol}" + numeric column "${valueCol}" suggest a line chart.`,
-        spec,
+        spec: {
+          title: { text: `${valueCol} 趋势` },
+          tooltip: { trigger: "axis" },
+          xAxis: { type: "category", data: sampleRows.map((r) => r[dateCol]) },
+          yAxis: { type: "value" },
+          series: [{ type: "line", smooth: true, data: sampleRows.map((r) => Number(r[valueCol]) || 0) }],
+        },
       });
     }
   }
@@ -320,66 +316,66 @@ function recommendCharts(
   if (labelCols.length >= 1 && numericCols.length >= 1) {
     const catCol = labelCols[0].name;
     const valueCol = numericCols[0].name;
-    const uniqueCategories = new Set(rows.map((r) => r[catCol])).size;
+    const sampleRows = rows.slice(0, 50);
+    const categories = sampleRows.map((r) => r[catCol]);
+    const values = sampleRows.map((r) => Number(r[valueCol]) || 0);
+    const uniqueCategories = new Set(categories).size;
 
     if (uniqueCategories > 0 && uniqueCategories < 10) {
       // Pie chart for small number of categories
+      const pieData = sampleRows.map((r) => ({
+        name: r[catCol],
+        value: Number(r[valueCol]) || 0,
+      }));
       recommendations.push({
         chartType: "pie",
-        engine: "adc",
+        engine: "echarts",
         reason: `${uniqueCategories} categories in "${catCol}" + numeric "${valueCol}" — pie chart for distribution.`,
         spec: {
-          type: "pie",
-          data: rows.slice(0, 50).map((r) => ({
-            [catCol]: r[catCol],
-            [valueCol]: Number(r[valueCol]) || 0,
-          })),
-          angleField: valueCol,
-          colorField: catCol,
-          innerRadius: 0.5,
-          label: { text: catCol, position: "outside" },
+          title: { text: `${catCol} 分布` },
+          tooltip: { trigger: "item", formatter: "{b}: {d}%" },
+          series: [{
+            type: "pie",
+            radius: ["40%", "70%"],
+            data: pieData,
+            label: { show: true, formatter: "{b}: {d}%" },
+          }],
         },
       });
     }
 
-    // Bar chart (works for any number of categories)
-    const barSpec: Record<string, unknown> = {
-      type: "bar",
-      data: rows.slice(0, 50).map((r) => ({
-        [catCol]: r[catCol],
-        [valueCol]: Number(r[valueCol]) || 0,
-      })),
-      xField: valueCol,
-      yField: catCol,
-    };
-
-    // Grouped bar if multiple numeric columns
     if (numericCols.length > 1) {
-      const groupedData: Record<string, unknown>[] = [];
-      for (const row of rows.slice(0, 50)) {
-        for (const nc of numericCols) {
-          groupedData.push({
-            [catCol]: row[catCol],
-            value: Number(row[nc.name]) || 0,
-            series: nc.name,
-          });
-        }
-      }
-      barSpec.data = groupedData;
-      barSpec.xField = "value";
-      barSpec.colorField = "series";
+      // Grouped bar: one series per numeric column
+      const seriesData = numericCols.map((nc) => ({
+        name: nc.name,
+        type: "bar",
+        data: sampleRows.map((r) => Number(r[nc.name]) || 0),
+      }));
       recommendations.push({
         chartType: "grouped-bar",
-        engine: "adc",
+        engine: "echarts",
         reason: `Categorical "${catCol}" + ${numericCols.length} numeric columns suggest a grouped bar chart.`,
-        spec: barSpec,
+        spec: {
+          title: { text: `${catCol} 分组对比` },
+          tooltip: { trigger: "axis" },
+          legend: { data: numericCols.map((c) => c.name) },
+          xAxis: { type: "category", data: categories },
+          yAxis: { type: "value" },
+          series: seriesData,
+        },
       });
     } else {
       recommendations.push({
         chartType: "bar",
-        engine: "adc",
+        engine: "echarts",
         reason: `Categorical "${catCol}" + numeric "${valueCol}" suggest a bar chart.`,
-        spec: barSpec,
+        spec: {
+          title: { text: `${catCol} 对比` },
+          tooltip: { trigger: "axis" },
+          xAxis: { type: "category", data: categories },
+          yAxis: { type: "value" },
+          series: [{ type: "bar", data: values }],
+        },
       });
     }
   }
@@ -388,62 +384,61 @@ function recommendCharts(
   if (numericCols.length >= 2) {
     const xCol = numericCols[0].name;
     const yCol = numericCols[1].name;
+    const scatterData = rows.slice(0, 100).map((r) => [
+      Number(r[xCol]) || 0,
+      Number(r[yCol]) || 0,
+    ]);
     recommendations.push({
       chartType: "scatter",
-      engine: "adc",
+      engine: "echarts",
       reason: `Two numeric columns "${xCol}" and "${yCol}" suggest a scatter plot.`,
       spec: {
-        type: "scatter",
-        data: rows.slice(0, 100).map((r) => ({
-          [xCol]: Number(r[xCol]) || 0,
-          [yCol]: Number(r[yCol]) || 0,
-        })),
-        xField: xCol,
-        yField: yCol,
-        point: { size: 4 },
+        title: { text: `${xCol} vs ${yCol}` },
+        tooltip: { trigger: "item" },
+        xAxis: { type: "value", name: xCol, scale: true },
+        yAxis: { type: "value", name: yCol, scale: true },
+        series: [{ type: "scatter", symbolSize: 8, data: scatterData }],
       },
     });
   }
 
-  // 1 numeric column alone -> histogram-style column chart
+  // 1 numeric column alone -> column/histogram
   if (numericCols.length === 1 && labelCols.length === 0 && dateCols.length === 0) {
     const col = numericCols[0].name;
+    const sampleRows = rows.slice(0, 50);
     recommendations.push({
       chartType: "histogram",
-      engine: "adc",
+      engine: "echarts",
       reason: `Single numeric column "${col}" suggests a histogram / column chart.`,
       spec: {
-        type: "column",
-        data: rows.slice(0, 50).map((r, i) => ({
-          index: i + 1,
-          [col]: Number(r[col]) || 0,
-        })),
-        xField: "index",
-        yField: col,
+        title: { text: `${col} 分布` },
+        tooltip: { trigger: "axis" },
+        xAxis: { type: "category", data: sampleRows.map((_, i) => String(i + 1)) },
+        yAxis: { type: "value", name: col },
+        series: [{
+          type: "bar",
+          data: sampleRows.map((r) => Number(r[col]) || 0),
+          barWidth: "99%",
+        }],
       },
     });
   }
 
-  // Fallback: if no recommendations yet, suggest a basic column chart
-  // using the first label-like column and first numeric column
+  // Fallback: basic column chart
   if (recommendations.length === 0 && numericCols.length >= 1) {
-    const xCol =
-      labelCols[0]?.name ??
-      dateCols[0]?.name ??
-      headers[0];
+    const xCol = labelCols[0]?.name ?? dateCols[0]?.name ?? headers[0];
     const yCol = numericCols[0].name;
+    const sampleRows = rows.slice(0, 50);
     recommendations.push({
       chartType: "column",
-      engine: "adc",
+      engine: "echarts",
       reason: `Fallback: using "${xCol}" and "${yCol}" for a column chart.`,
       spec: {
-        type: "column",
-        data: rows.slice(0, 50).map((r) => ({
-          [xCol]: r[xCol],
-          [yCol]: Number(r[yCol]) || 0,
-        })),
-        xField: xCol,
-        yField: yCol,
+        title: { text: `${yCol} 对比` },
+        tooltip: { trigger: "axis" },
+        xAxis: { type: "category", data: sampleRows.map((r) => r[xCol]) },
+        yAxis: { type: "value" },
+        series: [{ type: "bar", data: sampleRows.map((r) => Number(r[yCol]) || 0) }],
       },
     });
   }

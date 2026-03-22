@@ -7,10 +7,9 @@
  * Used by the builtin_chart_template tool to look up engine/type templates.
  */
 
-import type { ChartKnowledge, AdcKnowledge, MermaidKnowledge, EChartsKnowledge, VegaLiteKnowledge } from "../../types/chart-kb";
+import type { ChartKnowledge, MermaidKnowledge, EChartsKnowledge, VegaLiteKnowledge } from "../../types/chart-kb";
 
 // Import JSON files directly - Vite will bundle them
-import adcJson from "../../../knowledge-base/charts/adc.json";
 import mermaidJson from "../../../knowledge-base/charts/mermaid.json";
 import echartsJson from "../../../knowledge-base/charts/echarts.json";
 import vegaLiteJson from "../../../knowledge-base/charts/vega-lite.json";
@@ -23,7 +22,6 @@ let cachedKnowledge: ChartKnowledge | null = null;
 export function getChartKnowledge(): ChartKnowledge {
   if (!cachedKnowledge) {
     cachedKnowledge = {
-      adc: adcJson as AdcKnowledge,
       mermaid: mermaidJson as MermaidKnowledge,
       echarts: echartsJson as EChartsKnowledge,
       vegaLite: vegaLiteJson as VegaLiteKnowledge,

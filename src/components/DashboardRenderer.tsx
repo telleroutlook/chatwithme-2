@@ -9,12 +9,10 @@
 import { memo, useMemo, type ReactNode } from "react";
 import { SquaresFour } from "@phosphor-icons/react";
 import type { DashboardSpec, DashboardItem } from "../utils/dashboardParser";
-import type { ParsedAdcSpec } from "../utils/adcSpecParser";
 import type { EChartsOption } from "../utils/ecSpecParser";
 import type { StatCardItem } from "../utils/statCardParser";
 import { StatCard } from "./StatCard";
 import {
-  LazyAntDesignChartsRenderer,
   LazyEChartsRenderer,
 } from "./LazyChartRenderer";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -74,11 +72,6 @@ function DashboardStatItem({ data }: { data: unknown }): ReactNode {
   return <StatCard data={items} />;
 }
 
-function DashboardAdcItem({ data }: { data: unknown }): ReactNode {
-  const spec = data as ParsedAdcSpec;
-  return <LazyAntDesignChartsRenderer spec={spec} />;
-}
-
 function DashboardEChartsItem({ data }: { data: unknown }): ReactNode {
   const spec = data as EChartsOption;
   return <LazyEChartsRenderer spec={spec} />;
@@ -130,7 +123,7 @@ const DashboardItemWrapper = memo(function DashboardItemWrapper({
     );
   }
 
-  // ADC and ECharts already render in their own styled containers
+  // ECharts renders in its own styled container; "adc" legacy type also uses ECharts
   if (item.type === "adc" || item.type === "echarts") {
     return (
       <div className={`${spanClass} min-h-[200px]`}>
@@ -141,11 +134,7 @@ const DashboardItemWrapper = memo(function DashboardItemWrapper({
           level="chart"
           fallback={<DashboardItemError type={item.type} index={index} />}
         >
-          {item.type === "adc" ? (
-            <DashboardAdcItem data={item.data} />
-          ) : (
-            <DashboardEChartsItem data={item.data} />
-          )}
+          <DashboardEChartsItem data={item.data} />
         </ErrorBoundary>
       </div>
     );
