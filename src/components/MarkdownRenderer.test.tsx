@@ -270,16 +270,16 @@ describe("MarkdownRenderer", () => {
     });
   });
 
-  it("shows invalid ECharts fallback for legacy adc block with bad spec", () => {
+  it("shows invalid ECharts fallback for echarts block with bad spec", () => {
     const content = [
-      "```adc",
+      "```echarts",
       '{"type":"unknown","data":[{"x":1,"y":2}]}',
       "```",
     ].join("\n");
 
     render(<MarkdownRenderer content={content} />);
 
-    // adc blocks now go through ECharts parser; spec missing series/xAxis/yAxis fails
+    // spec missing series/xAxis/yAxis/geo/radar/graphic → parse error
     expect(screen.getByText(/ECharts spec must contain at least one of/)).toBeInTheDocument();
     expect(screen.getByText("View original spec")).toBeInTheDocument();
   });
