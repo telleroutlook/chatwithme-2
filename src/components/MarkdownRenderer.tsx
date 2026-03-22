@@ -52,6 +52,9 @@ function useChartFix() {
   return useContext(ChartFixCallbackContext);
 }
 
+// Context for passing isStreaming into the static components object
+const IsStreamingContext = createContext<boolean>(false);
+
 // Lazy load CodeBlock to avoid loading Shiki highlighter on initial page load
 // This reduces the initial bundle by ~800KB (vendor-highlight chunk)
 const LazyCodeBlock = lazy(() =>
@@ -376,6 +379,379 @@ function SmartTable({ children }: { children?: ReactNode }) {
   return <InteractiveTable headers={headers} rows={rows} />;
 }
 
+/** Stable code block component — reads isStreaming from context to avoid re-creating components object */
+const CodeRenderer = memo(function CodeRenderer({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: ReactNode;
+}) {
+  const isStreaming = useContext(IsStreamingContext);
+  const match = /language-([^\s]+)/.exec(className || "");
+  const language = match ? match[1].trim().toLowerCase() : "";
+  const codeString = String(children).replace(/\n$/, "");
+  const isInline = !match && !codeString.includes("\n");
+
+  if (isInline) {
+    return (
+      <code className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-sm">
+        {children}
+      </code>
+    );
+  }
+
+  // -----------------------------------------------------------------
+  // Streaming chart guard
+  // -----------------------------------------------------------------
+  if (isStreaming && isChartLanguage(language)) {
+    const isMermaidLang = language === "mermaid" || language === "mmd";
+    const isMindmapLang = language === "mindmap";
+
+    if (isMermaidLang || isMindmapLang) {
+      return <SuspenseCodeBlock language={isMermaidLang ? "mermaid" : "markdown"} code={codeString} />;
+    } else {
+      if (!isJsonComplete(codeString)) {
+        const detected = detectChartTypeFromPartial(language, codeString);
+        return <ChartTypeSkeleton type={detected.subtype} />;
+      }
+    }
+  }
+
+  // Interactive mind map via markmap
+  if (language === "mindmap") {
+    return (
+      <ErrorBoundary
+        level="chart"
+        fallback={<InvalidChartSpec message="Invalid mind map" code={codeString} />}
+        onError={(error) =>
+          trackChatEvent("chart_render_failure", { engine: "markmap", errorCode: error.message })
+        }
+      >
+        <LazyMarkmapRenderer code={codeString} />
+      </ErrorBoundary>
+    );
+  }
+
+  // Mermaid diagrams
+  const isMermaidBlock =
+    language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
+  if (isMermaidBlock) {
+    const sanitized = sanitizeMermaidCode(codeString);
+    const validation = validateMermaidCode(sanitized.sanitized);
+    if (!validation.valid) {
+      return (
+        <InvalidChartSpec
+          message={`Invalid Mermaid spec: ${validation.error ?? "Unknown error"}`}
+          code={codeString}
+        />
+      );
+    }
+
+    const isMermaidMindmap = /^\s*mindmap\b/i.test(sanitized.sanitized.trim());
+
+    if (isMermaidMindmap) {
+      return (
+        <MermaidMindmapWithToggle
+          mermaidCode={sanitized.sanitized}
+          rawCode={codeString}
+        />
+      );
+    }
+
+    return (
+      <ErrorBoundary
+        level="chart"
+        fallback={<InvalidChartSpec message="Invalid Mermaid spec" code={codeString} />}
+        onError={(error) =>
+          trackChatEvent("chart_render_failure", { engine: "mermaid", errorCode: error.message })
+        }
+      >
+        <LazyMermaidRenderer code={sanitized.sanitized} />
+      </ErrorBoundary>
+    );
+  }
+
+  // G2 fallback
+  if (language === "g2") {
+    return <SuspenseCodeBlock language="json" code={codeString} />;
+  }
+
+  // Ant Design Charts
+  if (language === "adc" || language === "ant-design-charts" || language === "antd-charts") {
+    const result = parseAdcSpecFromCode(codeString);
+    const adcChartType = (result.ok && result.spec?.type) ? String(result.spec.type) : "chart";
+
+    if (result.ok && result.spec) {
+      return (
+        <ErrorBoundary
+          level="chart"
+          fallback={<InvalidChartSpec message="Invalid ADC spec" code={codeString} engine="adc" chartType={adcChartType} />}
+          onError={(error) =>
+            trackChatEvent("chart_render_failure", { engine: "adc", errorCode: error.message })
+          }
+        >
+          <LazyAntDesignChartsRenderer spec={result.spec} />
+        </ErrorBoundary>
+      );
+    }
+    const errorMessage =
+      result.error === "ADC_PARSE_INVALID_TYPE"
+        ? "Unsupported ADC chart type"
+        : result.error === "ADC_PARSE_UNSUPPORTED_CALLBACK"
+          ? "ADC callbacks are not supported"
+          : result.error === "ADC_PARSE_EMPTY"
+          ? "Empty ADC spec"
+            : "Invalid ADC JSON";
+    return <InvalidChartSpec message={errorMessage} code={codeString} engine="adc" chartType={adcChartType} />;
+  }
+
+  // ECharts
+  if (language === "echarts" || language === "echart") {
+    const ecResult = parseEChartsSpecFromCode(codeString);
+    const ecSpecAny = ecResult.ok ? (ecResult.spec as Record<string, unknown>) : null;
+    const ecSeriesArr = Array.isArray(ecSpecAny?.series) ? ecSpecAny.series as Array<Record<string, unknown>> : [];
+    const ecChartType = typeof ecSeriesArr[0]?.type === "string" ? ecSeriesArr[0].type : "chart";
+
+    if (ecResult.ok) {
+      return (
+        <ErrorBoundary
+          level="chart"
+          fallback={<InvalidChartSpec message="Invalid ECharts spec" code={codeString} engine="echarts" chartType={ecChartType} />}
+          onError={(error) =>
+            trackChatEvent("chart_render_failure", { engine: "echarts", errorCode: error.message })
+          }
+        >
+          <LazyEChartsRenderer spec={ecResult.spec} />
+        </ErrorBoundary>
+      );
+    }
+    return <InvalidChartSpec message={ecResult.error} code={codeString} engine="echarts" chartType="chart" />;
+  }
+
+  // Vega-Lite
+  if (language === "vega-lite" || language === "vegalite" || language === "vl") {
+    const vlResult = parseVegaLiteSpecFromCode(codeString);
+
+    if (vlResult.ok) {
+      return (
+        <ErrorBoundary
+          level="chart"
+          fallback={<InvalidChartSpec message="Invalid Vega-Lite spec" code={codeString} engine="vega-lite" chartType="chart" />}
+          onError={(error) =>
+            trackChatEvent("chart_render_failure", { engine: "vega-lite", errorCode: error.message })
+          }
+        >
+          <LazyVegaLiteRenderer spec={vlResult.spec} />
+        </ErrorBoundary>
+      );
+    }
+    return <InvalidChartSpec message={vlResult.error} code={codeString} engine="vega-lite" chartType="chart" />;
+  }
+
+  // Stat cards
+  if (language === "stat" || language === "stats" || language === "kpi") {
+    const statData = parseStatCardData(codeString);
+    if (statData) {
+      return (
+        <ErrorBoundary
+          level="chart"
+          fallback={<InvalidChartSpec message="Invalid stat card data" code={codeString} engine="stat" chartType="stat" />}
+          onError={(error) =>
+            trackChatEvent("chart_render_failure", { engine: "stat", errorCode: error.message })
+          }
+        >
+          <LazyStatCardRenderer data={statData} />
+        </ErrorBoundary>
+      );
+    }
+    return <InvalidChartSpec message="Invalid stat card JSON" code={codeString} engine="stat" chartType="stat" />;
+  }
+
+  // Dashboard
+  if (language === "dashboard") {
+    const dashResult = parseDashboardSpec(codeString);
+    if (dashResult.ok) {
+      return (
+        <ErrorBoundary
+          level="chart"
+          fallback={<InvalidChartSpec message="Invalid dashboard spec" code={codeString} engine="dashboard" chartType="dashboard" />}
+          onError={(error) =>
+            trackChatEvent("chart_render_failure", { engine: "dashboard", errorCode: error.message })
+          }
+        >
+          <LazyDashboardRenderer spec={dashResult.spec} />
+        </ErrorBoundary>
+      );
+    }
+    return <InvalidChartSpec message={dashResult.error} code={codeString} engine="dashboard" chartType="dashboard" />;
+  }
+
+  // Excalidraw
+  if (language === "excalidraw") {
+    const excalidrawResult = parseExcalidrawData(codeString);
+    if (excalidrawResult.ok) {
+      return (
+        <ErrorBoundary
+          level="chart"
+          fallback={<InvalidChartSpec message="Invalid Excalidraw spec" code={codeString} engine="excalidraw" chartType="excalidraw" />}
+          onError={(error) =>
+            trackChatEvent("chart_render_failure", { engine: "excalidraw", errorCode: error.message })
+          }
+        >
+          <LazyExcalidrawRenderer data={excalidrawResult.data} />
+        </ErrorBoundary>
+      );
+    }
+    return <InvalidChartSpec message={excalidrawResult.error} code={codeString} engine="excalidraw" chartType="excalidraw" />;
+  }
+
+  // React sandbox
+  if (language === "react" || language === "jsx" || language === "tsx") {
+    if (isStreaming) {
+      return <SuspenseCodeBlock language={language} code={codeString} />;
+    }
+    return (
+      <ErrorBoundary
+        level="chart"
+        fallback={<InvalidChartSpec message="React component render failed" code={codeString} engine="react" chartType="react" />}
+        onError={(error) =>
+          trackChatEvent("chart_render_failure", { engine: "react-sandbox", errorCode: error.message })
+        }
+      >
+        <LazyReactSandbox code={codeString} />
+      </ErrorBoundary>
+    );
+  }
+
+  // SVG / HTML
+  const decodedCodeString = decodeHtmlEntities(codeString);
+  const svgLikeCode = looksLikeSvgMarkup(codeString)
+    ? codeString
+    : looksLikeSvgMarkup(decodedCodeString)
+      ? decodedCodeString
+      : "";
+
+  const isHtmlDocument =
+    language === "html" &&
+    (looksLikeHtmlDocument(codeString) || looksLikeHtmlDocument(decodedCodeString));
+
+  const firstSvgInCode = extractFirstSvgMarkup(codeString);
+  const firstSvgInDecodedCode = extractFirstSvgMarkup(decodedCodeString);
+  const svgFromHtmlDocument = firstSvgInCode ?? firstSvgInDecodedCode;
+
+  const isSvgXmlBlock =
+    (language === "xml" ||
+      language === "xhtml" ||
+      (language === "html" && !isHtmlDocument)) &&
+    !!svgLikeCode;
+  const isRawSvgBlock = language === "svg" || (!language && !!svgLikeCode);
+
+  if (isSvgXmlBlock || isRawSvgBlock) {
+    return <SvgRenderer code={svgLikeCode} />;
+  }
+
+  if (language === "html") {
+    if (isStreaming) {
+      return <SuspenseCodeBlock language={language} code={codeString} />;
+    }
+    if (isHtmlDocument && svgFromHtmlDocument) {
+      return (
+        <>
+          <HtmlDirectRenderer code={codeString} />
+          <SvgRenderer code={svgFromHtmlDocument} />
+        </>
+      );
+    }
+    return <HtmlDirectRenderer code={codeString} />;
+  }
+
+  if (language === "markdown" || language === "md") {
+    return <MarkdownPreviewRenderer code={codeString} />;
+  }
+
+  return <SuspenseCodeBlock language={language} code={codeString} />;
+});
+
+// Static components object — never recreated, so ReactMarkdown never remounts chart nodes
+const MARKDOWN_COMPONENTS = {
+  pre({ children }: { children?: ReactNode }) {
+    return <div className="my-3 w-full">{children}</div>;
+  },
+  code: CodeRenderer,
+  p({ children }: { children?: ReactNode }) {
+    return <p className="mb-3 last:mb-0 leading-relaxed text-sm text-foreground">{children}</p>;
+  },
+  h1({ children }: { children?: ReactNode }) {
+    return <h1 className="mb-4 mt-6 first:mt-0 text-xl font-semibold text-foreground">{children}</h1>;
+  },
+  h2({ children }: { children?: ReactNode }) {
+    return <h2 className="mb-3 mt-5 first:mt-0 text-lg font-semibold text-foreground">{children}</h2>;
+  },
+  h3({ children }: { children?: ReactNode }) {
+    return <h3 className="mb-2 mt-4 first:mt-0 text-base font-semibold text-foreground">{children}</h3>;
+  },
+  ul({ children }: { children?: ReactNode }) {
+    return <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>;
+  },
+  ol({ children }: { children?: ReactNode }) {
+    return <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>;
+  },
+  li({ children }: { children?: ReactNode }) {
+    return <li className="text-sm text-foreground">{children}</li>;
+  },
+  a({ href, children }: { href?: string; children?: ReactNode }) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+        {children}
+      </a>
+    );
+  },
+  blockquote({ children }: { children?: ReactNode }) {
+    const { type: alertType, cleanedChildren } = extractAlertType(children);
+    if (alertType) {
+      return <MarkdownAlert type={alertType}>{cleanedChildren}</MarkdownAlert>;
+    }
+    return (
+      <blockquote className="border-l-4 border-accent/50 pl-4 py-1 my-3 bg-muted/30 rounded-r">
+        {children}
+      </blockquote>
+    );
+  },
+  hr() {
+    return <hr className="my-4 border-border" />;
+  },
+  table({ children }: { children?: ReactNode }) {
+    return <SmartTable>{children}</SmartTable>;
+  },
+  thead({ children }: { children?: ReactNode }) {
+    return <thead className="bg-muted/50">{children}</thead>;
+  },
+  th({ children }: { children?: ReactNode }) {
+    return (
+      <th className="px-4 py-2 text-left text-sm font-semibold text-foreground border-b border-border">
+        {children}
+      </th>
+    );
+  },
+  td({ children }: { children?: ReactNode }) {
+    return (
+      <td className="px-4 py-2 text-sm text-foreground border-b border-border last:border-b-0">
+        {children}
+      </td>
+    );
+  },
+  strong({ children }: { children?: ReactNode }) {
+    return <strong className="font-semibold">{children}</strong>;
+  },
+  em({ children }: { children?: ReactNode }) {
+    return <em className="italic">{children}</em>;
+  },
+  del({ children }: { children?: ReactNode }) {
+    return <del className="line-through opacity-70">{children}</del>;
+  },
+} as const;
+
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
   isStreaming,
@@ -383,15 +759,13 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   enableFootnotes = true,
   streamCursor = true,
   citations = [],
-  onFixChart
+  onFixChart,
 }: MarkdownRendererProps) {
   const processedContent = useMemo(() => {
     let normalized = (
       content
-        // Strip invisible characters that can break markdown code fence parsing.
         .replace(/[\u200B-\u200D\uFEFF]/g, "")
         .replace(/\r\n?/g, "\n")
-        // Some model outputs place code fences after punctuation on the same line.
         .replace(/([^\n])(```[a-zA-Z]+)/g, "$1\n$2")
     );
     if (enableAlerts) {
@@ -404,425 +778,22 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   }, [content, enableAlerts, enableFootnotes]);
 
   return (
-    <ChartFixCallbackContext.Provider value={onFixChart ?? null}>
-    <div className="markdown-content max-w-none">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={{
-          pre({ children }) {
-            return <div className="my-3 w-full">{children}</div>;
-          },
-          code({ className, children, ...props }) {
-            const match = /language-([^\s]+)/.exec(className || "");
-            const language = match ? match[1].trim().toLowerCase() : "";
-            const codeString = String(children).replace(/\n$/, "");
-            const isInline = !match && !codeString.includes("\n");
-
-            if (isInline) {
-              return (
-                <code
-                  className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-sm"
-                  {...props}
-                >
-                  {children}
-                </code>
-              );
-            }
-
-            // -----------------------------------------------------------------
-            // Streaming chart guard: while the AI is still generating a
-            // chart code block, the content is incomplete. Rendering
-            // incomplete markup causes errors and flicker.
-            //
-            // Strategy:
-            //  - Mermaid / mindmap: show the raw code block so users can see
-            //    progress in real time. The chart renders once streaming ends.
-            //  - JSON-based blocks (adc, echarts, etc.): show a type-aware
-            //    skeleton until JSON.parse succeeds.
-            // -----------------------------------------------------------------
-            if (isStreaming && isChartLanguage(language)) {
-              const isMermaidLang = language === "mermaid" || language === "mmd";
-              const isMindmapLang = language === "mindmap";
-
-              if (isMermaidLang || isMindmapLang) {
-                // Show raw code during streaming so user sees progress;
-                // chart will render once streaming completes.
-                return <SuspenseCodeBlock language={isMermaidLang ? "mermaid" : "markdown"} code={codeString} />;
-              } else {
-                // JSON-based chart blocks (adc, echarts, stat, dashboard, excalidraw)
-                if (!isJsonComplete(codeString)) {
-                  const detected = detectChartTypeFromPartial(language, codeString);
-                  return <ChartTypeSkeleton type={detected.subtype} />;
-                }
-                // JSON is complete — fall through to normal chart rendering
-              }
-            }
-
-            // Interactive mind map via markmap (```mindmap code blocks)
-            if (language === "mindmap") {
-              return (
-                <ErrorBoundary
-                  level="chart"
-                  fallback={<InvalidChartSpec message="Invalid mind map" code={codeString} />}
-                  onError={(error) =>
-                    trackChatEvent("chart_render_failure", { engine: "markmap", errorCode: error.message })
-                  }
-                >
-                  <LazyMarkmapRenderer code={codeString} />
-                </ErrorBoundary>
-              );
-            }
-
-            // Mermaid diagrams - lazy loaded
-            const isMermaidBlock =
-              language === "mermaid" || language === "mmd" || looksLikeMermaid(codeString);
-            if (isMermaidBlock) {
-              const sanitized = sanitizeMermaidCode(codeString);
-              const validation = validateMermaidCode(sanitized.sanitized);
-              if (!validation.valid) {
-                return (
-                  <InvalidChartSpec
-                    message={`Invalid Mermaid spec: ${validation.error ?? "Unknown error"}`}
-                    code={codeString}
-                  />
-                );
-              }
-
-              // Detect Mermaid mindmap and offer toggle to interactive markmap
-              const isMermaidMindmap = /^\s*mindmap\b/i.test(sanitized.sanitized.trim());
-
-              if (isMermaidMindmap) {
-                return (
-                  <MermaidMindmapWithToggle
-                    mermaidCode={sanitized.sanitized}
-                    rawCode={codeString}
-                  />
-                );
-              }
-
-              return (
-                <ErrorBoundary
-                  level="chart"
-                  fallback={<InvalidChartSpec message="Invalid Mermaid spec" code={codeString} />}
-                  onError={(error) =>
-                    trackChatEvent("chart_render_failure", { engine: "mermaid", errorCode: error.message })
-                  }
-                >
-                  <LazyMermaidRenderer code={sanitized.sanitized} />
-                </ErrorBoundary>
-              );
-            }
-
-            // G2 charts — engine removed; fall back to code block for old conversations
-            if (language === "g2") {
-              return <SuspenseCodeBlock language="json" code={codeString} />;
-            }
-
-            // Ant Design Charts - lazy loaded
-            if (language === "adc" || language === "ant-design-charts" || language === "antd-charts") {
-              const result = parseAdcSpecFromCode(codeString);
-              const adcChartType = (result.ok && result.spec?.type) ? String(result.spec.type) : "chart";
-
-              if (result.ok && result.spec) {
-                return (
-                  <ErrorBoundary
-                    level="chart"
-                    fallback={<InvalidChartSpec message="Invalid ADC spec" code={codeString} engine="adc" chartType={adcChartType} />}
-                    onError={(error) =>
-                      trackChatEvent("chart_render_failure", { engine: "adc", errorCode: error.message })
-                    }
-                  >
-                    <LazyAntDesignChartsRenderer spec={result.spec} />
-                  </ErrorBoundary>
-                );
-              }
-              const errorMessage =
-                result.error === "ADC_PARSE_INVALID_TYPE"
-                  ? "Unsupported ADC chart type"
-                  : result.error === "ADC_PARSE_UNSUPPORTED_CALLBACK"
-                    ? "ADC callbacks are not supported"
-                    : result.error === "ADC_PARSE_EMPTY"
-                    ? "Empty ADC spec"
-                      : "Invalid ADC JSON";
-              return <InvalidChartSpec message={errorMessage} code={codeString} engine="adc" chartType={adcChartType} />;
-            }
-
-            // ECharts - lazy loaded
-            if (language === "echarts" || language === "echart") {
-              const ecResult = parseEChartsSpecFromCode(codeString);
-              const ecSpecAny = ecResult.ok ? (ecResult.spec as Record<string, unknown>) : null;
-              const ecSeriesArr = Array.isArray(ecSpecAny?.series) ? ecSpecAny.series as Array<Record<string, unknown>> : [];
-              const ecChartType = typeof ecSeriesArr[0]?.type === "string" ? ecSeriesArr[0].type : "chart";
-
-              if (ecResult.ok) {
-                return (
-                  <ErrorBoundary
-                    level="chart"
-                    fallback={<InvalidChartSpec message="Invalid ECharts spec" code={codeString} engine="echarts" chartType={ecChartType} />}
-                    onError={(error) =>
-                      trackChatEvent("chart_render_failure", { engine: "echarts", errorCode: error.message })
-                    }
-                  >
-                    <LazyEChartsRenderer spec={ecResult.spec} />
-                  </ErrorBoundary>
-                );
-              }
-              return <InvalidChartSpec message={ecResult.error} code={codeString} engine="echarts" chartType="chart" />;
-            }
-
-            // Vega-Lite - lazy loaded
-            if (language === "vega-lite" || language === "vegalite" || language === "vl") {
-              const vlResult = parseVegaLiteSpecFromCode(codeString);
-
-              if (vlResult.ok) {
-                return (
-                  <ErrorBoundary
-                    level="chart"
-                    fallback={<InvalidChartSpec message="Invalid Vega-Lite spec" code={codeString} engine="vega-lite" chartType="chart" />}
-                    onError={(error) =>
-                      trackChatEvent("chart_render_failure", { engine: "vega-lite", errorCode: error.message })
-                    }
-                  >
-                    <LazyVegaLiteRenderer spec={vlResult.spec} />
-                  </ErrorBoundary>
-                );
-              }
-              return <InvalidChartSpec message={vlResult.error} code={codeString} engine="vega-lite" chartType="chart" />;
-            }
-
-            // Stat cards (KPI metrics) - lazy loaded
-            if (language === "stat" || language === "stats" || language === "kpi") {
-              const statData = parseStatCardData(codeString);
-              if (statData) {
-                return (
-                  <ErrorBoundary
-                    level="chart"
-                    fallback={<InvalidChartSpec message="Invalid stat card data" code={codeString} engine="stat" chartType="stat" />}
-                    onError={(error) =>
-                      trackChatEvent("chart_render_failure", { engine: "stat", errorCode: error.message })
-                    }
-                  >
-                    <LazyStatCardRenderer data={statData} />
-                  </ErrorBoundary>
-                );
-              }
-              return <InvalidChartSpec message="Invalid stat card JSON" code={codeString} engine="stat" chartType="stat" />;
-            }
-
-            // Dashboard (composite layout) - lazy loaded
-            if (language === "dashboard") {
-              const dashResult = parseDashboardSpec(codeString);
-              if (dashResult.ok) {
-                return (
-                  <ErrorBoundary
-                    level="chart"
-                    fallback={<InvalidChartSpec message="Invalid dashboard spec" code={codeString} engine="dashboard" chartType="dashboard" />}
-                    onError={(error) =>
-                      trackChatEvent("chart_render_failure", { engine: "dashboard", errorCode: error.message })
-                    }
-                  >
-                    <LazyDashboardRenderer spec={dashResult.spec} />
-                  </ErrorBoundary>
-                );
-              }
-              return <InvalidChartSpec message={dashResult.error} code={codeString} engine="dashboard" chartType="dashboard" />;
-            }
-
-            // Excalidraw hand-drawn diagrams - lazy loaded
-            if (language === "excalidraw") {
-              const excalidrawResult = parseExcalidrawData(codeString);
-              if (excalidrawResult.ok) {
-                return (
-                  <ErrorBoundary
-                    level="chart"
-                    fallback={<InvalidChartSpec message="Invalid Excalidraw spec" code={codeString} engine="excalidraw" chartType="excalidraw" />}
-                    onError={(error) =>
-                      trackChatEvent("chart_render_failure", { engine: "excalidraw", errorCode: error.message })
-                    }
-                  >
-                    <LazyExcalidrawRenderer data={excalidrawResult.data} />
-                  </ErrorBoundary>
-                );
-              }
-              return <InvalidChartSpec message={excalidrawResult.error} code={codeString} engine="excalidraw" chartType="excalidraw" />;
-            }
-
-            // React component sandbox - renders in a secure iframe
-            if (language === "react" || language === "jsx" || language === "tsx") {
-              // During streaming, show code block to avoid jitter
-              if (isStreaming) {
-                return <SuspenseCodeBlock language={language} code={codeString} />;
-              }
-              return (
-                <ErrorBoundary
-                  level="chart"
-                  fallback={<InvalidChartSpec message="React component render failed" code={codeString} engine="react" chartType="react" />}
-                  onError={(error) =>
-                    trackChatEvent("chart_render_failure", { engine: "react-sandbox", errorCode: error.message })
-                  }
-                >
-                  <LazyReactSandbox code={codeString} />
-                </ErrorBoundary>
-              );
-            }
-
-            // SVG handling
-            const decodedCodeString = decodeHtmlEntities(codeString);
-            const svgLikeCode = looksLikeSvgMarkup(codeString)
-              ? codeString
-              : looksLikeSvgMarkup(decodedCodeString)
-                ? decodedCodeString
-                : "";
-
-            // HTML document handling - use new HtmlDirectRenderer (no iframe!)
-            const isHtmlDocument =
-              language === "html" &&
-              (looksLikeHtmlDocument(codeString) || looksLikeHtmlDocument(decodedCodeString));
-
-            const firstSvgInCode = extractFirstSvgMarkup(codeString);
-            const firstSvgInDecodedCode = extractFirstSvgMarkup(decodedCodeString);
-            const svgFromHtmlDocument = firstSvgInCode ?? firstSvgInDecodedCode;
-
-            // SVG XML block
-            const isSvgXmlBlock =
-              (language === "xml" ||
-                language === "xhtml" ||
-                (language === "html" && !isHtmlDocument)) &&
-              !!svgLikeCode;
-            const isRawSvgBlock = language === "svg" || (!language && !!svgLikeCode);
-
-            if (isSvgXmlBlock || isRawSvgBlock) {
-              return <SvgRenderer code={svgLikeCode} />;
-            }
-
-            // HTML preview - use new Shadow DOM renderer (no iframe, auto height!)
-            if (language === "html") {
-              // During streaming, show code block to avoid jitter
-              if (isStreaming) {
-                return <SuspenseCodeBlock language={language} code={codeString} />;
-              }
-              // If HTML contains SVG, render both
-              if (isHtmlDocument && svgFromHtmlDocument) {
-                return (
-                  <>
-                    <HtmlDirectRenderer code={codeString} />
-                    <SvgRenderer code={svgFromHtmlDocument} />
-                  </>
-                );
-              }
-              return <HtmlDirectRenderer code={codeString} />;
-            }
-
-            // Markdown preview
-            if (language === "markdown" || language === "md") {
-              return <MarkdownPreviewRenderer code={codeString} />;
-            }
-
-            // Default code block
-            return <SuspenseCodeBlock language={language} code={codeString} />;
-          },
-          p({ children }) {
-            return (
-              <p className="mb-3 last:mb-0 leading-relaxed text-sm text-foreground">{children}</p>
-            );
-          },
-          h1({ children }) {
-            return (
-              <h1 className="mb-4 mt-6 first:mt-0 text-xl font-semibold text-foreground">
-                {children}
-              </h1>
-            );
-          },
-          h2({ children }) {
-            return (
-              <h2 className="mb-3 mt-5 first:mt-0 text-lg font-semibold text-foreground">
-                {children}
-              </h2>
-            );
-          },
-          h3({ children }) {
-            return (
-              <h3 className="mb-2 mt-4 first:mt-0 text-base font-semibold text-foreground">
-                {children}
-              </h3>
-            );
-          },
-          ul({ children }) {
-            return <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>;
-          },
-          ol({ children }) {
-            return <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>;
-          },
-          li({ children }) {
-            return <li className="text-sm text-foreground">{children}</li>;
-          },
-          a({ href, children }) {
-            return (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
-                {children}
-              </a>
-            );
-          },
-          blockquote({ children }) {
-            const { type: alertType, cleanedChildren } = extractAlertType(children);
-
-            if (alertType) {
-              return <MarkdownAlert type={alertType}>{cleanedChildren}</MarkdownAlert>;
-            }
-
-            return (
-              <blockquote className="border-l-4 border-accent/50 pl-4 py-1 my-3 bg-muted/30 rounded-r">
-                {children}
-              </blockquote>
-            );
-          },
-          hr() {
-            return <hr className="my-4 border-border" />;
-          },
-          table({ children }) {
-            return <SmartTable>{children}</SmartTable>;
-          },
-          thead({ children }) {
-            return <thead className="bg-muted/50">{children}</thead>;
-          },
-          th({ children }) {
-            return (
-              <th className="px-4 py-2 text-left text-sm font-semibold text-foreground border-b border-border">
-                {children}
-              </th>
-            );
-          },
-          td({ children }) {
-            return (
-              <td className="px-4 py-2 text-sm text-foreground border-b border-border last:border-b-0">
-                {children}
-              </td>
-            );
-          },
-          strong({ children }) {
-            return <strong className="font-semibold">{children}</strong>;
-          },
-          em({ children }) {
-            return <em className="italic">{children}</em>;
-          },
-          del({ children }) {
-            return <del className="line-through opacity-70">{children}</del>;
-          },
-        }}
-      >
-        {processedContent}
-      </ReactMarkdown>
-      {isStreaming && streamCursor && (
-        <span className="inline-block w-0.5 h-[1em] bg-accent ml-0.5 animate-blink-cursor" />
-      )}
-      <CitationCards items={citations} />
-    </div>
-    </ChartFixCallbackContext.Provider>
+    <IsStreamingContext.Provider value={isStreaming ?? false}>
+      <ChartFixCallbackContext.Provider value={onFixChart ?? null}>
+        <div className="markdown-content max-w-none">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={MARKDOWN_COMPONENTS}
+          >
+            {processedContent}
+          </ReactMarkdown>
+          {isStreaming && streamCursor && (
+            <span className="inline-block w-0.5 h-[1em] bg-accent ml-0.5 animate-blink-cursor" />
+          )}
+          <CitationCards items={citations} />
+        </div>
+      </ChartFixCallbackContext.Provider>
+    </IsStreamingContext.Provider>
   );
 });

@@ -26,6 +26,8 @@ export function useInViewport(options: UseInViewportOptions = {}): {
   const [inViewport, setInViewport] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const nodeRef = useRef<HTMLElement | null>(null);
+  // Track triggered state in a ref to avoid re-creating the ref callback.
+  const triggeredRef = useRef(false);
 
   // Disconnect any existing observer.
   const disconnect = useCallback(() => {
@@ -36,6 +38,8 @@ export function useInViewport(options: UseInViewportOptions = {}): {
   }, []);
 
   // Ref callback — attaches the observer when the DOM node is available.
+  // Does NOT include `inViewport` in deps to avoid re-creating on trigger,
+  // which would cause React to call ref(null) → ref(node) and restart ECharts.
   const ref = useCallback(
     (node: HTMLElement | null) => {
       // Cleanup previous observer when the node changes.
@@ -43,12 +47,13 @@ export function useInViewport(options: UseInViewportOptions = {}): {
       nodeRef.current = node;
 
       // Already triggered — nothing to observe.
-      if (inViewport || !node) return;
+      if (triggeredRef.current || !node) return;
 
       const observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
+              triggeredRef.current = true;
               setInViewport(true);
               observer.disconnect();
               observerRef.current = null;
@@ -62,10 +67,7 @@ export function useInViewport(options: UseInViewportOptions = {}): {
       observer.observe(node);
       observerRef.current = observer;
     },
-    // `inViewport` is intentionally in the dep list so we stop observing
-    // once triggered.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [threshold, rootMargin, inViewport, disconnect],
+    [threshold, rootMargin, disconnect],
   );
 
   // Cleanup on unmount.
