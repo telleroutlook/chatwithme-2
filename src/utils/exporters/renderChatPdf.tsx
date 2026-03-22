@@ -18,6 +18,7 @@ import { createRoot } from "react-dom/client";
 import type { UIMessage } from "ai";
 import { MarkdownRenderer } from "../../components/MarkdownRenderer";
 import { formatMessageWithRolePrefix } from "../message-text";
+import { disableOklabStylesheets } from "./image";
 
 // ---------------------------------------------------------------------------
 // CSS injected into the hidden container to force light-mode hex colours
@@ -108,10 +109,45 @@ function sanitizeInlineColors(doc: Document): void {
 }
 
 // ---------------------------------------------------------------------------
+// Strip oklab/oklch/color-mix declarations from all <style> sheets in a
+// cloned document so html2canvas never tries to parse them.
+// Also disables <link> stylesheets that contain unsafe color functions
+// (html2canvas re-fetches linked sheets in the clone, so we must disable them).
+// ---------------------------------------------------------------------------
+function sanitizeStylesheets(doc: Document): void {
+  // Patch inline <style> tags
+  doc.querySelectorAll<HTMLStyleElement>("style").forEach((styleEl) => {
+    if (!UNSAFE_COLOR_RE.test(styleEl.textContent ?? "")) return;
+    styleEl.textContent = (styleEl.textContent ?? "").replace(
+      /:\s*(?:oklab|oklch|color-mix|lch|lab)\s*\([^;{}]*\)/gi,
+      ": transparent"
+    );
+  });
+
+  // Disable <link rel="stylesheet"> sheets that carry unsafe color functions.
+  // We can't read cross-origin sheets, so also disable by href heuristic.
+  for (const sheet of Array.from(doc.styleSheets)) {
+    try {
+      const rules = Array.from(sheet.cssRules ?? []);
+      if (rules.some((r) => UNSAFE_COLOR_RE.test(r.cssText))) {
+        (sheet as CSSStyleSheet).disabled = true;
+      }
+    } catch {
+      // Cross-origin stylesheet — skip (can't read cssRules)
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Wait for lazy charts and images to finish rendering.
+// Charts (ECharts, Mermaid, Vega-Lite) are lazily imported and async — they
+// need significantly more time than plain markdown to fully paint their SVG/canvas.
 // ---------------------------------------------------------------------------
 async function waitForRender(el: HTMLElement): Promise<void> {
+  // First tick: let React commit the tree
   await new Promise<void>((r) => setTimeout(r, 80));
+
+  // Wait for any <img> elements to load
   const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img"));
   await Promise.all(
     imgs.map((img) =>
@@ -123,7 +159,11 @@ async function waitForRender(el: HTMLElement): Promise<void> {
           })
     )
   );
-  await new Promise<void>((r) => setTimeout(r, 300));
+
+  // Give lazy-loaded chart bundles (ECharts, Mermaid, Vega-Lite, Markmap) time
+  // to dynamically import, initialize, and paint their SVG/canvas content.
+  // 1500 ms covers worst-case cold lazy load + ECharts init + animation frame.
+  await new Promise<void>((r) => setTimeout(r, 1500));
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
 }
 
@@ -270,6 +310,14 @@ export async function exportRenderedChatToPdf(
 
   const root = createRoot(mountPoint);
 
+  // Force light mode on <html> for the duration of the export so that
+  // useThemeDetector() inside ECharts/Mermaid/Vega-Lite returns false and
+  // charts render with dark-text-on-white colours.  We restore the original
+  // value in the finally block so the user never sees a flicker.
+  const html = document.documentElement;
+  const prevMode = html.getAttribute("data-mode");
+  html.setAttribute("data-mode", "light");
+
   try {
     // 2. Render React tree (ECharts SVG renders natively — no special handling needed)
     await new Promise<void>((resolve) => {
@@ -284,20 +332,27 @@ export async function exportRenderedChatToPdf(
 
     // 4. Capture the full container with html2canvas
     const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(mountPoint, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-      width: 900,
-      windowWidth: 900,
-      onclone: (clonedDoc: Document) => {
-        const s = clonedDoc.createElement("style");
-        s.textContent = LIGHT_OVERRIDE_CSS;
-        clonedDoc.head.appendChild(s);
-        sanitizeInlineColors(clonedDoc);
-      },
-    });
+    const disabledSheets = disableOklabStylesheets();
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(mountPoint, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        width: 900,
+        windowWidth: 900,
+        onclone: (clonedDoc: Document) => {
+          sanitizeStylesheets(clonedDoc);
+          const s = clonedDoc.createElement("style");
+          s.textContent = LIGHT_OVERRIDE_CSS;
+          clonedDoc.head.appendChild(s);
+          sanitizeInlineColors(clonedDoc);
+        },
+      });
+    } finally {
+      for (const sheet of disabledSheets) sheet.disabled = false;
+    }
 
     // 5. Paginate into A4 PDF
     const { default: jsPDF } = await import("jspdf");
@@ -326,6 +381,12 @@ export async function exportRenderedChatToPdf(
 
     pdf.save(filename);
   } finally {
+    // Restore original theme before unmounting
+    if (prevMode !== null) {
+      html.setAttribute("data-mode", prevMode);
+    } else {
+      html.removeAttribute("data-mode");
+    }
     root.unmount();
     document.body.removeChild(wrapper);
   }

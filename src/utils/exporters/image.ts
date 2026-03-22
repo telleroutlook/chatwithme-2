@@ -11,6 +11,29 @@ export interface ExportOptions {
 }
 
 /**
+ * html2canvas parses every CSSStyleSheet on the page and crashes on
+ * `color-mix(in oklab, ...)` before it even starts rendering.
+ * Temporarily disable any stylesheet that contains oklab rules,
+ * then re-enable them after the capture completes.
+ */
+export function disableOklabStylesheets(): CSSStyleSheet[] {
+  const disabled: CSSStyleSheet[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const rules = Array.from(sheet.cssRules ?? []);
+      const hasOklab = rules.some((r) => r.cssText.includes("oklab"));
+      if (hasOklab) {
+        sheet.disabled = true;
+        disabled.push(sheet);
+      }
+    } catch {
+      // Cross-origin stylesheet — can't read cssRules, skip
+    }
+  }
+  return disabled;
+}
+
+/**
  * Capture DOM element as PNG data-URL (does not download).
  */
 export async function toPngDataUrl(
@@ -24,7 +47,12 @@ export async function toPngDataUrl(
   } = options;
 
   const { toPng } = await import("html-to-image");
-  return toPng(element, { quality, pixelRatio, backgroundColor });
+  const disabled = disableOklabStylesheets();
+  try {
+    return await toPng(element, { quality, pixelRatio, backgroundColor });
+  } finally {
+    for (const sheet of disabled) sheet.disabled = false;
+  }
 }
 
 /**

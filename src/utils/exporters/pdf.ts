@@ -108,14 +108,21 @@ export async function exportToPdf(
     filename = "export.pdf",
   } = options;
 
-  // Dynamic imports
-  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+// Dynamic imports
+  const [{ default: jsPDF }, { default: html2canvas }, { disableOklabStylesheets }] = await Promise.all([
     import("jspdf"),
     import("html2canvas"),
+    import("./image"),
   ]);
 
   // Render element to canvas
-  const canvas = await html2canvas(element, getHtml2CanvasOptions());
+  const disabledSheets = disableOklabStylesheets();
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(element, getHtml2CanvasOptions());
+  } finally {
+    for (const sheet of disabledSheets) sheet.disabled = false;
+  }
 
   // Calculate dimensions
   const imgWidth = canvas.width;
@@ -226,9 +233,10 @@ export async function exportMultipleToPdf(
 ): Promise<void> {
   const { filename = "export.pdf" } = options;
 
-  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+  const [{ default: jsPDF }, { default: html2canvas }, { disableOklabStylesheets }] = await Promise.all([
     import("jspdf"),
     import("html2canvas"),
+    import("./image"),
   ]);
 
   const pdf = new jsPDF({
@@ -244,7 +252,13 @@ export async function exportMultipleToPdf(
       pdf.addPage();
     }
 
-    const canvas = await html2canvas(element, getHtml2CanvasOptions());
+    const disabledSheets = disableOklabStylesheets();
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(element, getHtml2CanvasOptions());
+    } finally {
+      for (const sheet of disabledSheets) sheet.disabled = false;
+    }
 
     const imgWidth = canvas.width;
     const imgHeight = canvas.height;

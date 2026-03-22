@@ -222,18 +222,44 @@ export function ChartToolbar({
   }, [containerRef, engine, chartType, isCanvasEngine, isDark, getDataUrl]);
 
   // ---- SVG ----
-  const handleSvg = useCallback(() => {
+  const handleSvg = useCallback(async () => {
     const el = containerRef.current;
     if (!el) return;
     setBusy("svg");
     try {
       const svg = el.querySelector("svg");
       if (svg) {
-        const clone = svg.cloneNode(true) as SVGElement;
-        if (!clone.getAttribute("xmlns")) {
-          clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        // Switch to light mode temporarily so computed styles resolve to
+        // light-theme values before cloning — prevents dark CSS vars being
+        // baked into the exported file as-is (white text on transparent bg).
+        const html = document.documentElement;
+        const prevMode = html.getAttribute("data-mode");
+        html.setAttribute("data-mode", "light");
+        let markup: string;
+        try {
+          const clone = svg.cloneNode(true) as SVGElement;
+          if (!clone.getAttribute("xmlns")) {
+            clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+          }
+          // Prepend a white background rect so the SVG looks correct when
+          // opened in viewers that default to a transparent / dark canvas.
+          const w = svg.getAttribute("width") || svg.viewBox?.baseVal?.width?.toString() || "800";
+          const h = svg.getAttribute("height") || svg.viewBox?.baseVal?.height?.toString() || "400";
+          const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          bgRect.setAttribute("width", "100%");
+          bgRect.setAttribute("height", "100%");
+          bgRect.setAttribute("fill", "#ffffff");
+          clone.insertBefore(bgRect, clone.firstChild);
+          if (!clone.getAttribute("width")) clone.setAttribute("width", w);
+          if (!clone.getAttribute("height")) clone.setAttribute("height", h);
+          markup = new XMLSerializer().serializeToString(clone);
+        } finally {
+          if (prevMode !== null) {
+            html.setAttribute("data-mode", prevMode);
+          } else {
+            html.removeAttribute("data-mode");
+          }
         }
-        const markup = new XMLSerializer().serializeToString(clone);
         downloadTextFile(markup, makeFilename(engine, chartType, "svg"), "image/svg+xml");
       } else if (isCanvasEngine) {
         // Canvas engines have no SVG — export as PNG from canvas directly

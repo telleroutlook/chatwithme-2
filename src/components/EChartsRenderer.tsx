@@ -273,23 +273,37 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
   }, []);
 
   // Provide a light-theme PNG data-URL for export.
-  // In dark mode, imports echarts and renders a temporary offscreen light-theme
-  // canvas instance so axis labels, legend text etc. are dark-on-white.
+  // Always uses an offscreen canvas renderer because the live chart uses SVG renderer,
+  // and ECharts SVG renderer ignores the `backgroundColor` param in getDataURL()
+  // (the param only works for canvas renderer). This ensures a solid white background
+  // in all exported images regardless of the current theme.
   const getDataUrl = useCallback(async (): Promise<string | null> => {
     if (!chartRef.current || chartRef.current.isDisposed()) return null;
 
-    if (!isDark) {
-      return chartRef.current.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
-    }
-
-    // Dark mode: render a temporary offscreen light-theme chart
     const echarts = await import("echarts");
+    const lightTokens = getChartThemeTokens(false);
     const offscreenDiv = document.createElement("div");
     offscreenDiv.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;height:500px;visibility:hidden;";
     document.body.appendChild(offscreenDiv);
     try {
       const tempChart = echarts.init(offscreenDiv, undefined, { renderer: "canvas", width: 800, height: 500 });
-      tempChart.setOption({ ...mergedOption, backgroundColor: "#ffffff" });
+
+      // Wait for ECharts to finish rendering before calling getDataURL.
+      // Canvas rendering is scheduled via requestAnimationFrame, so calling
+      // getDataURL() synchronously after setOption() captures a blank canvas.
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 3000); // safety timeout
+        tempChart.on("finished", () => { clearTimeout(timer); resolve(); });
+        tempChart.setOption({
+          ...mergedOption,
+          backgroundColor: "#ffffff",
+          textStyle: {
+            ...((mergedOption.textStyle as Record<string, unknown>) ?? {}),
+            color: lightTokens.axisLabelFill,
+          },
+        });
+      });
+
       const dataUrl = tempChart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
       tempChart.dispose();
       return dataUrl;
@@ -298,7 +312,7 @@ const EChartsRendererInner = memo(function EChartsRendererInner({ spec }: EChart
     } finally {
       document.body.removeChild(offscreenDiv);
     }
-  }, [isDark, mergedOption]);
+  }, [mergedOption]);
 
   // ---- Error state ----
   if (error) {

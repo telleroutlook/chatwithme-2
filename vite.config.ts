@@ -26,10 +26,7 @@ export default defineConfig({
           if (id.includes("node_modules/mermaid/")) {
             return "vendor-mermaid";
           }
-          if (id.includes("node_modules/@ant-design/charts/")) {
-            return "vendor-adc";
-          }
-          if (id.includes("node_modules/echarts/")) {
+if (id.includes("node_modules/echarts/")) {
             return "vendor-echarts";
           }
           if (id.includes("node_modules/markmap-")) {
