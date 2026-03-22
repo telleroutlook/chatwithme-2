@@ -74,5 +74,6 @@ export {
   deleteMessage,
   editUserMessage,
   regenerateFrom,
+  trimToMessage,
   seedHistory
 } from "./chat-methods";

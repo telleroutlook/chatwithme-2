@@ -1,10 +1,9 @@
 import { useCallback } from "react";
-import { nanoid } from "nanoid";
 import type { UIMessage } from "ai";
 import {
   isDeleteMessageResult,
   isEditMessageResult,
-  isRegenerateMessageResult,
+  isTrimToMessageResult,
   isFixChartResult
 } from "../services/apiContracts";
 import {
@@ -16,7 +15,6 @@ import { trackChatEvent } from "../services/trackChatEvent";
 import type { SessionSyncReason } from "../services/sessionSync";
 import type { UiMessageKey } from "../../../i18n/ui";
 import type { TranslateParams } from "../../../hooks/useI18n";
-import type { LiveProgressEntry } from "../services/progress";
 
 export interface ChartFixContext {
   engine: string;
@@ -33,6 +31,7 @@ interface UseMessageActionsParams {
     deleteMessage: (messageId: string) => Promise<unknown>;
     editMessage: (messageId: string, content: string) => Promise<unknown>;
     regenerateMessage: (messageId: string) => Promise<unknown>;
+    trimToMessage: (messageId: string) => Promise<unknown>;
     fixChart: (messageId: string, engine: string, chartType: string, brokenSpec: string, errorMessage?: string) => Promise<unknown>;
     getHistory: () => Promise<Array<{ id?: string; role?: string; content?: string }>>;
   };
@@ -41,10 +40,8 @@ interface UseMessageActionsParams {
   addToast: (message: string, type: "success" | "error" | "info") => void;
   t: (key: UiMessageKey, params?: TranslateParams) => string;
   enqueueSessionSync: (type: SessionSyncReason) => void;
-  setAwaitingFirstAssistant: (value: boolean) => void;
-  setAwaitingAssistantFromIndex: (value: number | null) => void;
-  setLiveProgress: React.Dispatch<React.SetStateAction<LiveProgressEntry[]>>;
   setSessions: (sessions: ReturnType<typeof loadSessions>) => void;
+  handleSend: (textOverride: string) => void;
 }
 
 export interface UseMessageActionsResult {
@@ -67,10 +64,8 @@ export function useMessageActions(
     addToast,
     t,
     enqueueSessionSync,
-    setAwaitingFirstAssistant,
-    setAwaitingAssistantFromIndex,
-    setLiveProgress,
-    setSessions
+    setSessions,
+    handleSend
   } = params;
 
   const handleDeleteMessage = useCallback(
@@ -188,62 +183,24 @@ export function useMessageActions(
         return;
       }
       trackChatEvent("message_regenerate", { messageId: String(messageId) });
-      setAwaitingFirstAssistant(true);
-      setAwaitingAssistantFromIndex(chatMessages.length);
-      setLiveProgress([
-        {
-          id: nanoid(10),
-          timestamp: new Date().toISOString(),
-          phase: "context",
-          message: t("message_actions_regenerate"),
-          status: "start",
-          severity: "low",
-          groupKey: "context"
-        }
-      ]);
       try {
-        const previousCount = chatMessages.length;
-        const result = await chatTransport.regenerateMessage(String(messageId));
-        if (!isRegenerateMessageResult(result)) {
-          throw new Error("Invalid regenerateFrom response");
+        const result = await chatTransport.trimToMessage(String(messageId));
+        if (!isTrimToMessageResult(result)) {
+          throw new Error("Invalid trimToMessage response");
         }
-        if (!result.success) {
-          throw new Error(result.error || "Regenerate failed");
-        }
-
-        const history = await chatTransport.getHistory();
-        let hydrated = false;
-        if (Array.isArray(history)) {
-          const mapped = history.map((item, index) => ({
-            id: item.id ?? `history-${index}-${Date.now()}`,
-            role:
-              item.role === "user" || item.role === "assistant" || item.role === "system"
-                ? item.role
-                : "assistant",
-            parts: [{ type: "text", text: item.content ?? "" }]
-          })) as UIMessage[];
-          setChatMessages(mapped);
-          hydrated = mapped.length > previousCount;
-        }
-        if (!hydrated && typeof result.response === "string" && result.response.trim().length > 0) {
-          setChatMessages((prev) => [
-            ...prev,
-            {
-              id: nanoid(),
-              role: "assistant",
-              parts: [{ type: "text", text: result.response }]
-            } as UIMessage
-          ]);
+        if (!result.success || !result.userText) {
+          throw new Error(result.error || "Trim failed");
         }
 
-        setAwaitingFirstAssistant(false);
-        setAwaitingAssistantFromIndex(null);
-        setLiveProgress([]);
-        addToast(t("message_regenerate_success"), "success");
+        // Update local message list to match trimmed server state
+        // (remove the anchor user message + everything after it)
+        const trimmedCount = result.trimmedCount ?? 0;
+        setChatMessages((prev) => prev.slice(0, trimmedCount));
+
+        // Re-send via the normal WebSocket streaming path
+        handleSend(result.userText);
       } catch (error) {
         console.error("Failed to regenerate message:", error);
-        setAwaitingFirstAssistant(false);
-        setAwaitingAssistantFromIndex(null);
         addToast(
           t("message_regenerate_failed", {
             reason: error instanceof Error ? error.message : "Unknown error"
@@ -255,13 +212,10 @@ export function useMessageActions(
     [
       addToast,
       chatTransport,
-      chatMessages.length,
       permissions.canEdit,
       setChatMessages,
       t,
-      setAwaitingFirstAssistant,
-      setAwaitingAssistantFromIndex,
-      setLiveProgress
+      handleSend
     ]
   );
 

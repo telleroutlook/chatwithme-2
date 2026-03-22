@@ -281,6 +281,65 @@ export async function regenerateFrom(
 }
 
 /**
+ * Trim message history up to and including the anchor user message preceding
+ * the given messageId, then return the trimmed list and the user text.
+ * Does NOT generate a new response — caller is responsible for that via the
+ * normal WebSocket streaming path.
+ */
+export async function trimToMessage(
+  messageId: string,
+  currentMessages: unknown,
+  persistMessages: PersistMessagesFunction
+): Promise<{ success: boolean; userText?: string; trimmedCount?: number; error?: string }> {
+  if (!messageId) {
+    return { success: false, error: "Message ID is required" };
+  }
+
+  try {
+    const msgArray = (Array.isArray(currentMessages) ? currentMessages : []) as ChatMessage[];
+
+    let index = resolveMessageIndex(msgArray, messageId, "assistant");
+    if (index < 0) {
+      index = resolveMessageIndex(msgArray, messageId, "user");
+    }
+    if (index < 0) {
+      return { success: false, error: "Message not found" };
+    }
+
+    // Walk backward to the anchor user message
+    let anchorIndex = index;
+    if (msgArray[index].role !== "user") {
+      for (let i = index; i >= 0; i -= 1) {
+        if (msgArray[i].role === "user") {
+          anchorIndex = i;
+          break;
+        }
+      }
+    }
+
+    const anchorMessage = msgArray[anchorIndex];
+    if (!anchorMessage || anchorMessage.role !== "user") {
+      return { success: false, error: "No user message found for regeneration" };
+    }
+
+    const userText = getMessageText(anchorMessage.parts).trim();
+    if (!userText) {
+      return { success: false, error: "User message content is empty" };
+    }
+
+    // Keep everything up to (but NOT including) the anchor user message,
+    // so the WebSocket sendMessage call appends it fresh.
+    const trimmedMessages = msgArray.slice(0, anchorIndex);
+    await persistMessages(trimmedMessages);
+
+    return { success: true, userText, trimmedCount: trimmedMessages.length };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { success: false, error: message };
+  }
+}
+
+/**
  * Seed a session with specific history messages
  */
 export async function seedHistory(

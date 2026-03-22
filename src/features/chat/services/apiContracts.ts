@@ -23,6 +23,24 @@ export interface RegenerateMessageResult {
   error?: string;
 }
 
+export interface TrimToMessageResult {
+  success: boolean;
+  userText?: string;
+  trimmedCount?: number;
+  error?: string;
+}
+
+export function isTrimToMessageResult(value: unknown): value is TrimToMessageResult {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { success?: unknown; userText?: unknown; trimmedCount?: unknown; error?: unknown };
+  return (
+    typeof candidate.success === "boolean" &&
+    (candidate.userText === undefined || typeof candidate.userText === "string") &&
+    (candidate.trimmedCount === undefined || typeof candidate.trimmedCount === "number") &&
+    (candidate.error === undefined || typeof candidate.error === "string")
+  );
+}
+
 export interface DeleteSessionResult {
   success: boolean;
   destroyed: boolean;

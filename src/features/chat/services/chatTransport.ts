@@ -4,6 +4,7 @@ import type {
   DeleteMessageResult,
   EditMessageResult,
   RegenerateMessageResult,
+  TrimToMessageResult,
   FixChartResult,
   ToggleServerResult
 } from "./apiContracts";
@@ -52,6 +53,7 @@ export interface ChatTransport {
   deleteMessage: (messageId: string) => Promise<DeleteMessageResult>;
   editMessage: (messageId: string, content: string) => Promise<EditMessageResult>;
   regenerateMessage: (messageId: string) => Promise<RegenerateMessageResult>;
+  trimToMessage: (messageId: string) => Promise<TrimToMessageResult>;
   fixChart: (messageId: string, engine: string, chartType: string, brokenSpec: string, errorMessage?: string) => Promise<FixChartResult>;
   toggleServer: (name: string) => Promise<ToggleServerResult>;
   listApprovals: () => Promise<unknown[]>;
@@ -290,6 +292,21 @@ export function createChatTransport({
           } as RegenerateMessageResult;
         },
         { requestId, sessionId, method: "regenerateMessage" }
+      );
+      if (result.success) {
+        invalidateHistoryCache();
+      }
+      return result;
+    },
+
+    async trimToMessage(messageId: string) {
+      const requestId = generateRequestId();
+      const result = await withAgentFallback(
+        async () => (await agent.call("trimToMessage", [messageId])) as TrimToMessageResult,
+        async () => {
+          throw new Error("trimToMessage requires WebSocket connection");
+        },
+        { requestId, sessionId, method: "trimToMessage" }
       );
       if (result.success) {
         invalidateHistoryCache();

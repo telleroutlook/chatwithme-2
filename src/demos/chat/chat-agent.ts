@@ -80,6 +80,7 @@ import {
   deleteMessage as deleteMessageImpl,
   editUserMessage as editUserMessageImpl,
   regenerateFrom as regenerateFromImpl,
+  trimToMessage as trimToMessageImpl,
   seedHistory as seedHistoryImpl
 } from "./runtime";
 
@@ -1036,6 +1037,17 @@ ${brokenSpec.slice(0, 6000)}`;
       this.messages,
       this.generateAssistantResponse.bind(this),
       this.persistMessages.bind(this) as Parameters<typeof regenerateFromImpl>[3]
+    );
+  }
+
+  @callable({ description: "Trim message history up to the user message preceding messageId, returning the user text so the client can resend it via WebSocket for streaming" })
+  async trimToMessage(
+    messageId: string
+  ): Promise<{ success: boolean; userText?: string; trimmedCount?: number; error?: string }> {
+    return trimToMessageImpl(
+      messageId,
+      this.messages,
+      this.persistMessages.bind(this) as Parameters<typeof trimToMessageImpl>[2]
     );
   }
 

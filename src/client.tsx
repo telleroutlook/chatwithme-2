@@ -502,23 +502,6 @@ function App() {
     [sessionController, applySessionViewReset]
   );
 
-  // Message actions controller
-  const messageActions = useMessageActions({
-    userId,
-    currentSessionId,
-    permissions,
-    chatTransport,
-    chatMessages,
-    setChatMessages,
-    addToast,
-    t,
-    enqueueSessionSync,
-    setAwaitingFirstAssistant,
-    setAwaitingAssistantFromIndex,
-    setLiveProgress,
-    setSessions
-  });
-
   // Tool approval controller
   const toolApprovalController = useToolApprovalController({
     pendingApprovals,
@@ -551,6 +534,21 @@ function App() {
     setAwaitingFirstAssistant,
     setAwaitingAssistantFromIndex,
     setLiveProgress
+  });
+
+  // Message actions controller (depends on chatActions.handleSend for streaming regenerate)
+  const messageActions = useMessageActions({
+    userId,
+    currentSessionId,
+    permissions,
+    chatTransport,
+    chatMessages,
+    setChatMessages,
+    addToast,
+    t,
+    enqueueSessionSync,
+    setSessions,
+    handleSend: chatActions.handleSend
   });
 
   // Export actions controller
