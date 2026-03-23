@@ -1,0 +1,14 @@
+Prompt Benchmark Summary: optimized-v2
+Date: 2026-03-23T13:53:26Z
+Total: 23  Pass: 22  Fail: 1  Rate: 95.7%
+
+Per-category breakdown:
+  chart: 2/2 pass, avg 7574ms, excess tools: 0
+  currency: 2/2 pass, avg 26886ms, excess tools: 0
+  math: 3/3 pass, avg 8474ms, excess tools: 0
+  math_tool: 1/1 pass, avg 28042ms, excess tools: 1
+  no_tool: 8/8 pass, avg 13419ms, excess tools: 0
+  search: 2/3 pass, avg 27369ms, excess tools: 0
+    FAIL: "今天的AI新闻有哪些？" got -1 tools [ERROR]
+  weather: 2/2 pass, avg 10429ms, excess tools: 0
+  wikipedia: 2/2 pass, avg 6896ms, excess tools: 0

@@ -53,15 +53,23 @@ Note: `wrangler tail` may fail on restricted networks — use `_debug` field ins
 
 ## Tool Call Rules
 
-Tool triggers are in `src/demos/chat/system-prompt.ts`. Keep rules targeted, not MANDATORY:
-- **web_search**: only for post-cutoff information; not for stable knowledge
-- **math_eval**: complex calculations only; not simple arithmetic
-- **wikipedia**: only when user explicitly asks to "look up"
-- **chart_template**: only for complex chart types (sankey, treemap, etc.)
-- **currency**: fiat only (USD/EUR/CNY) — NOT BTC/ETH (use web_search)
-- Max 1 search + 1 optional page read per response — never search twice
+Tool triggers live in **three places** that must stay consistent:
+1. `src/demos/chat/system-prompt.ts` — "Tool Guide" table
+2. `src/demos/chat/builtin-tools/*.ts` — each tool's `description` field
+3. `src/demos/chat/runtime/tool-runtime.ts` — `BUILTIN_TOOL_LIST` array
 
-Unnecessary tool calls add 1-3 s each. Use `_debug.toolCalls` to audit.
+If a constraint appears in only one place, the model may ignore it.
+
+After changing tool rules, run: `python3 scripts/benchmark-prompt.py <label>` (23 queries, ~5 min). Compare `.jsonl` files across runs. Each unnecessary tool call adds 1-3s latency.
+
+## Tool Debugging Checklist
+
+1. Check `_debug.toolCalls` — append `?debug_token=TOKEN` to `/api/chat`
+2. Tool receives empty args → likely `parameters` vs `inputSchema` (pitfall #1)
+3. 3+ tool calls per message → check system prompt rules are tight enough
+4. "Cannot access internet" → search backend failure, not model (pitfall #5)
+5. Multiple failures at once → GLM rate limit (pitfall #11); space requests 5s+
+6. Post-deploy first request → always warmup first (DO resets)
 
 ## Key Files
 

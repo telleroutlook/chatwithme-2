@@ -39,7 +39,7 @@ export function createMathEvalTool(): ToolSet {
   return {
     [BUILTIN_MATH_EVAL_KEY]: tool({
       description:
-        "Evaluate mathematical expressions with full precision. Use for arithmetic, algebra, unit conversions (e.g. '5 kg to lbs'), statistics (mean, std), matrix operations, and any calculation where LLM mental math may be inaccurate. Examples: '2^53 + 1', 'sqrt(2) * pi', 'mean([4, 8, 15, 16, 23, 42])', '5 inch to cm'.",
+        "Evaluate complex mathematical expressions that require precision beyond mental math. Use for: expressions with functions (sqrt, sin, cos, log, ln), unit conversions (e.g. '5 kg to lbs'), statistics (mean, std), matrix operations, or chains of 4+ operations. Examples: '2^53 + 1', 'sqrt(2) * pi', 'mean([4, 8, 15, 16, 23, 42])', '5 inch to cm'. Do NOT call for simple arithmetic like 123*456 or 15% of 200.",
       inputSchema: z.object({
         expression: z
           .string()

@@ -379,7 +379,46 @@ SSE events to watch:
 
 ---
 
-## 12. `deleteMessage` must use direct SQL + `persistMessages` (not persistMessages alone)
+## 16. Tool call rules live in three places — all must agree
+
+**Severity**: High — inconsistency causes unpredictable tool usage
+
+Tool call behavior is governed by **three locations**:
+
+1. `src/demos/chat/system-prompt.ts` — "Tool Guide" table in the system prompt
+2. `src/demos/chat/builtin-tools/*.ts` — each tool's `description` field in `tool()`
+3. `src/demos/chat/runtime/tool-runtime.ts` — `BUILTIN_TOOL_LIST` array (echoed in system prompt)
+
+**If a constraint appears in only one place, the model will sometimes ignore it.** For example, putting "do not call for 123*456" only in the system prompt was unreliable; adding the same constraint to the tool's `description` field made it stick.
+
+### Benchmark tool
+
+After changing any tool rule, run the automated benchmark:
+
+```bash
+python3 scripts/benchmark-prompt.py baseline    # before change
+python3 scripts/benchmark-prompt.py after-fix    # after change
+# Compare: scripts/benchmark-results-baseline.jsonl vs scripts/benchmark-results-after-fix.jsonl
+```
+
+The script sends 23 test queries (9 categories: no_tool, search, weather, currency, math, chart, wikipedia, etc.) to production via `curl`, checks `_debug.toolCalls` in responses, and scores pass/fail per query.
+
+**Requirements**:
+- Uses `curl`, not Python urllib (Cloudflare blocks urllib's default User-Agent with 403)
+- Allow 12s delay between requests to avoid GLM rate limits
+- Full run takes ~5 minutes
+
+### Common debugging scenarios
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Tool fires when it shouldn't | System prompt rule too broad, or tool `description` too eager | Tighten rules in all 3 locations; add concrete "don't call for X" example |
+| Tool doesn't fire when it should | Constraint too aggressive ("Do NOT use for...") | Rewrite as positive guidance; check `description` isn't discouraging |
+| 3+ tool calls for simple query | Multi-search loop; search budget rule missing or too vague | Add explicit budget: "exactly 1 search per question" |
+| Tool gets empty args `{}` | `parameters` instead of `inputSchema` in `tool()` | See pitfall #1 |
+| Tool works locally but fails in prod | Missing API key secret, or Cloudflare blocks the target | Check `wrangler secret list`; test target URL from a Worker |
+
+---
 
 **Severity**: High — delete appears to succeed but the message remains in history
 

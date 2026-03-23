@@ -64,16 +64,33 @@ curl -N "$BASE/api/debug/session/$AGENT/stream?token=$TOKEN&interval=1000" # SSE
 
 **After deploy**: first request to a session always triggers a DO reset — do a warmup request first.
 
-## Tool Call Optimization
+## Tool Debugging
 
-System prompt rules govern when tools fire. Over-aggressive rules cause unnecessary latency.
-Current rules in `src/demos/chat/system-prompt.ts` — key principles:
-- Web search: use only for information newer than training cutoff; NOT for stable knowledge
-- Math eval: only for complex/multi-step calculations; not for simple arithmetic
-- Wikipedia: only when user explicitly asks to "look up" something
-- Chart template: only for complex/uncommon chart types; not for common ones
-- "One search, one optional read, never search twice" — prevents multi-search chains
-- Currency: fiat only (USD/EUR/CNY); NOT for BTC/ETH (use web search instead)
+### Three places to check
+
+Tool call behavior is controlled by **three locations** that must stay consistent:
+1. `src/demos/chat/system-prompt.ts` — "Tool Guide" table
+2. `src/demos/chat/builtin-tools/*.ts` — each tool's `description` in `tool()`
+3. `src/demos/chat/runtime/tool-runtime.ts` — `BUILTIN_TOOL_LIST` array
+
+If any one contradicts the others, the model may ignore the constraint.
+
+### Automated benchmark
+
+```bash
+python3 scripts/benchmark-prompt.py <label>   # 23 queries, ~5 min, uses curl
+# Results: scripts/benchmark-results-<label>.jsonl + summary .txt
+```
+Uses `curl` (not Python urllib — Cloudflare blocks urllib User-Agent with 403). Requires 12s between requests for rate limits. Compare `.jsonl` files across runs.
+
+### Debugging checklist
+
+1. **`_debug.toolCalls`** — append `?debug_token=TOKEN` to `/api/chat` to see which tools fired, in what order, with what args and timing.
+2. **Tool count**: 0-2 tools per message = normal. 3+ = check prompt rules.
+3. **Tool receives empty args**: likely `parameters` instead of `inputSchema` in `tool()` — see pitfall #1.
+4. **"I cannot access the internet"**: search backend failure, not model limitation — see pitfall #5.
+5. **Multiple simultaneous failures**: GLM rate limit — see pitfall #11. Space requests 5s+ apart.
+6. **Post-deploy first request fails**: DO reset — always send a warmup request first.
 
 ## Documentation
 
