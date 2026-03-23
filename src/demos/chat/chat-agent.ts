@@ -229,7 +229,11 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         getToolTimeoutMs: () => getToolTimeoutMs(this.env),
         getToolMaxAttempts: () => getToolMaxAttempts(this.env)
       },
-      this.env.SERPER_API_KEY,
+      [
+        this.env.SERPER_API_KEY,
+        this.env.SERPER_API_KEY_2,
+        this.env.SERPER_API_KEY_3,
+      ].filter((k): k is string => !!k),
       emitProgress
     );
 

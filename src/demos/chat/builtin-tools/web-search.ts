@@ -36,38 +36,50 @@ interface SerperResponse {
 
 /**
  * Search via Serper.dev Google Search API.
- * Single HTTP POST — no session, no bot detection, no content filtering.
+ * Accepts an array of API keys and rotates on 429 (quota exceeded).
  */
-export async function searchSerper(query: string, apiKey: string): Promise<SearchResult[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+export async function searchSerper(query: string, apiKeys: string | string[]): Promise<SearchResult[]> {
+  const keys = Array.isArray(apiKeys) ? apiKeys.filter(Boolean) : [apiKeys];
+  if (keys.length === 0) throw new Error("No Serper API keys configured");
 
-  let resp: Response;
-  try {
-    resp = await fetch(SERPER_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-KEY": apiKey,
-      },
-      body: JSON.stringify({ q: query, num: MAX_RESULTS }),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
+  let lastError: Error | null = null;
+  for (const apiKey of keys) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15_000);
+
+    let resp: Response;
+    try {
+      resp = await fetch(SERPER_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-KEY": apiKey,
+        },
+        body: JSON.stringify({ q: query, num: MAX_RESULTS }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (resp.status === 429) {
+      lastError = new Error(`Search quota exceeded (HTTP 429). Use results already retrieved to answer.`);
+      continue; // try next key
+    }
+    if (!resp.ok) {
+      throw new Error(`Serper search failed: HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json() as SerperResponse;
+    return (data.organic ?? []).slice(0, MAX_RESULTS).map((item) => ({
+      title: item.title ?? "",
+      url: item.link ?? "",
+      snippet: item.snippet ?? "",
+    }));
   }
 
-  if (!resp.ok) {
-    throw new Error(`Serper search failed: HTTP ${resp.status}`);
-  }
-
-  const data = await resp.json() as SerperResponse;
-
-  return (data.organic ?? []).slice(0, MAX_RESULTS).map((item) => ({
-    title: item.title ?? "",
-    url: item.link ?? "",
-    snippet: item.snippet ?? "",
-  }));
+  // All keys exhausted
+  throw lastError ?? new Error("All Serper API keys exhausted");
 }
 
 // ============ Format Results ============
@@ -104,7 +116,7 @@ function resolveSearchQuery(args: Record<string, unknown>): string {
   return "";
 }
 
-export function createWebSearchTool(serperApiKey: string): ToolSet {
+export function createWebSearchTool(serperApiKeys: string | string[]): ToolSet {
   return {
     [BUILTIN_TOOL_KEY]: tool({
       description:
@@ -120,7 +132,7 @@ export function createWebSearchTool(serperApiKey: string): ToolSet {
           return 'Error: No search query provided. Please call this tool with {"search_query": "your query here"}.';
         }
         try {
-          const results = await searchSerper(query, serperApiKey);
+          const results = await searchSerper(query, serperApiKeys);
           return formatResults(query, results);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

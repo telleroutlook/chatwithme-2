@@ -9,6 +9,8 @@ declare namespace Cloudflare {
     HOST: string;
     BIGMODEL_API_KEY: string;
     SERPER_API_KEY: string;
+    SERPER_API_KEY_2?: string;
+    SERPER_API_KEY_3?: string;
     CHAT_ENABLE_THINKING?: string;
     CHAT_MODEL_THINKING?: string;
     CHAT_MODEL_STREAM?: string;

@@ -188,15 +188,16 @@ export async function callMcpToolWithRetry(
 
 // ============ Cached Builtin Tools ============
 
-/** Singleton cache: keyed by apiKey to handle env changes across DO restarts. */
+/** Singleton cache: keyed by joined apiKeys to handle env changes across DO restarts. */
 let cachedApiKey: string | null = null;
 let cachedBuiltinToolsRaw: ToolSet | null = null;
 
-function getBuiltinToolsRaw(serperApiKey: string): ToolSet {
-  if (!cachedBuiltinToolsRaw || cachedApiKey !== serperApiKey) {
-    cachedApiKey = serperApiKey;
+function getBuiltinToolsRaw(serperApiKeys: string[]): ToolSet {
+  const cacheKey = serperApiKeys.join(",");
+  if (!cachedBuiltinToolsRaw || cachedApiKey !== cacheKey) {
+    cachedApiKey = cacheKey;
     cachedBuiltinToolsRaw = {
-      ...createWebSearchTool(serperApiKey),
+      ...createWebSearchTool(serperApiKeys),
       ...createWebReaderTool(),
       ...createDataAnalyzerTool(),
       ...createChartTemplateTool(),
@@ -238,14 +239,14 @@ const BUILTIN_TOOL_LIST: string[] = [
 export async function buildAiTools(
   mcp: ToolExecutionContext["mcp"],
   context: Omit<ToolExecutionContext, "mcp">,
-  serperApiKey: string,
+  serperApiKeys: string[],
   emitProgress?: ProgressEmitter
 ): Promise<{
   tools: ToolSet;
   toolList: string[];
 }> {
-  // 1. Always inject built-in tools (cached singleton — recreated only if apiKey changes)
-  const builtinToolsRaw = getBuiltinToolsRaw(serperApiKey);
+  // 1. Always inject built-in tools (cached singleton — recreated only if apiKeys change)
+  const builtinToolsRaw = getBuiltinToolsRaw(serperApiKeys);
   const toolList: string[] = [...BUILTIN_TOOL_LIST];
 
   // Wrap built-in tool execute with state tracking and progress emission
