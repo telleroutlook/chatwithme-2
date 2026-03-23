@@ -847,6 +847,22 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     }
 
     const timestamp = Date.now();
+    // Log tool run summary via console for observability (visible in wrangler tail)
+    const toolRuns = this.state.runtime.toolRuns ?? [];
+    console.log(JSON.stringify({
+      ts: new Date().toISOString(),
+      event: "tool_run_summary",
+      agentName: this.name,
+      toolCount: toolRuns.length,
+      toolRuns: toolRuns.map(r => ({
+        tool: r.toolName,
+        status: r.status,
+        args: r.argsSnippet?.slice(0, 80),
+        durationMs: r.finishedAt && r.startedAt
+          ? new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime()
+          : undefined
+      }))
+    }));
     const currentMessages = Array.isArray(this.messages) ? this.messages : [];
     try {
       await this.persistMessages([

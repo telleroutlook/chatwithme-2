@@ -220,7 +220,7 @@ const BUILTIN_TOOL_LIST: string[] = [
   `${BUILTIN_MATH_EVAL_KEY}: Evaluate mathematical expressions with full precision (arithmetic, algebra, unit conversions, statistics). Use instead of mental math.`,
   `${BUILTIN_WEATHER_KEY}: Get current weather and 5-day forecast for any city worldwide. Real-time data, no API key needed.`,
   `${BUILTIN_WIKIPEDIA_KEY}: Look up encyclopedic information from Wikipedia. Supports multiple languages (en, zh, ja, etc.).`,
-  `${BUILTIN_CURRENCY_KEY}: Convert between 166 currencies using real-time exchange rates.`,
+  `${BUILTIN_CURRENCY_KEY}: Convert between 166 fiat currencies (USD, EUR, CNY, JPY, etc.) using real-time exchange rates. Fiat only — does NOT support cryptocurrencies (BTC, ETH, etc.).`,
   `${BUILTIN_DICTIONARY_KEY}: Look up an English word's definition, pronunciation, part of speech, examples, and synonyms.`,
   `${BUILTIN_DATETIME_KEY}: Timezone conversion, date arithmetic (add/subtract days/hours/months), and date difference. Zero latency.`,
   `${BUILTIN_GITHUB_KEY}: Look up GitHub repository info (stars, latest release/version, description) or search repos by keyword.`
@@ -270,6 +270,7 @@ export async function buildAiTools(
           argsSnippet: safeStringify(args, 320)
         };
 
+        console.log(JSON.stringify({ ts: new Date().toISOString(), event: "tool_start", toolName: key, args: safeStringify(args, 200) }));
         context.setState(
           appendRuntimeEvent(upsertToolRunState(context.getState(), baseRun), {
             level: "info",
@@ -290,6 +291,7 @@ export async function buildAiTools(
         try {
           const result = await originalExecute(args, { toolCallId: runId, messages: [], abortSignal: undefined as unknown as AbortSignal });
           const resultSnippet = typeof result === "string" ? result : JSON.stringify(result, null, 2);
+          console.log(JSON.stringify({ ts: new Date().toISOString(), event: "tool_done", toolName: key, durationMs: Date.now() - new Date(runStart).getTime(), resultLen: resultSnippet.length }));
           context.setState(
             appendRuntimeEvent(upsertToolRunState(context.getState(), {
               ...baseRun,
@@ -314,6 +316,7 @@ export async function buildAiTools(
           return result;
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
+          console.log(JSON.stringify({ ts: new Date().toISOString(), event: "tool_error", toolName: key, error: message.slice(0, 200) }));
           context.setState(
             updateLastErrorState(
               appendRuntimeEvent(upsertToolRunState(context.getState(), {

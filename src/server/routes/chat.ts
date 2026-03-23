@@ -50,9 +50,33 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
 
       const agentName = buildAgentName(authCtx.userId, sessionId);
       const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
+
       const response = await agent.chat(body.message);
 
-      return successJson(c, buildResponse(c, { response, sessionId }, authCtx));
+      // Always get tool run snapshot right after chat() for debug purposes
+      const snapshot = await (agent as unknown as { getRuntimeSnapshot?: () => Promise<{ toolRuns?: Array<{ toolName?: string; status?: string; argsSnippet?: string; startedAt?: string; finishedAt?: string }> }> }).getRuntimeSnapshot?.();
+      const toolRunsAfter = snapshot?.toolRuns ?? [];
+
+      const result = buildResponse(c, { response, sessionId }, authCtx);
+
+      // Attach tool run info when debug token is present
+      const debugToken = c.env.DEBUG_TOKEN;
+      const url = new URL(c.req.url);
+      const reqToken = url.searchParams.get("debug_token") ?? c.req.header("X-Debug-Token");
+      if (debugToken && reqToken === debugToken) {
+        (result as Record<string, unknown>)._debug = {
+          toolCalls: toolRunsAfter.map(r => ({
+            tool: r.toolName,
+            status: r.status,
+            args: r.argsSnippet?.slice(0, 120),
+            durationMs: r.finishedAt && r.startedAt
+              ? new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime()
+              : undefined
+          }))
+        };
+      }
+
+      return successJson(c, result);
     } catch (error) {
       return errorJson(c, 500, "CHAT_GENERATION_FAILED", unknownErrorMessage(error));
     }

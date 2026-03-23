@@ -25,21 +25,58 @@ The architecture refactor execution history is documented in `docs/official-arch
 
 ## Critical Developer Rules
 
-> **Read `docs/developer-pitfalls.md` for full explanations, code examples, and debugging checklists.**
+> **Read `docs/developer-pitfalls.md` for full details.**
 
-1. **Tool definitions**: Use `inputSchema` (NOT `parameters`) with `tool()` from `ai`. Using `parameters` silently sends an empty schema to the model.
-2. **Retry without tools**: Any code path calling the model with `tools: {}` must strip tool descriptions from the system prompt via `stripToolSections()`. Otherwise the model outputs raw JSON tool calls as text.
-3. **Streaming + empty result.text**: `streamText`'s `result.text` can be `""` when all steps end with tool-calls. Track streamed text independently and avoid duplicate output on retry.
-4. **Deploy safety**: Always `npm run deploy`, never raw `wrangler deploy` — the latter skips the Vite build and deploys stale code.
-5. **Install safety**: Always `npm install --legacy-peer-deps` due to zod v3/v4 peer dep conflict.
+1. **Tool definitions**: Use `inputSchema` (NOT `parameters`) with `tool()` from `ai`.
+2. **Retry without tools**: Strip tool descriptions via `stripToolSections()` before any `tools: {}` call.
+3. **Streaming + empty result.text**: `streamText`'s `result.text` can be `""` when all steps are tool-calls. Track streamed text independently.
+4. **Deploy safety**: Always `npm run deploy`, never raw `wrangler deploy`.
+5. **Install safety**: Always `npm install --legacy-peer-deps`.
+
+## Production Debugging
+
+`wrangler tail` may be unavailable (network/proxy issues). Use these instead:
+
+**Inline tool call info** — append `?debug_token=TOKEN` to any `/api/chat` POST:
+```bash
+curl -X POST "https://chat2.3we.org/api/chat?debug_token=claude-debug-a952d905222a512e" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"...","sessionId":"test-1"}' | python3 -m json.tool
+# Response includes _debug.toolCalls: [{tool, status, args, durationMs}, ...]
+```
+
+**Debug API** (protected by `DEBUG_TOKEN`):
+```bash
+BASE="https://chatwithme2mcp.lintao-mailbox.workers.dev"
+TOKEN="claude-debug-a952d905222a512e"
+AGENT="user-abc12345:session-id"   # format: userId:sessionId
+
+curl "$BASE/api/debug/session/$AGENT/info?token=$TOKEN"    # state + MCP status
+curl "$BASE/api/debug/session/$AGENT/history?token=$TOKEN" # message history
+curl -N "$BASE/api/debug/session/$AGENT/stream?token=$TOKEN&interval=1000" # SSE stream
+```
+
+**Structured logs** — emitted as JSON to `console.log`, visible in `wrangler tail --format=json` when available:
+- `model_step`: per-step tool calls, token usage, finish reason
+- `tool_start` / `tool_done` / `tool_error`: individual tool execution with duration
+- `chat_message_done`: total duration per message
+- `thinking_tags_stripped`: GLM `</think>` leak detection
+
+**After deploy**: first request to a session always triggers a DO reset — do a warmup request first.
+
+## Tool Call Optimization
+
+System prompt rules govern when tools fire. Over-aggressive rules cause unnecessary latency.
+Current rules in `src/demos/chat/system-prompt.ts` — key principles:
+- Web search: use only for information newer than training cutoff; NOT for stable knowledge
+- Math eval: only for complex/multi-step calculations; not for simple arithmetic
+- Wikipedia: only when user explicitly asks to "look up" something
+- Chart template: only for complex/uncommon chart types; not for common ones
+- "One search, one optional read, never search twice" — prevents multi-search chains
+- Currency: fiat only (USD/EUR/CNY); NOT for BTC/ETH (use web search instead)
 
 ## Documentation
 
-- The execution history and architecture decisions are in `docs/official-architecture-refactor-execution-plan.md`; append to it when you discover new constraints, test results, or rollout notes.
-- **Developer pitfalls and lessons learned** are in `docs/developer-pitfalls.md`; read this before modifying tool definitions, streaming logic, or the retry/fallback paths.
-
-## Collaboration Notes
-
-- Git operations assume a GitHub repo at `https://github.com/<user>/chatwithme-2.git`; adjust the remote once the real URL is available.
-- The visual excellence execution plan and its completion status are documented in `docs/visual-excellence-execution-plan.md`.
-- Always note decisions in the docs file before pushing. Keep the repo lightweight to simplify future cloning and reviewing.
+- Architecture decisions: `docs/official-architecture-refactor-execution-plan.md`
+- Pitfalls & lessons: `docs/developer-pitfalls.md` — read before touching tools, streaming, or retry paths
+- Visual excellence plan: `docs/visual-excellence-execution-plan.md`

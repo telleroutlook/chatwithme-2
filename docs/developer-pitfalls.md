@@ -153,15 +153,16 @@ Env binding declared in `env.d.ts` → passed to `buildAiTools(mcp, context, env
 
 ### System prompt requirement
 
-GLM-4.7 requires **MANDATORY** instruction strength (not "PREFERRED") to reliably call tools for news queries:
+The current rule uses targeted language (not a blanket MANDATORY) to balance recall vs. unnecessary calls:
 
 ```
-"- **Web search (builtin_web_search)**: **MANDATORY** when the user asks about current events,
-news, recent developments, real-time data, or anything that may have changed after your training
-cutoff. You MUST call this tool — do NOT refuse by saying you cannot access the internet."
+"- **Web search (builtin_web_search)**: Use when the user asks about current events, news,
+recent developments, real-time data, specific prices/scores/rankings, or anything that may
+have changed after your training cutoff. Do NOT use for stable knowledge that you can answer
+confidently."
 ```
 
-Using "PREFERRED" causes GLM-4.7 to skip tool calls for organic "搜索今日新闻" requests.
+**Do not** restore blanket MANDATORY language — it causes unnecessary tool calls for every factual question (see pitfall #14). The current phrasing reliably triggers search for real news queries while skipping it for stable knowledge.
 
 ### Replacing the backend in the future
 
@@ -266,99 +267,115 @@ Or via the debug API — `lastError` in the snapshot will contain the rate-limit
 
 ---
 
+## 13. `wrangler tail` may be unavailable — use `_debug` field instead
+
+**Severity**: Medium — wrangler tail fails on some networks/proxies
+
+`wrangler tail` can fail with "fetch failed" errors on restricted networks even after upgrading to 4.76.0 and setting HTTP proxies. Do not rely on it as the primary debugging tool.
+
+**Primary alternative**: The `_debug.toolCalls` field in `/api/chat` responses.
+
+```bash
+curl -X POST "https://chat2.3we.org/api/chat?debug_token=claude-debug-a952d905222a512e" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"your message","sessionId":"test-1"}' | python3 -m json.tool
+```
+
+Response includes:
+```json
+"_debug": {
+  "toolCalls": [
+    {"tool": "builtin_web_search", "status": "done", "args": "{\"query\":\"...\"}", "durationMs": 1240}
+  ]
+}
+```
+
+This reveals exactly which tools fired, in what order, with what arguments, and how long each took. It's the most reliable tool call inspector since it runs in the same request context as the agent.
+
+**Secondary**: Structured logs via `wrangler tail` when available:
+- `model_step`: tool calls per step with token usage
+- `tool_start` / `tool_done` / `tool_error`: individual tool timing
+
+---
+
+## 14. Over-aggressive tool rules cause unnecessary latency
+
+**Severity**: High — every unnecessary tool call adds 1-3 s
+
+Tool call rules in `src/demos/chat/system-prompt.ts` directly control how often tools fire. Making rules MANDATORY causes latency spikes. Known offenders:
+
+| Tool | Bad rule | Good rule |
+|---|---|---|
+| `builtin_web_search` | MANDATORY for any news/event | Only for info newer than training cutoff |
+| `builtin_math_eval` | Any calculation | Complex/multi-step only; not simple arithmetic |
+| `builtin_wikipedia` | Any factual question | Only when user explicitly says "look up" |
+| `builtin_chart_template` | Before every chart | Only for complex types (sankey/treemap/etc.) |
+| `builtin_currency` | Any money question | Fiat only; NOT for BTC/ETH |
+
+**Multi-search pattern**: GLM-4.7 will run multiple searches if allowed. The system prompt now enforces "one search, one optional read, never search twice." If you see 3+ tool calls for a single user message, check whether the research strategy rules are present and specific.
+
+**Detection**: Use `_debug.toolCalls` (pitfall #13) to count tools per message. Normal: 0-2 tools. Suspicious: 3+ tools or multiple `builtin_web_search` calls.
+
+---
+
+## 15. `toolRuns` in DO state not visible post-request via separate HTTP call
+
+**Severity**: Low — causes confusion when debugging via the debug API
+
+The debug API endpoint `/api/debug/session/:agentName/state` reads DO state via a separate HTTP request after the chat request completes. Due to DO state isolation, `toolRuns` often appears empty or stale — the previous request's tool run data may not be reflected yet.
+
+**Why**: Each HTTP request to a DO runs in its own isolated execution context. State written during `chat()` may not be flushed/readable by an immediately subsequent debug request.
+
+**Fix**: Use the `_debug.toolCalls` field returned directly by `/api/chat` (pitfall #13) — it reads `toolRuns` within the same request context, after `agent.chat()` completes, so timing is correct.
+
+---
+
 ## Quick Reference: Production Debugging Workflow
 
-### Step 1 — Find the agentName
-
-Guest sessions are not in D1. Get the agentName from `wrangler tail`:
+### Preferred: `_debug` field (works on all networks)
 
 ```bash
-wrangler tail --format=json 2>&1 | python3 -c "
-import sys, json
-for line in sys.stdin:
-    line = line.strip()
-    if not line.startswith('{'): continue
-    try:
-        obj = json.loads(line)
-        for ev in obj.get('diagnosticsChannelEvents', []):
-            name = ev.get('message', {}).get('name', '')
-            if name: print(name)
-    except: pass
-" | sort -u
+BASE="https://chat2.3we.org"
+TOKEN="claude-debug-a952d905222a512e"
+
+curl -X POST "$BASE/api/chat?debug_token=$TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"your test message","sessionId":"debug-1"}' | python3 -m json.tool
+# Check: response._debug.toolCalls
 ```
 
-Or look in the structured logs for `agentName` field:
-```bash
-wrangler tail --format=json | python3 -c "
-import sys, json
-for line in sys.stdin:
-    try:
-        obj = json.loads(line.strip())
-        for log in obj.get('logs', []):
-            for msg in log.get('message', []):
-                if '\"event\"' in msg and '\"agentName\"' in msg:
-                    d = json.loads(msg)
-                    print(d['event'], d.get('agentName'), d.get('durationMs',''))
-    except: pass
-"
-```
-
-### Step 2 — Inspect session state
+### Debug API (when you need session history or live streaming)
 
 ```bash
 BASE="https://chatwithme2mcp.lintao-mailbox.workers.dev"
 TOKEN="claude-debug-a952d905222a512e"
-AGENT="user-abc12345:my-session-id"   # from step 1
+AGENT="user-abc12345:my-session-id"   # format: userId:sessionId
 
-# Full debug snapshot: messageCount, last messages, MCP status, events
+# Full snapshot: messageCount, last messages, MCP status, events
 curl "$BASE/api/debug/session/$AGENT/info?token=$TOKEN" | python3 -m json.tool
 
 # Last N messages
 curl "$BASE/api/debug/session/$AGENT/history?limit=10&token=$TOKEN" | python3 -m json.tool
-```
 
-### Step 3 — Watch a live session
-
-Start the SSE stream before the user sends a message:
-
-```bash
+# Live SSE stream (start before sending message)
 curl -N "$BASE/api/debug/session/$AGENT/stream?token=$TOKEN&interval=1000"
 ```
 
-SSE event types to watch:
+SSE events to watch:
 | event | meaning |
 |---|---|
 | `runtime_event` with `type: generate_empty_retry` | GLM returned empty; fallback retry fired |
-| `runtime_event` with `level: error` | generation or tool failure |
-| `last_error` | error string pushed when stateVersion advances |
 | `tool_run` with `status: error` | specific tool failed |
-| `error` with `consecutiveErrors: 5` | DO unreachable, stream closes |
+| `last_error` | error string from most recent failure |
 
-### Step 4 — List all known sessions (authenticated users only)
+### Tool call debugging checklist
 
-```bash
-curl "$BASE/api/debug/sessions?limit=20&token=$TOKEN" | python3 -m json.tool
-# Filter by userId:
-curl "$BASE/api/debug/sessions?userId=user-abc12345&token=$TOKEN" | python3 -m json.tool
-```
-
-### Step 5 — Tool call debugging checklist
-
-1. **Check tool definition**: Does it use `inputSchema` (not `parameters`)?
-2. **Check API request body**: Are `tools` non-empty with correct JSON schemas?
-3. **Check API response**: Does it contain `tool_calls` with populated `arguments`?
-4. **Check tool execution**: Does `execute` receive the correct `args`?
-5. **Check step count**: Is `maxToolSteps` sufficient? Are all steps `tool-calls` with no `stop`?
-6. **Check retry path**: Does `retryEmptyResponse` strip tool sections from system prompt?
-7. **Check search backend**: Is Serper.dev returning results?
-   ```bash
-   curl -X POST https://google.serper.dev/search \
-     -H "X-API-KEY: $SERPER_API_KEY" \
-     -H "Content-Type: application/json" \
-     -d '{"q":"test","num":3}'
-   ```
-8. **Check system prompt strength**: Does it say **MANDATORY** (not "PREFERRED") for tool-call triggers?
-9. **Check GLM rate limit**: Multiple simultaneous failures = rate limit. Wait 60 s, retry once.
+1. Check tool definition uses `inputSchema` (not `parameters`) — pitfall #1
+2. Check `_debug.toolCalls` — how many tools fired? Which ones?
+3. Check system prompt rules in `system-prompt.ts` — are any MANDATORY when they shouldn't be?
+4. Check for GLM rate limit (pitfall #11) — multiple failures simultaneously = rate limit
+5. Check Serper.dev: `curl -X POST https://google.serper.dev/search -H "X-API-KEY: $SERPER_API_KEY" -H "Content-Type: application/json" -d '{"q":"test","num":3}'`
+6. After any deploy: send a warmup request first — first request always resets the DO
 
 ---
 

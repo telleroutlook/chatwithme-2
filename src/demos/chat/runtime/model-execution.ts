@@ -13,7 +13,8 @@ import {
   streamText,
   type LanguageModel,
   type ModelMessage,
-  type ToolSet
+  type ToolSet,
+  type StepResult
 } from "ai";
 import { stepCountIs } from "ai";
 import {
@@ -116,18 +117,57 @@ function stripThinkingTags(text: string): string {
 // ============ Model Execution Functions ============
 
 /**
+ * Log each completed step (tool calls + text) for observability.
+ */
+function logStep(agentName: string | undefined, stepNumber: number, step: StepResult<ToolSet>): void {
+  const toolCalls = (step.toolCalls ?? []).map((tc, i) => ({
+    tool: tc.toolName,
+    args: safeStringifyArgs(tc.input),
+    resultLen: step.toolResults?.[i] ? String(step.toolResults[i].output).length : 0
+  }));
+  slog("model_step", {
+    agentName,
+    step: stepNumber,
+    finishReason: step.finishReason,
+    toolCalls,
+    toolCount: toolCalls.length,
+    inputTokens: step.usage?.inputTokens,
+    outputTokens: step.usage?.outputTokens
+  });
+}
+
+function safeStringifyArgs(args: unknown): string {
+  try {
+    const s = JSON.stringify(args);
+    return s.length > 200 ? s.slice(0, 200) + "…" : s;
+  } catch {
+    return "[unserializable]";
+  }
+}
+
+/**
  * Request model text — returns the full response string.
  * Used by @callable chat() and the empty-response fallback path.
  */
 export async function requestModelText(params: ModelExecutionOptions): Promise<string> {
   const callOptions = buildCallOptions(params);
   const t0 = Date.now();
+  let stepNumber = 0;
 
   let text: string;
   if (params.streamEnabled) {
-    text = await streamModelTextCollect(callOptions, params.emitProgress);
+    text = await streamModelTextCollect(callOptions, params.emitProgress, (step) => {
+      stepNumber++;
+      logStep(params.agentName, stepNumber, step);
+    });
   } else {
-    const result = await generateText(callOptions);
+    const result = await generateText({
+      ...callOptions,
+      onStepFinish: (step) => {
+        stepNumber++;
+        logStep(params.agentName, stepNumber, step);
+      }
+    });
     text = result.text;
   }
 
@@ -160,9 +200,14 @@ export async function streamModelTextToWriter(
   let lastEmitTime = 0;
   let lastEmittedSnippet = "";
   const t0 = Date.now();
+  let stepNumber = 0;
 
   const result = streamText({
     ...callOptions,
+    onStepFinish: (step) => {
+      stepNumber++;
+      logStep(params.agentName, stepNumber, step);
+    },
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta") {
         accumulatedText += chunk.text;
@@ -223,7 +268,8 @@ export async function streamModelTextToWriter(
  */
 async function streamModelTextCollect(
   callOptions: ReturnType<typeof buildCallOptions>,
-  emitProgress?: ProgressEmitter
+  emitProgress?: ProgressEmitter,
+  onStepFinish?: (step: StepResult<ToolSet>) => void
 ): Promise<string> {
   let lastEmittedSnippet = "";
   let lastEmitTime = 0;
@@ -231,6 +277,7 @@ async function streamModelTextCollect(
 
   const result = streamText({
     ...callOptions,
+    ...(onStepFinish ? { onStepFinish } : {}),
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta") {
         accumulatedText += chunk.text;
