@@ -16,6 +16,7 @@ An AI chat assistant powered by Cloudflare Workers, Durable Objects, and the Age
 - **MCP Integration** — Pre-configured MCP servers as fallbacks for built-in tools
 - **Auth System** — JWT-based authentication + guest mode
 - **Real-time** — WebSocket-based agent communication via Durable Objects
+- **External REST SSE** — `/api/chat/stream` now bridges to the same Agent streaming core (tool-aware), not a separate direct-model path
 - **File Upload** — CSV, JSON, XLSX, PDF, DOCX parsing with chart recommendations
 
 ## Architecture
@@ -67,6 +68,31 @@ npm run db:migrate:prod
 The deploy pipeline runs: `typecheck → vite build → wrangler deploy → verify-deploy`. Skipping `vite build` causes stale Worker code to be deployed since the Worker bundle is produced by Vite, not wrangler.
 
 `npm run deploy:raw` is available for quick deploys (skips typecheck + verify, but still builds).
+
+## Streaming Endpoints
+
+### Internal frontend (agent websocket)
+
+- Uses `useAgent + useAgentChat` and `ChatAgentV2.onChatMessage`
+- Full tool-chain + resumable streaming + agent state sync
+
+### External integrations (REST SSE)
+
+- Endpoint: `POST /api/chat/stream`
+- Now routed into `ChatAgentV2` streaming execution core (tool-aware), same core as websocket path
+- SSE protocol:
+  - `data: {"type":"delta","text":"..."}`
+  - `data: {"type":"done","sessionId":"..."}`
+  - `data: [DONE]`
+
+#### Optional soft controls for timeout risk (no hard-fail)
+
+Request body supports optional hints:
+
+- `responseProfile`: `"compact" | "default"` (default: `"default"`)
+- `softToolBudget`: number (clamped to runtime max tool steps)
+
+These are best-effort controls to reduce long-tail latency. They do not reject the request when exceeded.
 
 ## Project Structure
 

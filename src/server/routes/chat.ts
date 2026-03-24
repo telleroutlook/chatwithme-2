@@ -41,7 +41,10 @@ function buildResponse<T>(
 export function registerChatRoutes(app: Hono<AppBindings>): void {
   app.post("/api/chat/stream", validateJson(chatBodySchema), async (c) => {
     try {
-      const body = c.req.valid("json") as z.infer<typeof chatBodySchema>;
+      const body = c.req.valid("json") as z.infer<typeof chatBodySchema> & {
+        responseProfile?: "compact" | "default";
+        softToolBudget?: number;
+      };
       const sessionId = resolveSessionId(body);
       const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
 
@@ -52,7 +55,11 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
       const streamRes = await agent.fetch(new Request("https://agent.internal/stream", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: body.message }),
+        body: JSON.stringify({
+          message: body.message,
+          responseProfile: body.responseProfile ?? "default",
+          softToolBudget: typeof body.softToolBudget === "number" ? body.softToolBudget : undefined
+        }),
       }));
 
       if (!streamRes.ok || !streamRes.body) {

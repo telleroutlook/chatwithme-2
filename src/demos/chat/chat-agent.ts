@@ -559,7 +559,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       return super.onRequest(request);
     }
 
-    let body: { message?: unknown };
+    let body: { message?: unknown; responseProfile?: unknown; softToolBudget?: unknown };
     try {
       body = await request.json() as { message?: unknown };
     } catch {
@@ -576,6 +576,16 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         { status: 400, headers: { "content-type": "application/json" } }
       );
     }
+    const responseProfile = body.responseProfile === "compact" ? "compact" : "default";
+    const requestedBudget = typeof body.softToolBudget === "number" ? Math.trunc(body.softToolBudget) : null;
+    const maxConfiguredSteps = getMaxToolSteps(this.env, this.state.deepResearch);
+    const softToolBudget = requestedBudget !== null
+      ? Math.max(1, Math.min(requestedBudget, maxConfiguredSteps))
+      : Math.min(3, maxConfiguredSteps);
+    const compactHint = responseProfile === "compact"
+      ? "\n\n[Soft policy: Keep response concise. Prefer key conclusion + up to 6 bullets. Prefer <=2 tool calls when sufficient.]"
+      : "";
+    const effectiveMessage = `${message}${compactHint}`;
 
     const timeoutMs = getModelTimeoutMs(this.env);
     const controller = new AbortController();
@@ -603,13 +613,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         } as unknown as UIMessageStreamWriter;
 
         const finalResponse = await this.streamAssistantResponse(
-          message,
+          effectiveMessage,
           uiWriter,
           textId,
           controller.signal,
           undefined,
           crypto.randomUUID().slice(0, 8),
-          false
+          false,
+          softToolBudget
         );
         const persistedResponse = finalResponse.trim().length > 0 ? finalResponse : streamedText;
         await this.persistTurn(message, persistedResponse);
@@ -734,7 +745,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     abortSignal?: AbortSignal,
     emitProgress?: ProgressEmitter,
     requestTraceId?: string,
-    userAlreadyInHistory = true
+    userAlreadyInHistory = true,
+    maxToolStepsOverride?: number
   ): Promise<string> {
     const ctx = await this.prepareGenerationContext(message, userAlreadyInHistory, emitProgress, requestTraceId);
 
@@ -752,7 +764,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         abortSignal,
         emitProgress,
         maxOutputTokens: getMaxOutputTokens(this.env),
-        maxToolSteps: getMaxToolSteps(this.env),
+        maxToolSteps: maxToolStepsOverride ?? getMaxToolSteps(this.env, this.state.deepResearch),
         thinkingType: getThinkingType(this.env),
         streamEnabled: true,
         agentName: this.name
