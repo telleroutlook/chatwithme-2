@@ -17,7 +17,6 @@ import { registerAgentsRoutes } from "./server/routes/agents";
 import { registerAuthRoutes } from "./server/routes/auth";
 import { registerChatSyncRoutes } from "./server/routes/chat-sync";
 import { registerDebugRoutes } from "./server/routes/debug";
-import { registerChatStreamRoute } from "./server/routes/chat-stream";
 
 // Exports required by Cloudflare Workers / agents framework
 export { ChatAgentV2 };
@@ -101,7 +100,6 @@ app.use("*", async (c, next) => {
 
 registerAuthRoutes(app);
 registerChatSyncRoutes(app);
-registerChatStreamRoute(app);
 registerChatRoutes(app);
 registerMcpRoutes(app);
 registerRuntimeRoutes(app);
