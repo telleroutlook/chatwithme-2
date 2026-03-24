@@ -553,6 +553,90 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     return createUIMessageStreamResponse({ stream });
   }
 
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method !== "POST" || !url.pathname.endsWith("/stream")) {
+      return super.onRequest(request);
+    }
+
+    let body: { message?: unknown };
+    try {
+      body = await request.json() as { message?: unknown };
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: { code: "INVALID_JSON", message: "Invalid JSON body" } }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    const message = typeof body.message === "string" ? body.message.trim() : "";
+    if (!message) {
+      return new Response(
+        JSON.stringify({ success: false, error: { code: "INVALID_BODY", message: "message is required" } }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    const timeoutMs = getModelTimeoutMs(this.env);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(new Error(`Model request timeout after ${timeoutMs}ms`)), timeoutMs);
+
+    const encoder = new TextEncoder();
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    const writer = writable.getWriter();
+
+    const sendSse = (payload: string): void => {
+      writer.write(encoder.encode(`data: ${payload}\n\n`));
+    };
+
+    void (async () => {
+      let streamedText = "";
+      try {
+        const textId = crypto.randomUUID();
+        const uiWriter = {
+          write: (part: { type?: string; delta?: string }) => {
+            if (part?.type === "text-delta" && typeof part.delta === "string" && part.delta.length > 0) {
+              streamedText += part.delta;
+              sendSse(JSON.stringify({ type: "delta", text: part.delta }));
+            }
+          }
+        } as unknown as UIMessageStreamWriter;
+
+        const finalResponse = await this.streamAssistantResponse(
+          message,
+          uiWriter,
+          textId,
+          controller.signal,
+          undefined,
+          crypto.randomUUID().slice(0, 8),
+          false
+        );
+        const persistedResponse = finalResponse.trim().length > 0 ? finalResponse : streamedText;
+        await this.persistTurn(message, persistedResponse);
+
+        sendSse(JSON.stringify({ type: "done", sessionId: this.name }));
+        sendSse("[DONE]");
+      } catch (error) {
+        sendSse(JSON.stringify({
+          type: "error",
+          message: error instanceof Error ? error.message : "Unknown generation error"
+        }));
+      } finally {
+        clearTimeout(timeoutId);
+        writer.close();
+      }
+    })();
+
+    return new Response(readable, {
+      status: 200,
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        "x-accel-buffering": "no"
+      }
+    });
+  }
+
   /**
    * Prepare context shared by both streaming and non-streaming generation paths.
    */
@@ -649,9 +733,10 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     textId: string,
     abortSignal?: AbortSignal,
     emitProgress?: ProgressEmitter,
-    requestTraceId?: string
+    requestTraceId?: string,
+    userAlreadyInHistory = true
   ): Promise<string> {
-    const ctx = await this.prepareGenerationContext(message, true, emitProgress, requestTraceId);
+    const ctx = await this.prepareGenerationContext(message, userAlreadyInHistory, emitProgress, requestTraceId);
 
     // Track how much text was already streamed to the UI
     let streamedLength = 0;
@@ -883,7 +968,6 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       clearTimeout(timeoutId);
     }
 
-    const timestamp = Date.now();
     // Log tool run summary via console for observability (visible in wrangler tail)
     const toolRuns = this.state.runtime.toolRuns ?? [];
     console.log(JSON.stringify({
@@ -900,6 +984,13 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
           : undefined
       }))
     }));
+    await this.persistTurn(message, finalResponse);
+
+    return finalResponse;
+  }
+
+  private async persistTurn(message: string, finalResponse: string): Promise<void> {
+    const timestamp = Date.now();
     const currentMessages = Array.isArray(this.messages) ? this.messages : [];
     try {
       await this.persistMessages([
@@ -920,11 +1011,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         event: "persist_failed",
         error: e instanceof Error ? e.message : String(e),
       }));
-      // Re-throw so the caller knows the message was not saved.
       throw new Error(`Response generated but failed to save: ${e instanceof Error ? e.message : "unknown error"}`);
     }
-
-    return finalResponse;
   }
 
   @callable({ description: "Get chat message history" })

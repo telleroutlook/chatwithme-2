@@ -5,8 +5,6 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { getAgentByName } from "agents";
-import { streamText } from "ai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   chatBodySchema,
   chatHistoryQuerySchema,
@@ -21,7 +19,6 @@ import {
 import { errorJson, successJson, unknownErrorMessage } from "../http";
 import { resolveAuthContext, buildAgentName, logAuthContext, type AuthContext } from "../auth";
 import { resolveSessionId, parseSessionIds, validateJson, validateQuery } from "../validators";
-import { getModelId, getMaxOutputTokens, getThinkingType, getModelTemperature } from "../../demos/chat/runtime-config";
 
 type AppBindings = { Bindings: Env; Variables: { requestId: string } };
 
@@ -50,53 +47,25 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/stream");
 
-      const glm = createOpenAICompatible({
-        name: "glm",
-        baseURL: "https://open.bigmodel.cn/api/paas/v4",
-        apiKey: c.env.BIGMODEL_API_KEY,
-      });
+      const agentName = buildAgentName(authCtx.userId, sessionId);
+      const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
+      const streamRes = await agent.fetch(new Request("https://agent.internal/stream", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: body.message }),
+      }));
 
-      const encoder = new TextEncoder();
-      const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
-      const writer = writable.getWriter();
+      if (!streamRes.ok || !streamRes.body) {
+        return errorJson(c, 502, "CHAT_STREAM_PROXY_FAILED", `Agent stream failed (${streamRes.status})`);
+      }
 
-      const send = (obj: Record<string, unknown>): void => {
-        writer.write(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
-      };
-
-      void (async () => {
-        try {
-          const result = streamText({
-            model: glm(getModelId(c.env)),
-            system: "You are a helpful assistant. Answer in the same language as the user.",
-            messages: [{ role: "user", content: body.message }],
-            temperature: getModelTemperature(c.env),
-            ...(getMaxOutputTokens(c.env) ? { maxOutputTokens: getMaxOutputTokens(c.env) } : {}),
-            providerOptions: {
-              glm: { thinking: { type: getThinkingType(c.env) }, tool_stream: true }
-            },
-          });
-
-          for await (const chunk of result.textStream) {
-            const clean = chunk.replace(/<\/?think>/gi, "");
-            if (clean) send({ type: "delta", text: clean });
-          }
-          send({ type: "done", sessionId });
-          writer.write(encoder.encode("data: [DONE]\n\n"));
-        } catch (err) {
-          send({ type: "error", message: err instanceof Error ? err.message : "Unknown error" });
-        } finally {
-          writer.close();
-        }
-      })();
-
-      return new Response(readable, {
-        status: 200,
+      return new Response(streamRes.body, {
+        status: streamRes.status,
         headers: {
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache, no-transform",
-          "x-accel-buffering": "no",
-          connection: "keep-alive"
+          "content-type": streamRes.headers.get("content-type") ?? "text/event-stream; charset=utf-8",
+          "cache-control": streamRes.headers.get("cache-control") ?? "no-cache, no-transform",
+          "x-accel-buffering": streamRes.headers.get("x-accel-buffering") ?? "no",
+          connection: "keep-alive",
         }
       });
     } catch (error) {
