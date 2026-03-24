@@ -12,7 +12,10 @@ export const requiredSessionBodySchema = z.object({
 });
 
 export const chatBodySchema = requiredSessionBodySchema.extend({
-  message: z.string().trim().min(1, "message is required").max(32000, "message too long")
+  message: z.string().trim().min(1, "message is required").max(32000, "message too long"),
+  responseProfile: z.enum(["compact", "default"]).optional(),
+  softToolBudget: z.number().int().min(1).max(12).optional(),
+  toolMode: z.enum(["on", "off"]).optional()
 });
 
 export const editBodySchema = requiredSessionBodySchema.extend({

@@ -10,8 +10,17 @@ import {
 
 describe("api schemas", () => {
   it("validates chat body", () => {
-    const parsed = chatBodySchema.parse({ sessionId: "session_1", message: "hello" });
+    const parsed = chatBodySchema.parse({
+      sessionId: "session_1",
+      message: "hello",
+      responseProfile: "compact",
+      softToolBudget: 2,
+      toolMode: "off"
+    });
     expect(parsed.message).toBe("hello");
+    expect(parsed.responseProfile).toBe("compact");
+    expect(parsed.softToolBudget).toBe(2);
+    expect(parsed.toolMode).toBe("off");
   });
 
   it("rejects empty edit content", () => {

@@ -221,6 +221,10 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     return /(今日|今天|最新|最近|新闻|头条|实时|搜索|查一下|查一查)/.test(message);
   }
 
+  private normalizeToolMode(value: unknown): "on" | "off" {
+    return value === "off" ? "off" : "on";
+  }
+
   // ============ Tool Building ============
 
   private async buildAiTools(
@@ -559,7 +563,7 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       return super.onRequest(request);
     }
 
-    let body: { message?: unknown; responseProfile?: unknown; softToolBudget?: unknown };
+    let body: { message?: unknown; responseProfile?: unknown; softToolBudget?: unknown; toolMode?: unknown };
     try {
       body = await request.json() as { message?: unknown };
     } catch {
@@ -577,9 +581,12 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       );
     }
     const responseProfile = body.responseProfile === "compact" ? "compact" : "default";
+    const toolMode = this.normalizeToolMode(body.toolMode);
     const requestedBudget = typeof body.softToolBudget === "number" ? Math.trunc(body.softToolBudget) : null;
     const maxConfiguredSteps = getMaxToolSteps(this.env, this.state.deepResearch);
-    const softToolBudget = requestedBudget !== null
+    const softToolBudget = toolMode === "off"
+      ? 1
+      : requestedBudget !== null
       ? Math.max(1, Math.min(requestedBudget, maxConfiguredSteps))
       : Math.min(3, maxConfiguredSteps);
     const compactHint = responseProfile === "compact"
@@ -620,7 +627,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
           undefined,
           crypto.randomUUID().slice(0, 8),
           false,
-          softToolBudget
+          softToolBudget,
+          toolMode
         );
         const persistedResponse = finalResponse.trim().length > 0 ? finalResponse : streamedText;
         await this.persistTurn(message, persistedResponse);
@@ -655,7 +663,8 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     message: string,
     userAlreadyInHistory: boolean,
     emitProgress?: ProgressEmitter,
-    requestTraceId?: string
+    requestTraceId?: string,
+    toolMode: "on" | "off" = "on"
   ) {
     emitProgress?.({
       phase: "context",
@@ -673,12 +682,13 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     const mcpProgressGroupKey = requestTraceId
       ? `context:mcp-init:${requestTraceId}`
       : "context:mcp-init";
-    const [{ tools, toolList }, existingMessages] = await Promise.all([
-      this.buildAiTools(emitProgress, mcpProgressGroupKey),
-      this.convertMessagesWithFallback(emitProgress)
-    ]);
+    const existingMessages = await this.convertMessagesWithFallback(emitProgress);
+    const toolContext = toolMode === "on"
+      ? await this.buildAiTools(emitProgress, mcpProgressGroupKey)
+      : { tools: {}, toolList: [] as string[] };
+    const { tools, toolList } = toolContext;
 
-    const forceLiveSearch = this.shouldForceLiveSearch(message);
+    const forceLiveSearch = toolMode === "on" && this.shouldForceLiveSearch(message);
     const systemPrompt = forceLiveSearch
       ? `${buildSystemPrompt(toolList)}
 
@@ -746,9 +756,16 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     emitProgress?: ProgressEmitter,
     requestTraceId?: string,
     userAlreadyInHistory = true,
-    maxToolStepsOverride?: number
+    maxToolStepsOverride?: number,
+    toolMode: "on" | "off" = "on"
   ): Promise<string> {
-    const ctx = await this.prepareGenerationContext(message, userAlreadyInHistory, emitProgress, requestTraceId);
+    const ctx = await this.prepareGenerationContext(
+      message,
+      userAlreadyInHistory,
+      emitProgress,
+      requestTraceId,
+      toolMode
+    );
 
     // Track how much text was already streamed to the UI
     let streamedLength = 0;
@@ -764,7 +781,9 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
         abortSignal,
         emitProgress,
         maxOutputTokens: getMaxOutputTokens(this.env),
-        maxToolSteps: maxToolStepsOverride ?? getMaxToolSteps(this.env, this.state.deepResearch),
+        maxToolSteps: toolMode === "off"
+          ? 1
+          : (maxToolStepsOverride ?? getMaxToolSteps(this.env, this.state.deepResearch)),
         thinkingType: getThinkingType(this.env),
         streamEnabled: true,
         agentName: this.name

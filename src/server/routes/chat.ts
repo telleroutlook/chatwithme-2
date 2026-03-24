@@ -44,6 +44,7 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
       const body = c.req.valid("json") as z.infer<typeof chatBodySchema> & {
         responseProfile?: "compact" | "default";
         softToolBudget?: number;
+        toolMode?: "on" | "off";
       };
       const sessionId = resolveSessionId(body);
       const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
@@ -58,7 +59,8 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
         body: JSON.stringify({
           message: body.message,
           responseProfile: body.responseProfile ?? "default",
-          softToolBudget: typeof body.softToolBudget === "number" ? body.softToolBudget : undefined
+          softToolBudget: typeof body.softToolBudget === "number" ? body.softToolBudget : undefined,
+          toolMode: body.toolMode === "off" ? "off" : "on"
         }),
       }));
 

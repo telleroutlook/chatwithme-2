@@ -91,8 +91,16 @@ Request body supports optional hints:
 
 - `responseProfile`: `"compact" | "default"` (default: `"default"`)
 - `softToolBudget`: number (clamped to runtime max tool steps)
+- `toolMode`: `"on" | "off"` (default: `"on"`)
 
 These are best-effort controls to reduce long-tail latency. They do not reject the request when exceeded.
+
+When `toolMode: "off"`:
+
+- Agent skips MCP/tool context preparation for that request
+- Live-search enforcement is disabled for that request
+- `maxToolSteps` is internally constrained to `1` as a soft guard
+- Request still uses the same streaming chain and persistence path (no fallback to a separate endpoint)
 
 ## Project Structure
 
