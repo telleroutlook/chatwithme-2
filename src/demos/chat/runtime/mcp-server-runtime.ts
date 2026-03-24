@@ -7,10 +7,9 @@
  * - Server configuration building
  */
 
-import type { McpServerConfig } from "../../../mcp-config";
 import { getApiKey } from "../../../mcp-config";
 import { isRetryableMcpConnectionError } from "./tool-runtime";
-import type { ChatAgentState, McpServerConnectionState } from "./state-runtime";
+import type { ChatAgentState } from "./state-runtime";
 
 // ============ Types ============
 

@@ -103,7 +103,6 @@ export async function exportToPdf(
   const {
     orientation = "portrait",
     format = "a4",
-    fontSize = 12,
     margin = 10,
     filename = "export.pdf",
   } = options;

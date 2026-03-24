@@ -127,10 +127,8 @@ export function WorkspaceSidebar({
     observability.liveProgress.length + observability.telemetrySummary.totalEvents;
 
   // Determine which main content panel to render
-  const isSettings = section === "settings";
   const isTools = section === "tools";
   const isResources = section === "resources";
-  const isChats = section === "chats";
 
   return (
     <>

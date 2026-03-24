@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useMemo, useEffect, useRef } from "react";
+import { useSyncExternalStore, useMemo, useRef } from "react";
 
 // ============ Types ============
 

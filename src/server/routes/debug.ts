@@ -228,7 +228,7 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
     };
 
     c.executionCtx.waitUntil((async () => {
-      let seenEventIds = new Set<string>();
+      const seenEventIds = new Set<string>();
       let lastStateVersion = -1;
       const deadline = Date.now() + maxSeconds * 1000;
       // Bound the seen-IDs set to the last 500 entries to prevent unbounded growth
@@ -366,14 +366,12 @@ export function registerDebugRoutes(app: Hono<AppBindings>): void {
     }
 
     try {
-      let rows: { user_id: string; session_id: string; updated_at: string }[];
-
       const result = await c.env.DB.prepare(
         "SELECT user_id, session_id, updated_at FROM user_session_bindings WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?"
       )
         .bind(userIdParam, limit)
         .all<{ user_id: string; session_id: string; updated_at: string }>();
-      rows = result.results ?? [];
+      const rows: { user_id: string; session_id: string; updated_at: string }[] = result.results ?? [];
 
       return successJson(c, {
         total: rows.length,

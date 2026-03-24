@@ -29,7 +29,7 @@ function getCurrentSessionKey(userId: string): string {
   return `chatwithme_current_session_${userId}`;
 }
 
-function migrateSessionStorageIfNeeded(userId: string): void {
+function migrateSessionStorageIfNeeded(_userId: string): void {
   const current = localStorage.getItem(SESSION_STORAGE_VERSION_KEY);
   if (current === SESSION_STORAGE_VERSION) {
     return;

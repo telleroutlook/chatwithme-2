@@ -1,7 +1,7 @@
 /**
  * POST /api/chat/stream/direct — direct-model SSE endpoint for external integrations.
  *
- * Unlike /api/chat and /api/chat/stream (Durable Object ChatAgent path with tools),
+ * Unlike /api/chat (Durable Object ChatAgent path with tools),
  * this route calls
  * the model directly and streams tokens as Server-Sent Events.
  *

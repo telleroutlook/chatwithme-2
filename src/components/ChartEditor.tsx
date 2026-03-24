@@ -144,7 +144,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 
 export function ChartEditor({
   spec,
-  engine,
+  engine: _engine,
   onApply,
   onClose,
 }: ChartEditorProps): ReactNode {

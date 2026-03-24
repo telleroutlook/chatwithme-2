@@ -21,8 +21,6 @@ import type { PreconfiguredServer } from "../services/chatTransport";
 import { useChatTelemetry } from "../hooks/useChatTelemetry";
 import type { UiLang, UiMessageKey } from "../../../i18n/ui";
 import type { TranslateParams } from "../../../hooks/useI18n";
-import type { EventLogEntry } from "../hooks/useEventLog";
-import type { SessionSyncReason } from "../services/sessionSync";
 import type { ChartFixContext } from "../../../components/MarkdownRenderer";
 
 interface ChatWorkspaceProps {
@@ -118,7 +116,7 @@ export function ChatWorkspace({
   deepResearch,
   onToggleDeepResearch,
   approvalContextValue,
-  preconfiguredServers,
+  preconfiguredServers: _preconfiguredServers,
   lang,
   setLang,
   t,

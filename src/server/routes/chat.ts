@@ -47,28 +47,29 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/stream");
 
-      const agentName = buildAgentName(authCtx.userId, sessionId);
-      const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
-      const response = await agent.chat(body.message);
-
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          const writeEvent = (payload: string) => {
-            controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-          };
-          writeEvent(JSON.stringify({ type: "delta", text: response }));
-          writeEvent(JSON.stringify({ type: "done" }));
-          writeEvent("[DONE]");
-          controller.close();
-        }
+      // Keep /api/chat/stream stable for existing clients, but proxy to
+      // the true token-streaming endpoint so callers receive incremental deltas.
+      const directUrl = new URL("/api/chat/stream/direct", c.req.url);
+      const authHeader = c.req.header("authorization");
+      const directRes = await fetch(directUrl.toString(), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(authHeader ? { authorization: authHeader } : {}),
+        },
+        body: JSON.stringify({ message: body.message, sessionId }),
       });
 
-      return new Response(stream, {
-        status: 200,
+      if (!directRes.ok || !directRes.body) {
+        return errorJson(c, 502, "CHAT_STREAM_PROXY_FAILED", `Direct stream failed (${directRes.status})`);
+      }
+
+      return new Response(directRes.body, {
+        status: directRes.status,
         headers: {
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache, no-transform",
+          "content-type": directRes.headers.get("content-type") ?? "text/event-stream; charset=utf-8",
+          "cache-control": directRes.headers.get("cache-control") ?? "no-cache, no-transform",
+          "x-accel-buffering": directRes.headers.get("x-accel-buffering") ?? "no",
           connection: "keep-alive"
         }
       });

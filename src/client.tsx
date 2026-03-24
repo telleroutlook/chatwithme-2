@@ -90,7 +90,7 @@ function App() {
     servers: {},
     tools: []
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   const [preconfiguredServers, setPreconfiguredServers] = useState<
     Record<string, PreconfiguredServer>
   >({});

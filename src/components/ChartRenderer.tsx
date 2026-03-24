@@ -167,7 +167,7 @@ export function MermaidRenderer({ code }: MermaidRendererProps) {
     return () => {
       mounted = false;
     };
-  }, [validationError, sanitizedCode.sanitized, currentSessionId, visualPreset]);
+  }, [validationError, sanitizedCode.sanitized, currentSessionId, visualPreset, inViewport]);
 
   // Apply Mermaid SVG animations when the container enters the viewport
   // (handles the case where render completes before the element scrolls into view)

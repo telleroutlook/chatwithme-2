@@ -8,7 +8,6 @@ import {
   type SessionMeta
 } from "../services/sessionMeta";
 import { getNextSessionAfterDelete } from "../services/sessionSelection";
-import { buildSessionViewResetState } from "../services/sessionLifecycle";
 import type { SessionSyncReason } from "../services/sessionSync";
 import type { UiMessageKey } from "../../../i18n/ui";
 import type { TranslateParams } from "../../../hooks/useI18n";
@@ -53,7 +52,7 @@ export function useChatSessionController(
     stop,
     setChatMessages,
     enqueueSessionSync,
-    readonlyMode
+    readonlyMode: _readonlyMode
   } = params;
 
   const handleNewSession = useCallback(() => {

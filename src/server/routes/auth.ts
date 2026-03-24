@@ -201,7 +201,7 @@ async function updateUserPassword(
 /**
  * Bind session to user.
  */
-async function bindSessionToUser(
+async function _bindSessionToUser(
   db: D1Database,
   userId: string,
   sessionId: string
@@ -220,7 +220,7 @@ async function bindSessionToUser(
 /**
  * Get all sessions bound to a user.
  */
-async function getUserSessions(db: D1Database, userId: string): Promise<DbSessionBinding[]> {
+async function _getUserSessions(db: D1Database, userId: string): Promise<DbSessionBinding[]> {
   const result = await db
     .prepare("SELECT user_id, session_id, updated_at FROM user_session_bindings WHERE user_id = ?")
     .bind(userId)

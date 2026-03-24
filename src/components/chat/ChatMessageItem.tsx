@@ -38,7 +38,7 @@ function ChatMessageItemInner({
   isStreaming,
   canEdit,
   isLastMessage,
-  variant,
+  variant: _variant,
   markdownPrefs,
   onDelete,
   onEdit,

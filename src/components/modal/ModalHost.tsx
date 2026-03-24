@@ -2,7 +2,7 @@ import { useEffect, useCallback, memo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useModalStack } from "./useModalStack";
 import { XIcon } from "@phosphor-icons/react";
-import { useResponsive, isMobile } from "../../hooks/useResponsive";
+import { useResponsive } from "../../hooks/useResponsive";
 import { useSheetSwipeClose } from "../../hooks/useSheetSwipeClose";
 
 // ============ Dev Singleton Guard ============
@@ -112,7 +112,7 @@ const DesktopModal = memo(function Modal({
   maxWidth = "90vw",
   className = "",
   zIndex,
-  centered = true,
+  centered: _centered = true,
   onClose,
   animationDuration = 200
 }: ModalProps) {

@@ -10,7 +10,6 @@ import {
   isFileSupported,
   formatFileSize,
   MAX_FILE_SIZE,
-  MAX_FILE_SIZE_LABEL,
   type ParsedFile
 } from "../utils/fileParser";
 

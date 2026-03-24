@@ -14,7 +14,6 @@ import {
   type ModelMessage
 } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import type { ToolSet } from "ai";
 import { MCP_SERVERS } from "../../mcp-config";
 import {
   cancelIdleSchedules,

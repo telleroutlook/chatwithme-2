@@ -8,7 +8,7 @@ interface ApiErrorPayload {
   };
 }
 
-interface ApiSuccessPayload<T> {
+interface ApiSuccessPayload {
   success: true;
   requestId?: string;
   authMode?: "guest" | "authenticated";
@@ -29,7 +29,7 @@ function toErrorMessage(payload: unknown, fallback: string): string {
 export async function callApi<T>(
   input: RequestInfo | URL,
   init?: RequestInit
-): Promise<ApiSuccessPayload<T> & T> {
+): Promise<ApiSuccessPayload & T> {
   const token = getAuthTokenSync();
 
   // Build headers with automatic auth injection
@@ -69,5 +69,5 @@ export async function callApi<T>(
     throw new Error(toErrorMessage(payload, "Request failed"));
   }
 
-  return payload as ApiSuccessPayload<T> & T;
+  return payload as ApiSuccessPayload & T;
 }

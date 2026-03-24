@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { CopyIcon, CheckIcon, CaretRightIcon, CaretDownIcon } from "@phosphor-icons/react";
+import { CopyIcon, CheckIcon, CaretDownIcon } from "@phosphor-icons/react";
 
 interface JsonTreeViewProps {
   code: string;

@@ -10,8 +10,8 @@
  */
 
 import { useState, useCallback, type RefObject } from "react";
-import { exportToPng, toPngDataUrl, downloadTextFile, downloadFile } from "../utils/exporters/image";
-import { exportToPdf, dataUrlToPdf } from "../utils/exporters/pdf";
+import { toPngDataUrl, downloadTextFile, downloadFile } from "../utils/exporters/image";
+import { dataUrlToPdf } from "../utils/exporters/pdf";
 
 // ---------------------------------------------------------------------------
 // Types

@@ -75,7 +75,7 @@ export const CodeBlock = memo(function CodeBlock({
   code,
   showCopy = true,
   showLineNumbers = false,
-  highlights = [],
+  highlights: _highlights = [],
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const isDark = useIsDarkMode();

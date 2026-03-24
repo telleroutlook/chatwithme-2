@@ -330,10 +330,10 @@ export interface ResponsiveBottomSheetProps extends BottomSheetProps {
 }
 
 export const ResponsiveBottomSheet = memo(function ResponsiveBottomSheet({
-  forceDesktop = false,
+  forceDesktop: _forceDesktop = false,
   ...props
 }: ResponsiveBottomSheetProps) {
-  const { mobile } = useResponsive();
+  const { mobile: _mobile } = useResponsive();
 
   // On mobile, always use BottomSheet
   // On desktop, we could render a modal instead, but for simplicity
