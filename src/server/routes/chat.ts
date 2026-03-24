@@ -39,6 +39,44 @@ function buildResponse<T>(
 }
 
 export function registerChatRoutes(app: Hono<AppBindings>): void {
+  app.post("/api/chat/stream", validateJson(chatBodySchema), async (c) => {
+    try {
+      const body = c.req.valid("json") as z.infer<typeof chatBodySchema>;
+      const sessionId = resolveSessionId(body);
+      const authCtx = await resolveAuthContext(c.req.raw, { jwtSecret: c.env.AUTH_JWT_SECRET });
+
+      logAuthContext(c.get("requestId"), authCtx, "/api/chat/stream");
+
+      const agentName = buildAgentName(authCtx.userId, sessionId);
+      const agent = await getAgentByName(c.env.ChatAgentV2, agentName);
+      const response = await agent.chat(body.message);
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const writeEvent = (payload: string) => {
+            controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+          };
+          writeEvent(JSON.stringify({ type: "delta", text: response }));
+          writeEvent(JSON.stringify({ type: "done" }));
+          writeEvent("[DONE]");
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream; charset=utf-8",
+          "cache-control": "no-cache, no-transform",
+          connection: "keep-alive"
+        }
+      });
+    } catch (error) {
+      return errorJson(c, 500, "CHAT_STREAM_FAILED", unknownErrorMessage(error));
+    }
+  });
+
   app.post("/api/chat", validateJson(chatBodySchema), async (c) => {
     try {
       const body = c.req.valid("json") as z.infer<typeof chatBodySchema>;

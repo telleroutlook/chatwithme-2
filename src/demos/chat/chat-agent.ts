@@ -109,6 +109,11 @@ export type {
  * - Dynamic tool execution
  */
 export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
+  private static readonly DEFAULT_AUTOSTART_MCP_SERVERS = [
+    "web-search-prime",
+    "web-reader"
+  ] as const;
+
   static options = {
     retry: { maxAttempts: 2, baseDelayMs: 150, maxDelayMs: 1500 }
   };
@@ -365,8 +370,19 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       return;
     }
 
-    // Skip if all active servers are already connected
-    const activeServers = MCP_SERVERS.filter((config) => config.active);
+    const desiredServerNames = new Set<string>(
+      MCP_SERVERS
+        .filter((config) =>
+          config.active ||
+          ChatAgentV2.DEFAULT_AUTOSTART_MCP_SERVERS.includes(
+            config.name as (typeof ChatAgentV2.DEFAULT_AUTOSTART_MCP_SERVERS)[number]
+          )
+        )
+        .map((config) => config.name)
+    );
+    const activeServers = MCP_SERVERS.filter((config) => desiredServerNames.has(config.name));
+
+    // Skip if all desired servers are already connected
     const allConnected = activeServers.every((config) => {
       const entry = this.state.mcp.preconfiguredServers[config.name];
       return entry?.connected && entry.serverId;
@@ -599,7 +615,6 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       status: "start",
       message: "Model is generating the response."
     });
-
     const temperature = getModelTemperature(this.env);
     const modelInstance = glm(getModelId(this.env));
 
