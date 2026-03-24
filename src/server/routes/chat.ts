@@ -5,6 +5,8 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { getAgentByName } from "agents";
+import { streamText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   chatBodySchema,
   chatHistoryQuerySchema,
@@ -19,6 +21,7 @@ import {
 import { errorJson, successJson, unknownErrorMessage } from "../http";
 import { resolveAuthContext, buildAgentName, logAuthContext, type AuthContext } from "../auth";
 import { resolveSessionId, parseSessionIds, validateJson, validateQuery } from "../validators";
+import { getModelId, getMaxOutputTokens, getThinkingType, getModelTemperature } from "../../demos/chat/runtime-config";
 
 type AppBindings = { Bindings: Env; Variables: { requestId: string } };
 
@@ -47,29 +50,52 @@ export function registerChatRoutes(app: Hono<AppBindings>): void {
 
       logAuthContext(c.get("requestId"), authCtx, "/api/chat/stream");
 
-      // Keep /api/chat/stream stable for existing clients, but proxy to
-      // the true token-streaming endpoint so callers receive incremental deltas.
-      const directUrl = new URL("/api/chat/stream/direct", c.req.url);
-      const authHeader = c.req.header("authorization");
-      const directRes = await fetch(directUrl.toString(), {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(authHeader ? { authorization: authHeader } : {}),
-        },
-        body: JSON.stringify({ message: body.message, sessionId }),
+      const glm = createOpenAICompatible({
+        name: "glm",
+        baseURL: "https://open.bigmodel.cn/api/paas/v4",
+        apiKey: c.env.BIGMODEL_API_KEY,
       });
 
-      if (!directRes.ok || !directRes.body) {
-        return errorJson(c, 502, "CHAT_STREAM_PROXY_FAILED", `Direct stream failed (${directRes.status})`);
-      }
+      const encoder = new TextEncoder();
+      const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+      const writer = writable.getWriter();
 
-      return new Response(directRes.body, {
-        status: directRes.status,
+      const send = (obj: Record<string, unknown>): void => {
+        writer.write(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+      };
+
+      void (async () => {
+        try {
+          const result = streamText({
+            model: glm(getModelId(c.env)),
+            system: "You are a helpful assistant. Answer in the same language as the user.",
+            messages: [{ role: "user", content: body.message }],
+            temperature: getModelTemperature(c.env),
+            ...(getMaxOutputTokens(c.env) ? { maxOutputTokens: getMaxOutputTokens(c.env) } : {}),
+            providerOptions: {
+              glm: { thinking: { type: getThinkingType(c.env) }, tool_stream: true }
+            },
+          });
+
+          for await (const chunk of result.textStream) {
+            const clean = chunk.replace(/<\/?think>/gi, "");
+            if (clean) send({ type: "delta", text: clean });
+          }
+          send({ type: "done", sessionId });
+          writer.write(encoder.encode("data: [DONE]\n\n"));
+        } catch (err) {
+          send({ type: "error", message: err instanceof Error ? err.message : "Unknown error" });
+        } finally {
+          writer.close();
+        }
+      })();
+
+      return new Response(readable, {
+        status: 200,
         headers: {
-          "content-type": directRes.headers.get("content-type") ?? "text/event-stream; charset=utf-8",
-          "cache-control": directRes.headers.get("cache-control") ?? "no-cache, no-transform",
-          "x-accel-buffering": directRes.headers.get("x-accel-buffering") ?? "no",
+          "content-type": "text/event-stream; charset=utf-8",
+          "cache-control": "no-cache, no-transform",
+          "x-accel-buffering": "no",
           connection: "keep-alive"
         }
       });
