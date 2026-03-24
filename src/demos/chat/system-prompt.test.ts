@@ -82,6 +82,12 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Respond in the same language as the user's latest message.");
   });
 
+  it("should include hard rule for live news/search queries", () => {
+    const prompt = buildSystemPrompt([]);
+    expect(prompt).toContain("Hard rule for news/latest queries");
+    expect(prompt).toContain("A no-tool answer is invalid for these queries.");
+  });
+
   it("should include Mermaid HTML prohibition", () => {
     const prompt = buildSystemPrompt([]);
     expect(prompt).toContain("no HTML tags");

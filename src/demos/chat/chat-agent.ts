@@ -214,6 +214,14 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
     }
   }
 
+  private shouldForceLiveSearch(message: string): boolean {
+    const text = message.toLowerCase();
+    if (/(^|[^a-z])(today|latest|current|recent|news|headline|breaking|search)([^a-z]|$)/.test(text)) {
+      return true;
+    }
+    return /(今日|今天|最新|最近|新闻|头条|实时|搜索|查一下|查一查)/.test(message);
+  }
+
   // ============ Tool Building ============
 
   private async buildAiTools(
@@ -576,11 +584,22 @@ export class ChatAgentV2 extends AIChatAgent<Env, ChatAgentState> {
       this.convertMessagesWithFallback(emitProgress)
     ]);
 
-    const systemPrompt = buildSystemPrompt(toolList);
+    const forceLiveSearch = this.shouldForceLiveSearch(message);
+    const systemPrompt = forceLiveSearch
+      ? `${buildSystemPrompt(toolList)}
+
+### Live Search Enforcement
+- This user query is time-sensitive and REQUIRES real search.
+- Before final answer, you MUST execute exactly one web search tool call (\`builtin_web_search\` preferred, \`web_search_prime\` fallback).
+- If search yields results, answer with concise bullets and include source links from results.
+- Do NOT return a no-tool answer for this request.`
+      : buildSystemPrompt(toolList);
     emitProgress?.({
       phase: "context",
       status: "success",
-      message: "Context ready. Requesting draft answer from model.",
+      message: forceLiveSearch
+        ? "Context ready. Live-search enforcement enabled for this query."
+        : "Context ready. Requesting draft answer from model.",
       groupKey: "context:model-request"
     });
 

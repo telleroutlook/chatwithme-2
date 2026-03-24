@@ -1,7 +1,8 @@
 /**
- * POST /api/chat/stream — SSE streaming endpoint for external integrations.
+ * POST /api/chat/stream/direct — direct-model SSE endpoint for external integrations.
  *
- * Unlike /api/chat (Durable Object @callable, 55s timeout), this route calls
+ * Unlike /api/chat and /api/chat/stream (Durable Object ChatAgent path with tools),
+ * this route calls
  * the model directly and streams tokens as Server-Sent Events.
  *
  * SSE event format:
@@ -19,7 +20,7 @@ import { getModelId, getMaxOutputTokens, getThinkingType, getModelTemperature } 
 type AppBindings = { Bindings: Env; Variables: { requestId: string } };
 
 export function registerChatStreamRoute(app: Hono<AppBindings>): void {
-  app.post("/api/chat/stream", async (c) => {
+  app.post("/api/chat/stream/direct", async (c) => {
     // Parse body manually to avoid middleware conflicts
     let message: string;
     let sessionId: string;
